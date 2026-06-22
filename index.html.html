@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uncle Lim's Kitchen</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+:root {
+  --bg:#1A1410;--surface:#241C16;--surface2:#2E231B;--border:#3D2F24;
+  --amber:#E8A045;--amber-dim:#C4823A;--green:#6DBF82;--red:#E06B5A;
+  --yellow:#F0C040;--text:#F0E8DC;--text-muted:#8C7A6B;--text-dim:#5A4A3C;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;min-height:100vh;padding-bottom:80px}
+
+/* CONFIG BANNER */
+.config-banner{background:#3D1A10;border-bottom:2px solid var(--red);padding:10px 16px;display:flex;align-items:center;gap:10px;cursor:pointer}
+.config-banner.connected{background:#12301A;border-bottom-color:var(--green)}
+.config-dot{width:10px;height:10px;border-radius:50%;background:var(--red);flex-shrink:0}
+.config-banner.connected .config-dot{background:var(--green)}
+.config-text{font-size:12px;color:var(--text-muted)}
+.config-text strong{color:var(--text);display:block;font-size:13px}
+.config-arrow{margin-left:auto;color:var(--text-muted);font-size:16px}
+
+/* HEADER */
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 20px 10px;position:sticky;top:0;z-index:100}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.header h1{font-size:18px;font-weight:700;color:var(--amber);letter-spacing:-0.3px}
+.header-date{font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted)}
+.header-sub{font-size:12px;color:var(--text-muted)}
+.sync-indicator{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted);margin-top:4px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--text-dim)}
+.sync-dot.syncing{background:var(--yellow);animation:pulse 1s infinite}
+.sync-dot.synced{background:var(--green)}
+.sync-dot.error{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* NAV */
+.nav{display:flex;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav-tab{flex:1;min-width:72px;padding:11px 4px;text-align:center;font-size:11px;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+.nav-tab.active{color:var(--amber);border-bottom-color:var(--amber)}
+.nav-tab .tab-icon{font-size:15px;display:block;margin-bottom:2px}
+
+/* PAGES */
+.page{display:none;padding:14px}
+.page.active{display:block}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px}
+.card-title{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px}
+
+/* TILES */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.tile{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:13px 11px}
+.tile-label{font-size:11px;color:var(--text-muted);margin-bottom:3px}
+.tile-value{font-size:22px;font-weight:700;color:var(--text)}
+.tile.amber .tile-value{color:var(--amber)}
+.tile.green .tile-value{color:var(--green)}
+.tile.red .tile-value{color:var(--red)}
+
+/* FORM */
+label{display:block;font-size:12px;font-weight:500;color:var(--text-muted);margin-bottom:4px;margin-top:11px}
+label:first-child{margin-top:0}
+input,select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .15s;-webkit-appearance:none}
+input:focus,select:focus,textarea:focus{border-color:var(--amber)}
+select option{background:var(--surface2)}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 18px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .15s;width:100%;margin-top:13px}
+.btn-primary{background:var(--amber);color:#1A1410}
+.btn-primary:active{background:var(--amber-dim)}
+.btn-primary:disabled{background:var(--border);color:var(--text-muted);cursor:not-allowed}
+.btn-ghost{background:transparent;color:var(--amber);border:1px solid var(--amber);margin-top:8px}
+.btn-danger{background:transparent;color:var(--red);border:1px solid var(--red);margin-top:8px}
+.btn-sm{width:auto;padding:6px 12px;font-size:12px;margin-top:0;border-radius:7px}
+
+/* ROWS */
+.ing-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.ing-row:last-child{border-bottom:none}
+.ing-info{flex:1}
+.ing-name{font-size:14px;font-weight:500}
+.ing-meta{font-size:12px;color:var(--text-muted);margin-top:1px}
+.ing-stock{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;text-align:right;min-width:65px}
+.stock-ok{color:var(--green)}.stock-low{color:var(--yellow)}.stock-critical{color:var(--red)}
+.stock-bar{height:4px;background:var(--border);border-radius:4px;margin-top:4px;overflow:hidden}
+.stock-fill{height:100%;border-radius:4px;transition:width .3s}
+
+.log-row{display:flex;gap:10px;padding:11px 0;border-bottom:1px solid var(--border)}
+.log-row:last-child{border-bottom:none}
+.log-dot{width:8px;height:8px;border-radius:50%;background:var(--amber);margin-top:4px;flex-shrink:0}
+.log-dish{font-size:14px;font-weight:500}
+.log-meta{font-size:12px;color:var(--text-muted);margin-top:2px}
+.log-sync{font-size:11px;margin-top:3px}
+.log-sync.synced{color:var(--green)}
+.log-sync.pending{color:var(--yellow)}
+.log-sync.error{color:var(--red)}
+.log-batches{margin-left:auto;font-family:'DM Mono',monospace;font-size:13px;color:var(--amber);font-weight:500;text-align:right;flex-shrink:0}
+
+.alert-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:500}
+.badge-red{background:rgba(224,107,90,.15);color:var(--red)}
+.badge-yellow{background:rgba(240,192,64,.15);color:var(--yellow)}
+.badge-green{background:rgba(109,191,130,.15);color:var(--green)}
+
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+.section-title{font-size:13px;font-weight:600;color:var(--text)}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:flex-end}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:18px 18px 0 0;padding:18px 18px 40px;width:100%;max-height:88vh;overflow-y:auto}
+.modal-handle{width:36px;height:4px;background:var(--border);border-radius:4px;margin:0 auto 16px}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:14px;color:var(--amber)}
+
+/* CONFIG MODAL */
+.config-field{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+.config-field-label{font-size:11px;color:var(--text-muted);margin-bottom:3px}
+.config-field input{background:transparent;border:none;padding:0;font-size:13px;font-family:'DM Mono',monospace}
+.config-field input:focus{border:none;outline:none}
+.step-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--amber);color:#1A1410;font-size:11px;font-weight:700;flex-shrink:0}
+.step-row{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;font-size:13px;color:var(--text-muted);line-height:1.5}
+.step-row a{color:var(--amber);text-decoration:none}
+.divider{height:1px;background:var(--border);margin:12px 0}
+
+/* TOAST */
+.toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--green);color:#1A1410;font-size:13px;font-weight:600;padding:10px 18px;border-radius:20px;opacity:0;transition:all .25s;z-index:300;white-space:nowrap;max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.error-toast{background:var(--red);color:#fff}
+
+/* EMPTY */
+.empty{text-align:center;padding:30px 16px;color:var(--text-muted)}
+.empty-icon{font-size:32px;margin-bottom:8px}
+.empty p{font-size:13px}
+
+/* PENDING QUEUE */
+.queue-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(240,192,64,.15);color:var(--yellow);font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px}
+</style>
+</head>
+<body>
+
+<!-- CONFIG BANNER -->
+<div class="config-banner" id="configBanner" onclick="openConfigModal()">
+  <div class="config-dot" id="configDot"></div>
+  <div class="config-text">
+    <strong id="configStatus">Not connected to Google Sheets</strong>
+    <span id="configSub">Tap to set up sync →</span>
+  </div>
+  <div class="config-arrow">⚙️</div>
+</div>
+
+<div class="header">
+  <div class="header-top">
+    <h1>🍳 Uncle Lim's Kitchen</h1>
+    <span class="header-date" id="headerDate"></span>
+  </div>
+  <div class="header-sub">Central Kitchen Tracker</div>
+  <div class="sync-indicator">
+    <div class="sync-dot" id="syncDot"></div>
+    <span id="syncLabel">Not syncing</span>
+    <span id="queueBadge" style="margin-left:6px;display:none"></span>
+  </div>
+</div>
+
+<div class="nav">
+  <div class="nav-tab active" onclick="showPage('dashboard')"><span class="tab-icon">📊</span>Dashboard</div>
+  <div class="nav-tab" onclick="showPage('production')"><span class="tab-icon">🥘</span>Production</div>
+  <div class="nav-tab" onclick="showPage('stock')"><span class="tab-icon">📦</span>Stock</div>
+  <div class="nav-tab" onclick="showPage('cost')"><span class="tab-icon">💰</span>Cost</div>
+  <div class="nav-tab" onclick="showPage('settings')"><span class="tab-icon">⚙️</span>Setup</div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="tiles" id="dashTiles"></div>
+  <div class="card">
+    <div class="section-header">
+      <span class="card-title">Low Stock Alerts</span>
+      <span id="alertCount" class="alert-badge"></span>
+    </div>
+    <div id="alertList"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Today's Production</div>
+    <div id="todayProduction"></div>
+  </div>
+  <div class="card" id="pendingCard" style="display:none">
+    <div class="section-header">
+      <span class="card-title">Pending Sync</span>
+      <button class="btn btn-sm btn-ghost" onclick="syncPendingQueue()">Sync Now</button>
+    </div>
+    <div id="pendingList"></div>
+  </div>
+</div>
+
+<!-- PRODUCTION -->
+<div class="page" id="page-production">
+  <div class="card">
+    <div class="card-title">Log Production Batch</div>
+    <label>Dish</label>
+    <select id="prodDish"></select>
+    <div class="row-2">
+      <div><label>Batches Made</label><input type="number" id="prodBatches" placeholder="e.g. 3" min="1"></div>
+      <div><label>Servings / Batch</label><input type="number" id="prodServings" placeholder="e.g. 10" min="1"></div>
+    </div>
+    <label>Prepared By</label>
+    <input type="text" id="prodWorker" placeholder="Staff name">
+    <label>Notes (optional)</label>
+    <input type="text" id="prodNotes" placeholder="e.g. Special order">
+    <button class="btn btn-primary" id="prodSubmitBtn" onclick="logProduction()">✓ Record & Sync to Sheets</button>
+  </div>
+  <div class="card">
+    <div class="section-header">
+      <span class="card-title">Today's Log</span>
+      <button class="btn btn-sm btn-danger" onclick="clearTodayLog()">Clear</button>
+    </div>
+    <div id="productionLog"></div>
+  </div>
+</div>
+
+<!-- STOCK -->
+<div class="page" id="page-stock">
+  <div class="card">
+    <div class="section-header">
+      <span class="card-title">Ingredient Stock</span>
+      <button class="btn btn-primary btn-sm" onclick="openAddIngModal()">+ Add</button>
+    </div>
+    <div id="stockList"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Record Usage / Restock</div>
+    <label>Ingredient</label>
+    <select id="usageIng"></select>
+    <div class="row-2">
+      <div><label>Amount Used</label><input type="number" id="usageAmt" placeholder="0" min="0" step="0.1"></div>
+      <div><label>Amount Added</label><input type="number" id="restockAmt" placeholder="0" min="0" step="0.1"></div>
+    </div>
+    <label>Updated By</label>
+    <input type="text" id="stockWorker" placeholder="Staff name">
+    <button class="btn btn-primary" id="stockSubmitBtn" onclick="updateStock()">Update & Sync to Sheets</button>
+  </div>
+</div>
+
+<!-- COST -->
+<div class="page" id="page-cost">
+  <div class="card" id="costSummary"></div>
+  <div class="card">
+    <div class="card-title">Set Ingredient Cost (RM / unit)</div>
+    <label>Ingredient</label><select id="costIng"></select>
+    <label>Cost per unit (RM)</label>
+    <input type="number" id="costPerUnit" placeholder="e.g. 2.50" min="0" step="0.01">
+    <button class="btn btn-primary" onclick="saveCost()">Save Cost</button>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="page" id="page-settings">
+  <div class="card">
+    <div class="card-title">Add Dish / Recipe</div>
+    <label>Dish Name</label><input type="text" id="dishName" placeholder="e.g. Ayam Berempah">
+    <label>Servings per Batch</label><input type="number" id="dishServings" placeholder="e.g. 10" min="1">
+    <label>Sale Price per Serving (RM)</label><input type="number" id="dishPrice" placeholder="e.g. 8.50" min="0" step="0.01">
+    <button class="btn btn-primary" onclick="addDish()">Add Dish</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Add Ingredient</div>
+    <label>Name</label><input type="text" id="ingName" placeholder="e.g. Santan">
+    <div class="row-2">
+      <div><label>Unit</label>
+        <select id="ingUnit"><option>kg</option><option>g</option><option>L</option><option>ml</option><option>pcs</option><option>pack</option><option>bottle</option></select>
+      </div>
+      <div><label>Reorder at</label><input type="number" id="ingReorder" placeholder="e.g. 2" min="0" step="0.1"></div>
+    </div>
+    <label>Opening Stock</label><input type="number" id="ingStock" placeholder="0" min="0" step="0.1">
+    <button class="btn btn-primary" onclick="addIngredient()">Add Ingredient</button>
+  </div>
+  <div class="card"><div class="card-title">Dishes</div><div id="dishesList"></div></div>
+  <div class="card"><div class="card-title">Ingredients</div><div id="ingredientsList"></div></div>
+  <div style="height:1px;background:var(--border);margin:12px 0"></div>
+  <button class="btn btn-danger" onclick="resetAll()">⚠️ Reset All Data</button>
+</div>
+
+<!-- ADD INGREDIENT MODAL -->
+<div class="modal-overlay" id="addIngModal" onclick="closeModalOutside(event,'addIngModal')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Add Ingredient</div>
+    <label>Name</label><input type="text" id="mIngName" placeholder="e.g. Serai">
+    <div class="row-2">
+      <div><label>Unit</label>
+        <select id="mIngUnit"><option>kg</option><option>g</option><option>L</option><option>ml</option><option>pcs</option><option>pack</option><option>bottle</option></select>
+      </div>
+      <div><label>Reorder at</label><input type="number" id="mIngReorder" placeholder="2" min="0" step="0.1"></div>
+    </div>
+    <label>Opening Stock</label><input type="number" id="mIngStock" placeholder="0" min="0" step="0.1">
+    <button class="btn btn-primary" onclick="addIngFromModal()">Add Ingredient</button>
+  </div>
+</div>
+
+<!-- CONFIG MODAL -->
+<div class="modal-overlay" id="configModal" onclick="closeModalOutside(event,'configModal')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔗 Connect to Google Sheets</div>
+
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;line-height:1.6">
+      This app syncs production & stock data directly into your Uncle Lim's Kitchen Report Google Sheet.
+    </p>
+
+    <div style="margin-bottom:14px">
+      <div class="step-row"><span class="step-badge">1</span>Upload the Excel file to <a href="https://sheets.google.com" target="_blank">Google Sheets</a> and copy the Sheet ID from the URL</div>
+      <div class="step-row"><span class="step-badge">2</span>Go to <a href="https://console.cloud.google.com" target="_blank">Google Cloud Console</a> → Enable Sheets API → Create Service Account → Download JSON key</div>
+      <div class="step-row"><span class="step-badge">3</span>Share your Google Sheet with the <strong>client_email</strong> from the JSON (give Editor access)</div>
+      <div class="step-row"><span class="step-badge">4</span>Paste the values below and tap Save</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <label>Google Sheet ID</label>
+    <input type="text" id="cfgSheetId" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" style="font-family:'DM Mono',monospace;font-size:12px">
+
+    <label>Service Account Email (client_email)</label>
+    <input type="text" id="cfgClientEmail" placeholder="your-account@project.iam.gserviceaccount.com" style="font-size:12px">
+
+    <label>Private Key (private_key from JSON)</label>
+    <textarea id="cfgPrivateKey" rows="4" placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...paste full key here...&#10;-----END RSA PRIVATE KEY-----" style="font-family:'DM Mono',monospace;font-size:11px;resize:vertical"></textarea>
+
+    <div style="background:rgba(240,192,64,.08);border:1px solid rgba(240,192,64,.2);border-radius:8px;padding:10px;margin-top:12px">
+      <p style="font-size:12px;color:var(--yellow)">🔒 Your credentials are stored only in this device's local storage — never sent anywhere except directly to Google's API.</p>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveConfig()" style="margin-top:14px">Save & Test Connection</button>
+    <button class="btn btn-ghost" onclick="clearConfig()">Disconnect</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let state = JSON.parse(localStorage.getItem('ckState2') || 'null') || {
+  dishes: [
+    {id:1,name:'Ayam Berempah',servings:10,price:9.00},
+    {id:2,name:'Ayam Rendang',servings:10,price:10.00},
+    {id:3,name:'Nasi Lemak',servings:20,price:5.00},
+  ],
+  ingredients: [
+    {id:1,name:'Ayam',unit:'kg',stock:15,reorder:5,cost:9.50},
+    {id:2,name:'Santan',unit:'L',stock:8,reorder:3,cost:4.20},
+    {id:3,name:'Beras',unit:'kg',stock:20,reorder:8,cost:2.80},
+    {id:4,name:'Rempah',unit:'kg',stock:2,reorder:1,cost:15.00},
+  ],
+  productionLog:[],
+  pendingSync:[],
+  nextId:10
+};
+
+let cfg = JSON.parse(localStorage.getItem('ckCfg') || 'null') || {sheetId:'',clientEmail:'',privateKey:''};
+
+function save(){localStorage.setItem('ckState2',JSON.stringify(state))}
+function saveCfg(){localStorage.setItem('ckCfg',JSON.stringify(cfg))}
+
+// ─── GOOGLE SHEETS API ───────────────────────────────────────────────────────
+// Uses Google Identity & Sheets API via service account JWT
+// The private key signs a JWT to get an access token, then writes to Sheets
+
+function isConfigured(){return cfg.sheetId && cfg.clientEmail && cfg.privateKey}
+
+async function getAccessToken(){
+  // Build JWT for service account
+  const now = Math.floor(Date.now()/1000);
+  const header = {alg:'RS256',typ:'JWT'};
+  const payload = {
+    iss: cfg.clientEmail,
+    scope: 'https://www.googleapis.com/auth/spreadsheets',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now+3600, iat: now
+  };
+  const encode = obj => btoa(JSON.stringify(obj)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const sigInput = encode(header)+'.'+encode(payload);
+
+  // Import private key for signing
+  let pem = cfg.privateKey.replace(/-----BEGIN RSA PRIVATE KEY-----|-----END RSA PRIVATE KEY-----|-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n|\r/g,'');
+  const keyData = Uint8Array.from(atob(pem),c=>c.charCodeAt(0));
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8', keyData.buffer,
+    {name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},
+    false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(sigInput));
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const jwt = sigInput+'.'+sigB64;
+
+  const res = await fetch('https://oauth2.googleapis.com/token',{
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:`grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`
+  });
+  const data = await res.json();
+  if(!data.access_token) throw new Error(data.error_description || 'Auth failed');
+  return data.access_token;
+}
+
+async function appendToSheet(sheetName, values){
+  if(!isConfigured()) return false;
+  const token = await getAccessToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}/values/${encodeURIComponent(sheetName)}!A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+  const res = await fetch(url,{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+    body: JSON.stringify({values:[values]})
+  });
+  if(!res.ok){
+    const err = await res.json();
+    throw new Error(err.error?.message || 'Sheets write failed');
+  }
+  return true;
+}
+
+async function updateSheetCell(sheetName, range, values){
+  if(!isConfigured()) return false;
+  const token = await getAccessToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}/values/${encodeURIComponent(sheetName)}!${range}?valueInputOption=USER_ENTERED`;
+  const res = await fetch(url,{
+    method:'PUT',
+    headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+    body: JSON.stringify({values})
+  });
+  if(!res.ok){const err=await res.json();throw new Error(err.error?.message||'Sheets update failed')}
+  return true;
+}
+
+// ─── SYNC LOGIC ──────────────────────────────────────────────────────────────
+function setSyncState(state){
+  const dot = document.getElementById('syncDot');
+  const label = document.getElementById('syncLabel');
+  dot.className = 'sync-dot';
+  if(state==='syncing'){dot.classList.add('syncing');label.textContent='Syncing to Google Sheets...'}
+  else if(state==='synced'){dot.classList.add('synced');label.textContent='Synced to Google Sheets ✓'}
+  else if(state==='error'){dot.classList.add('error');label.textContent='Sync failed — saved locally'}
+  else{label.textContent=isConfigured()?'Connected — ready to sync':'Not connected to Google Sheets'}
+}
+
+function updateQueueBadge(){
+  const el = document.getElementById('queueBadge');
+  const n = state.pendingSync.length;
+  if(n>0){el.innerHTML=`<span class="queue-badge">⏳ ${n} pending</span>`;el.style.display='inline'}
+  else{el.style.display='none'}
+  const card = document.getElementById('pendingCard');
+  card.style.display = n>0 ? 'block' : 'none';
+  const list = document.getElementById('pendingList');
+  if(n>0){
+    list.innerHTML = state.pendingSync.map(p=>`
+      <div class="log-row">
+        <div class="log-dot" style="background:var(--yellow)"></div>
+        <div class="ing-info"><div class="log-dish">${p.type}</div><div class="log-meta">${p.summary}</div></div>
+      </div>`).join('');
+  }
+}
+
+async function syncToSheets(type, rowData, summary){
+  if(!isConfigured()){
+    // Queue it for later
+    state.pendingSync.push({type,rowData,summary,ts:Date.now()});
+    save(); updateQueueBadge();
+    return 'queued';
+  }
+  setSyncState('syncing');
+  try{
+    let sheetTab = type==='production' ? '📋 Daily Production' : '📦 Stock & Usage';
+    await appendToSheet(sheetTab, rowData);
+    setSyncState('synced');
+    setTimeout(()=>setSyncState('idle'),3000);
+    return 'synced';
+  } catch(e){
+    console.error('Sync error:',e);
+    state.pendingSync.push({type,rowData,summary,ts:Date.now()});
+    save(); updateQueueBadge();
+    setSyncState('error');
+    setTimeout(()=>setSyncState('idle'),4000);
+    return 'queued';
+  }
+}
+
+async function syncPendingQueue(){
+  if(!isConfigured()){toast('Set up Google Sheets first','red');openConfigModal();return}
+  if(state.pendingSync.length===0){toast('Nothing to sync');return}
+  setSyncState('syncing');
+  const failed=[];
+  for(const item of state.pendingSync){
+    try{
+      let sheetTab = item.type==='production' ? '📋 Daily Production' : '📦 Stock & Usage';
+      await appendToSheet(sheetTab, item.rowData);
+    } catch(e){failed.push(item)}
+  }
+  state.pendingSync = failed;
+  save(); updateQueueBadge();
+  if(failed.length===0){setSyncState('synced');toast(`✓ All data synced to Google Sheets`)}
+  else{setSyncState('error');toast(`${failed.length} items failed — will retry`,'yellow')}
+  setTimeout(()=>setSyncState('idle'),3000);
+  render();
+}
+
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+function openConfigModal(){
+  document.getElementById('cfgSheetId').value = cfg.sheetId||'';
+  document.getElementById('cfgClientEmail').value = cfg.clientEmail||'';
+  document.getElementById('cfgPrivateKey').value = cfg.privateKey||'';
+  document.getElementById('configModal').classList.add('open');
+}
+
+async function saveConfig(){
+  cfg.sheetId = document.getElementById('cfgSheetId').value.trim();
+  cfg.clientEmail = document.getElementById('cfgClientEmail').value.trim();
+  cfg.privateKey = document.getElementById('cfgPrivateKey').value.trim();
+  saveCfg();
+  document.getElementById('configModal').classList.remove('open');
+  updateConfigBanner();
+  if(isConfigured()){
+    toast('Testing connection...');
+    try{
+      await getAccessToken();
+      toast('✓ Connected to Google Sheets!');
+      setSyncState('idle');
+      // Auto-sync pending
+      if(state.pendingSync.length>0) setTimeout(syncPendingQueue,1000);
+    } catch(e){
+      toast('Connection failed: '+e.message,'red');
+      setSyncState('error');
+    }
+  }
+}
+
+function clearConfig(){
+  if(!confirm('Disconnect from Google Sheets?')) return;
+  cfg={sheetId:'',clientEmail:'',privateKey:''};
+  saveCfg(); updateConfigBanner();
+  document.getElementById('configModal').classList.remove('open');
+  setSyncState('idle');
+}
+
+function updateConfigBanner(){
+  const banner = document.getElementById('configBanner');
+  const status = document.getElementById('configStatus');
+  const sub = document.getElementById('configSub');
+  if(isConfigured()){
+    banner.className='config-banner connected';
+    status.textContent='Connected to Google Sheets';
+    sub.textContent=`Sheet ID: ${cfg.sheetId.substring(0,20)}...`;
+  } else {
+    banner.className='config-banner';
+    status.textContent='Not connected to Google Sheets';
+    sub.textContent='Tap to set up sync →';
+  }
+}
+
+// ─── NAV ─────────────────────────────────────────────────────────────────────
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-tab')[['dashboard','production','stock','cost','settings'].indexOf(id)].classList.add('active');
+  render();
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function render(){
+  renderDashboard(); renderDropdowns(); renderStockList();
+  renderProductionLog(); renderCost(); renderSettingsLists();
+  updateQueueBadge();
+  const connected = isConfigured();
+  ['prodSubmitBtn','stockSubmitBtn'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.textContent = connected ? (id==='prodSubmitBtn'?'✓ Record & Sync to Sheets':'Update & Sync to Sheets') : (id==='prodSubmitBtn'?'✓ Record (save locally)':'Update (save locally)');
+  });
+}
+
+function todayStr(){return new Date().toLocaleDateString('en-MY',{weekday:'short',day:'numeric',month:'short'})}
+
+// DASHBOARD
+function renderDashboard(){
+  document.getElementById('headerDate').textContent = todayStr();
+  const todayD = new Date().toDateString();
+  const todayLogs = state.productionLog.filter(l=>new Date(l.ts).toDateString()===todayD);
+  const totalBatches = todayLogs.reduce((s,l)=>s+l.batches,0);
+  const totalServings = todayLogs.reduce((s,l)=>s+(l.batches*l.servingsPerBatch),0);
+  const alerts = state.ingredients.filter(i=>i.stock<=i.reorder);
+  const revenue = todayLogs.reduce((s,l)=>{const d=state.dishes.find(d=>d.id===l.dishId);return s+(d?l.batches*l.servingsPerBatch*d.price:0)},0);
+  document.getElementById('dashTiles').innerHTML=`
+    <div class="tile amber"><div class="tile-label">Batches Today</div><div class="tile-value">${totalBatches}</div></div>
+    <div class="tile green"><div class="tile-label">Servings Today</div><div class="tile-value">${totalServings}</div></div>
+    <div class="tile"><div class="tile-label">Est. Revenue</div><div class="tile-value" style="font-size:19px">RM ${revenue.toFixed(0)}</div></div>
+    <div class="tile ${alerts.length>0?'red':'green'}"><div class="tile-label">Low Stock</div><div class="tile-value">${alerts.length}</div></div>`;
+  const alertEl=document.getElementById('alertList');
+  const alertBadge=document.getElementById('alertCount');
+  if(alerts.length===0){
+    alertEl.innerHTML='<div class="empty"><div class="empty-icon">✅</div><p>All stock levels are good</p></div>';
+    alertBadge.textContent='';alertBadge.className='alert-badge';
+  } else {
+    alertBadge.textContent=`${alerts.length} item${alerts.length>1?'s':''}`;alertBadge.className='alert-badge badge-red';
+    alertEl.innerHTML=alerts.map(i=>`<div class="ing-row"><div class="ing-info"><div class="ing-name">${i.name}</div><div class="ing-meta">Reorder at ${i.reorder} ${i.unit}</div></div><span class="alert-badge ${i.stock<=0?'badge-red':'badge-yellow'}">${i.stock} ${i.unit}</span></div>`).join('');
+  }
+  const todayEl=document.getElementById('todayProduction');
+  if(todayLogs.length===0){todayEl.innerHTML='<div class="empty"><div class="empty-icon">🍳</div><p>No production recorded today yet</p></div>'}
+  else{
+    const grouped={};
+    todayLogs.forEach(l=>{const d=state.dishes.find(d=>d.id===l.dishId);const key=d?d.name:'Unknown';grouped[key]=(grouped[key]||0)+l.batches});
+    todayEl.innerHTML=Object.entries(grouped).map(([name,batches])=>`<div class="log-row"><div class="log-dot"></div><div><div class="log-dish">${name}</div></div><div class="log-batches">${batches} batch${batches>1?'es':''}</div></div>`).join('');
+  }
+}
+
+function renderDropdowns(){
+  const ingOpts=state.ingredients.map(i=>`<option value="${i.id}">${i.name} (${i.stock} ${i.unit})</option>`).join('');
+  const dishOpts=state.dishes.map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
+  ['prodDish'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=dishOpts||'<option>No dishes yet</option>'});
+  ['usageIng','costIng'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=ingOpts||'<option>No ingredients yet</option>'});
+}
+
+function renderStockList(){
+  const el=document.getElementById('stockList');if(!el)return;
+  if(state.ingredients.length===0){el.innerHTML='<div class="empty"><p>No ingredients added yet</p></div>';return}
+  el.innerHTML=state.ingredients.map(i=>{
+    const pct=Math.min(100,(i.stock/Math.max(i.reorder*3,1))*100);
+    const cls=i.stock<=0?'stock-critical':i.stock<=i.reorder?'stock-low':'stock-ok';
+    const fillColor=i.stock<=0?'var(--red)':i.stock<=i.reorder?'var(--yellow)':'var(--green)';
+    return`<div class="ing-row"><div class="ing-info"><div class="ing-name">${i.name}</div><div class="ing-meta">Reorder at ${i.reorder} ${i.unit} · RM ${(i.cost||0).toFixed(2)}/${i.unit}</div><div class="stock-bar"><div class="stock-fill" style="width:${pct}%;background:${fillColor}"></div></div></div><div class="ing-stock ${cls}">${i.stock}<br><span style="font-size:11px;color:var(--text-muted)">${i.unit}</span></div></div>`;
+  }).join('');
+}
+
+function renderProductionLog(){
+  const el=document.getElementById('productionLog');if(!el)return;
+  const todayD=new Date().toDateString();
+  const logs=[...state.productionLog].filter(l=>new Date(l.ts).toDateString()===todayD).reverse();
+  if(logs.length===0){el.innerHTML='<div class="empty"><p>No batches logged today</p></div>';return}
+  el.innerHTML=logs.map(l=>{
+    const d=state.dishes.find(d=>d.id===l.dishId);
+    const t=new Date(l.ts).toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+    const syncClass=l.synced?'synced':l.syncFailed?'error':'pending';
+    const syncText=l.synced?'✓ Synced to Sheets':l.syncFailed?'⚠ Sync failed':'⏳ Pending sync';
+    return`<div class="log-row"><div class="log-dot"></div><div class="ing-info"><div class="log-dish">${d?d.name:'Unknown'}</div><div class="log-meta">${l.batches} batch · ${l.batches*l.servingsPerBatch} servings · ${t}${l.notes?' · '+l.notes:''}${l.worker?' · '+l.worker:''}</div><div class="log-sync ${syncClass}">${syncText}</div></div></div>`;
+  }).join('');
+}
+
+function renderCost(){
+  const el=document.getElementById('costSummary');if(!el)return;
+  if(state.dishes.length===0){el.innerHTML='<div class="card-title">Cost per Dish</div><div class="empty"><p>No dishes yet</p></div>';return}
+  const todayD=new Date().toDateString();
+  el.innerHTML=`<div class="card-title">Estimated Batch Cost</div>`+state.dishes.map(d=>{
+    const batches=state.productionLog.filter(l=>l.dishId===d.id&&new Date(l.ts).toDateString()===todayD).reduce((s,l)=>s+l.batches,0);
+    const revenue=batches*d.servings*d.price;
+    return`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)"><div style="font-size:14px">${d.name}</div><div style="text-align:right"><div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--amber)">RM ${d.price.toFixed(2)}<span style="font-size:11px;color:var(--text-muted)">/serving</span></div><div style="font-size:11px;color:var(--text-muted)">Today: ${batches} batch · RM ${revenue.toFixed(0)} est.</div></div></div>`;
+  }).join('');
+}
+
+function renderSettingsLists(){
+  const dl=document.getElementById('dishesList');
+  const il=document.getElementById('ingredientsList');
+  if(dl)dl.innerHTML=state.dishes.length===0?'<div class="empty"><p>No dishes yet</p></div>':state.dishes.map(d=>`<div class="ing-row"><div class="ing-info"><div class="ing-name">${d.name}</div><div class="ing-meta">${d.servings} servings/batch · RM ${d.price.toFixed(2)}/serving</div></div><button class="btn btn-sm btn-danger" onclick="deleteDish(${d.id})">✕</button></div>`).join('');
+  if(il)il.innerHTML=state.ingredients.length===0?'<div class="empty"><p>No ingredients yet</p></div>':state.ingredients.map(i=>`<div class="ing-row"><div class="ing-info"><div class="ing-name">${i.name}</div><div class="ing-meta">${i.unit} · reorder at ${i.reorder}</div></div><button class="btn btn-sm btn-danger" onclick="deleteIng(${i.id})">✕</button></div>`).join('');
+}
+
+// ─── ACTIONS ─────────────────────────────────────────────────────────────────
+async function logProduction(){
+  const dishId=parseInt(document.getElementById('prodDish').value);
+  const batches=parseFloat(document.getElementById('prodBatches').value);
+  const dish=state.dishes.find(d=>d.id===dishId);
+  if(!dish||!batches||batches<1){toast('Please fill in all fields','red');return}
+  const servings=parseFloat(document.getElementById('prodServings').value)||dish.servings;
+  const notes=document.getElementById('prodNotes').value.trim();
+  const worker=document.getElementById('prodWorker').value.trim();
+  const now=Date.now();
+  const timeStr=new Date(now).toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  const dateStr=new Date(now).toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+  const entry={id:state.nextId++,dishId,batches,servingsPerBatch:servings,notes,worker,ts:now,synced:false,syncFailed:false};
+  state.productionLog.push(entry);
+  document.getElementById('prodBatches').value='';
+  document.getElementById('prodServings').value='';
+  document.getElementById('prodNotes').value='';
+  document.getElementById('prodWorker').value='';
+  save(); render();
+  // Sync row: [Date, Day, Dish, Batches, Servings/Batch, Total Servings, Target, StartTime, EndTime, PreparedBy, QC, Notes]
+  const rowData=[dateStr,new Date(now).toLocaleDateString('en-MY',{weekday:'short'}),dish.name,batches,servings,batches*servings,'',timeStr,'',worker,'✓',notes];
+  const result=await syncToSheets('production',rowData,`${dish.name} — ${batches} batch`);
+  entry.synced=result==='synced';
+  entry.syncFailed=result==='failed';
+  save(); render();
+  toast(result==='synced'?`✓ Synced ${dish.name} to Sheets`:result==='queued'?`Saved locally — will sync when connected`:`✓ ${dish.name} recorded`);
+}
+
+async function updateStock(){
+  const ingId=parseInt(document.getElementById('usageIng').value);
+  const used=parseFloat(document.getElementById('usageAmt').value)||0;
+  const added=parseFloat(document.getElementById('restockAmt').value)||0;
+  const worker=document.getElementById('stockWorker').value.trim();
+  const ing=state.ingredients.find(i=>i.id===ingId);
+  if(!ing)return;
+  const oldStock=ing.stock;
+  ing.stock=Math.max(0,ing.stock-used+added);
+  document.getElementById('usageAmt').value='';
+  document.getElementById('restockAmt').value='';
+  document.getElementById('stockWorker').value='';
+  save(); render();
+  const now=Date.now();
+  const dateStr=new Date(now).toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+  // Sync: [Date, Ingredient, Unit, Opening, Purchased, Used, Wasted, Closing, ReorderLevel, Status, Cost/unit, UsageCost, StockValue, Notes]
+  const status=ing.stock<=0?'OUT':ing.stock<=ing.reorder?'LOW':'OK';
+  const rowData=[dateStr,ing.name,ing.unit,oldStock,added,used,0,ing.stock,ing.reorder,status,(ing.cost||0),used*(ing.cost||0),ing.stock*(ing.cost||0),`Updated by ${worker||'staff'}`];
+  const result=await syncToSheets('stock',rowData,`${ing.name} — used ${used}, added ${added}`);
+  toast(result==='synced'?`✓ ${ing.name} synced to Sheets`:`${ing.name} updated: ${ing.stock.toFixed(1)} ${ing.unit}`);
+}
+
+function saveCost(){
+  const ingId=parseInt(document.getElementById('costIng').value);
+  const cost=parseFloat(document.getElementById('costPerUnit').value);
+  const ing=state.ingredients.find(i=>i.id===ingId);
+  if(!ing||isNaN(cost)){toast('Enter a valid cost','red');return}
+  ing.cost=cost;
+  document.getElementById('costPerUnit').value='';
+  save();render();toast(`✓ Cost saved for ${ing.name}`);
+}
+
+function addDish(){
+  const name=document.getElementById('dishName').value.trim();
+  const servings=parseInt(document.getElementById('dishServings').value);
+  const price=parseFloat(document.getElementById('dishPrice').value);
+  if(!name||!servings||isNaN(price)){toast('Fill in all dish fields','red');return}
+  state.dishes.push({id:state.nextId++,name,servings,price});
+  document.getElementById('dishName').value='';document.getElementById('dishServings').value='';document.getElementById('dishPrice').value='';
+  save();render();toast(`✓ ${name} added`);
+}
+
+function addIngredient(){
+  const name=document.getElementById('ingName').value.trim();
+  const unit=document.getElementById('ingUnit').value;
+  const reorder=parseFloat(document.getElementById('ingReorder').value)||0;
+  const stock=parseFloat(document.getElementById('ingStock').value)||0;
+  if(!name){toast('Enter ingredient name','red');return}
+  state.ingredients.push({id:state.nextId++,name,unit,reorder,stock,cost:0});
+  document.getElementById('ingName').value='';document.getElementById('ingReorder').value='';document.getElementById('ingStock').value='';
+  save();render();toast(`✓ ${name} added`);
+}
+
+function addIngFromModal(){
+  const name=document.getElementById('mIngName').value.trim();
+  const unit=document.getElementById('mIngUnit').value;
+  const reorder=parseFloat(document.getElementById('mIngReorder').value)||0;
+  const stock=parseFloat(document.getElementById('mIngStock').value)||0;
+  if(!name){toast('Enter ingredient name','red');return}
+  state.ingredients.push({id:state.nextId++,name,unit,reorder,stock,cost:0});
+  document.getElementById('mIngName').value='';document.getElementById('mIngReorder').value='';document.getElementById('mIngStock').value='';
+  document.getElementById('addIngModal').classList.remove('open');
+  save();render();toast(`✓ ${name} added`);
+}
+
+function deleteDish(id){if(!confirm('Remove this dish?'))return;state.dishes=state.dishes.filter(d=>d.id!==id);save();render()}
+function deleteIng(id){if(!confirm('Remove this ingredient?'))return;state.ingredients=state.ingredients.filter(i=>i.id!==id);save();render()}
+function clearTodayLog(){
+  if(!confirm("Clear today's log?"))return;
+  const todayD=new Date().toDateString();
+  state.productionLog=state.productionLog.filter(l=>new Date(l.ts).toDateString()!==todayD);
+  save();render();toast("Today's log cleared");
+}
+function resetAll(){if(!confirm('Reset ALL data?'))return;localStorage.removeItem('ckState2');location.reload()}
+
+function openAddIngModal(){document.getElementById('addIngModal').classList.add('open')}
+function closeModalOutside(e,id){if(e.target.classList.contains('modal-overlay'))document.getElementById(id).classList.remove('open')}
+
+function toast(msg,type){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className='toast'+(type==='red'?' error-toast':'');
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2500);
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+updateConfigBanner();
+setSyncState('idle');
+render();
+</script>
+</body>
+</html>
