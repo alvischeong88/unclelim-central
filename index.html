@@ -465,9 +465,9 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
     <input type="text" id="cfgId" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" style="font-family:'DM Mono',monospace;font-size:12px">
     <label>Service Account Email</label>
     <input type="text" id="cfgEmail" placeholder="uncle-lim@project.iam.gserviceaccount.com" style="font-size:12px">
-    <label>Private Key (from JSON)</label>
-    <textarea id="cfgKey" rows="4" placeholder="-----BEGIN PRIVATE KEY-----&#10;...paste full key...&#10;-----END PRIVATE KEY-----" style="width:100%;background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;padding:11px 13px;font-family:'DM Mono',monospace;font-size:11px;resize:vertical;min-height:90px;outline:none;color:var(--tx)"></textarea>
-    <div class="noticeg">🔒 Credentials stored only on this device.</div>
+    <label>Private Key (from JSON file)</label>
+    <textarea id="cfgKey" rows="5" placeholder="Paste the entire private_key value from your JSON file.&#10;&#10;It can be pasted in any of these formats:&#10;• With \n characters (from JSON copy)&#10;• With real line breaks&#10;The app handles both automatically." style="width:100%;background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;padding:11px 13px;font-family:'DM Mono',monospace;font-size:11px;resize:vertical;min-height:110px;outline:none;color:var(--tx)"></textarea>
+    <div class="noticeg">🔒 Credentials stored only on this device — never sent anywhere except Google's API directly.<br><br>💡 <strong>Tip:</strong> Open your JSON file in Notepad → find "private_key" → copy everything between the outer quotes (including -----BEGIN PRIVATE KEY----- and -----END PRIVATE KEY-----) → paste here.</div>
     <button class="btn btn-g" style="margin-top:14px" onclick="saveCfg()">Save & Test Connection</button>
     <button class="btn btn-o" onclick="clearCfg()">Disconnect</button>
   </div>
@@ -635,14 +635,32 @@ function deleteUser(u){
 }
 
 // ── GOOGLE SHEETS ─────────────────────────────────────────────────────────────
+function cleanPrivateKey(raw){
+  // Handle all possible formats the key might arrive in:
+  // 1. Literal \n text (from JSON file copy-paste)
+  // 2. Real newlines
+  // 3. Mixed
+  var k = raw;
+  // Replace literal backslash-n with real newline
+  k = k.replace(/\\n/g, '\n');
+  // Replace literal \r\n or \r
+  k = k.replace(/\\r\\n/g, '\n');
+  k = k.replace(/\\r/g, '\n');
+  // Strip the PEM header/footer lines
+  k = k.replace(/-----BEGIN[^-]+-----/g, '');
+  k = k.replace(/-----END[^-]+-----/g, '');
+  // Remove ALL whitespace (spaces, newlines, tabs, carriage returns)
+  k = k.replace(/[\s]/g, '');
+  return k;
+}
+
 function getToken(){
   var now=Math.floor(Date.now()/1000);
   var hdr={alg:'RS256',typ:'JWT'};
   var pay={iss:CFG.email,scope:'https://www.googleapis.com/auth/spreadsheets',aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now};
   var enc=function(o){return btoa(JSON.stringify(o)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')};
   var si=enc(hdr)+'.'+enc(pay);
-  var rawKey=CFG.key.replace(/\\n/g,'\n');
-  var pem=rawKey.replace(/-----BEGIN[^-]+-----|-----END[^-]+-----/g,'').replace(/[\n\r\s]/g,'');
+  var pem=cleanPrivateKey(CFG.key);
   var kd=Uint8Array.from(atob(pem),function(c){return c.charCodeAt(0)});
   return crypto.subtle.importKey('pkcs8',kd.buffer,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign'])
     .then(function(ck){return crypto.subtle.sign('RSASSA-PKCS1-v1_5',ck,new TextEncoder().encode(si))})
@@ -709,7 +727,7 @@ function closeOv(e,id){if(e.target.classList.contains('mov'))document.getElement
 function saveCfg(){
   var rawId=document.getElementById('cfgId').value.trim();
   if(rawId.includes('/d/'))rawId=rawId.split('/d/')[1].split('/')[0];
-  CFG.id=rawId;CFG.email=document.getElementById('cfgEmail').value.trim();CFG.key=document.getElementById('cfgKey').value.trim();
+  CFG.id=rawId;CFG.email=document.getElementById('cfgEmail').value.trim();CFG.key=document.getElementById('cfgKey').value.trim();// key is cleaned at use time in cleanPrivateKey()
   saveCfgStore();document.getElementById('cfgModal').classList.remove('open');updateCfgBar();
   if(isConn()){toast('Testing connection...');getToken().then(function(){toast('✓ Connected!','g');setSyncUI('idle');if(S.pendSync.length)setTimeout(syncQ,1200)}).catch(function(e){toast('Failed: '+e.message,'e')})}
 }
