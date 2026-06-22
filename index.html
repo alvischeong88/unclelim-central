@@ -1149,10 +1149,14 @@ function resetAll(){if(!confirm('Reset ALL data? Cannot be undone.'))return;loca
 function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
-  document.querySelectorAll('.nav-tab')[['dash','record','cost','stock','setup'].indexOf(id)].classList.add('active');
+  const pageEl=document.getElementById('page-'+id);
+  if(pageEl)pageEl.classList.add('active');
+  const tabIdx=['dash','record','cost','stock','setup'].indexOf(id);
+  const tabEls=document.querySelectorAll('.nav-tab');
+  if(tabEls[tabIdx])tabEls[tabIdx].classList.add('active');
   render();
   if(id==='cost')renderCostPage();
+  if(id==='record'){renderChecklist();updateDateTime();}
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
@@ -1258,9 +1262,8 @@ async function doLogin(){
   currentUser=user;
   sessionStorage.setItem('ulkSession',JSON.stringify({username:user.username,role:user.role}));
   document.getElementById('loginScreen').style.display='none';
+  updateCfgBar();setSyncUI('idle');
   applyRoleUI();
-  updateCfgBar();setSyncUI('idle');render();renderChecklist();
-  setInterval(updateDateTime,30000);
 }
 
 function applyRoleUI(){
@@ -1270,17 +1273,22 @@ function applyRoleUI(){
   document.getElementById('userNameDisplay').textContent=currentUser.username;
   // Worker: show only Record tab, hide others
   const tabs=document.querySelectorAll('.nav-tab');
-  const pages=['dash','record','cost','stock','setup'];
   if(currentUser.role==='worker'){
     tabs.forEach((t,i)=>{t.style.display=i===1?'flex':'none'});
-    showPage('record');
     // pre-fill worker name
-    const wn=document.getElementById('workerName');
-    if(wn&&!wn.value)wn.value=currentUser.username;
+    setTimeout(()=>{
+      const wn=document.getElementById('workerName');
+      if(wn&&!wn.value)wn.value=currentUser.username;
+    },100);
+    showPage('record');
   } else {
     tabs.forEach(t=>t.style.display='flex');
     showPage('dash');
   }
+  render();
+  renderChecklist();
+  updateDateTime();
+  setInterval(updateDateTime,30000);
 }
 
 function openUserMenu(){
@@ -1349,7 +1357,7 @@ function checkSession(){
     try{
       const s=JSON.parse(sess);
       const user=USERS.find(u=>u.username===s.username&&u.role===s.role);
-      if(user){currentUser=user;document.getElementById('loginScreen').style.display='none';applyRoleUI();return}
+      if(user){currentUser=user;document.getElementById('loginScreen').style.display='none';updateCfgBar();setSyncUI('idle');applyRoleUI();return}
     }catch(e){}
   }
   document.getElementById('loginScreen').style.display='flex';
