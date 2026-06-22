@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Uncle Lim's Kitchen</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#1A1410;--surface:#241C16;--s2:#2E231B;--border:#3D2F24;
+  --amber:#E8A045;--amber-d:#C4823A;--green:#6DBF82;--red:#E06B5A;
+  --yellow:#F0C040;--text:#F0E8DC;--muted:#8C7A6B;--dim:#5A4A3C;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;min-height:100vh;padding-bottom:82px;max-width:480px;margin:0 auto}
+
+/* CONFIG BANNER */
+.cfg-bar{background:#3A1208;border-bottom:2px solid var(--red);padding:10px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:background .2s}
+.cfg-bar.ok{background:#0D2B14;border-bottom-color:var(--green)}
+.cfg-dot{width:9px;height:9px;border-radius:50%;background:var(--red);flex-shrink:0;transition:background .2s}
+.cfg-bar.ok .cfg-dot{background:var(--green)}
+.cfg-txt strong{font-size:13px;color:var(--text);display:block}
+.cfg-txt span{font-size:11px;color:var(--muted)}
+.cfg-bar .arrow{margin-left:auto;font-size:18px}
+
+/* HEADER */
+.hdr{background:var(--surface);border-bottom:1px solid var(--border);padding:13px 18px 10px;position:sticky;top:0;z-index:99}
+.hdr-top{display:flex;align-items:center;justify-content:space-between}
+.hdr h1{font-size:17px;font-weight:700;color:var(--amber)}
+.hdr-date{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)}
+.hdr-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.sync-row{display:flex;align-items:center;gap:6px;margin-top:5px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--dim);transition:background .3s}
+.sync-dot.syncing{background:var(--yellow);animation:blink 1s infinite}
+.sync-dot.ok{background:var(--green)}
+.sync-dot.err{background:var(--red)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.sync-lbl{font-size:11px;color:var(--muted)}
+.pending-pill{background:rgba(240,192,64,.15);color:var(--yellow);font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;margin-left:4px}
+
+/* NAV */
+.nav{display:flex;background:var(--surface);border-bottom:1px solid var(--border)}
+.nav-tab{flex:1;padding:10px 4px 9px;text-align:center;font-size:11px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.nav-tab.active{color:var(--amber);border-bottom-color:var(--amber)}
+.nav-tab i{font-size:17px;display:block;margin-bottom:1px}
+
+/* PAGES */
+.page{display:none;padding:14px}
+.page.active{display:block}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px}
+.card-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:11px}
+
+/* TILES */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}
+.tile{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 11px}
+.tile-lbl{font-size:11px;color:var(--muted);margin-bottom:2px}
+.tile-val{font-size:21px;font-weight:700}
+.tile.a .tile-val{color:var(--amber)}.tile.g .tile-val{color:var(--green)}.tile.r .tile-val{color:var(--red)}
+
+/* FORMS */
+label{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:4px;margin-top:11px}
+label:first-child{margin-top:0}
+input,select,textarea{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .15s;-webkit-appearance:none;appearance:none}
+input:focus,select:focus,textarea:focus{border-color:var(--amber)}
+select option{background:var(--s2)}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 16px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;border:none;width:100%;margin-top:12px;transition:all .15s}
+.btn-amber{background:var(--amber);color:#1A1410}.btn-amber:active{background:var(--amber-d)}
+.btn-green{background:#2A5A1A;color:#A8E890;border:1px solid #4A8A30}.btn-green:active{opacity:.85}
+.btn-ghost{background:transparent;color:var(--amber);border:1px solid var(--amber);margin-top:8px}
+.btn-danger{background:transparent;color:var(--red);border:1px solid var(--red);margin-top:8px}
+.btn-sm{width:auto;padding:6px 11px;font-size:12px;margin-top:0;border-radius:7px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* ROWS */
+.row{display:flex;align-items:center;gap:9px;padding:10px 0;border-bottom:1px solid var(--border)}
+.row:last-child{border-bottom:none}
+.row-info{flex:1;min-width:0}
+.row-name{font-size:14px;font-weight:500}
+.row-meta{font-size:12px;color:var(--muted);margin-top:1px}
+.row-val{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;text-align:right;flex-shrink:0}
+.ok{color:var(--green)}.low{color:var(--yellow)}.crit{color:var(--red)}
+.bar{height:4px;background:var(--border);border-radius:4px;margin-top:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .3s}
+
+/* PASTE PARSER */
+.step-strip{display:flex;align-items:center;gap:6px;margin-bottom:14px}
+.step-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
+.step-item.active{color:var(--amber);font-weight:600}
+.step-item.done{color:var(--green)}
+.step-num{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:var(--border);color:var(--muted);flex-shrink:0}
+.step-item.active .step-num{background:var(--amber);color:#1A1410}
+.step-item.done .step-num{background:var(--green);color:#1A1410}
+.step-sep{color:var(--dim);font-size:13px}
+
+.parse-item{display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:9px;border:1px solid var(--border);background:var(--s2);margin-bottom:7px}
+.parse-item.ready{border-color:#3A6A22;background:#1A2E10}
+.parse-item.notready{border-color:#5A2218;background:#2A1008}
+.parse-icon{font-size:18px;flex-shrink:0}
+.parse-name{font-size:14px;font-weight:500}
+.parse-qty{font-size:12px;color:var(--muted);margin-top:1px}
+.parse-pill{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;flex-shrink:0;margin-left:auto}
+.pill-ok{background:#1A3A0A;color:var(--green);border:1px solid #3A6A22}
+.pill-no{background:#3A1008;color:var(--red);border:1px solid #6A2218}
+.confirm-box{background:#1A2E10;border:1px solid #3A6A22;border-radius:10px;padding:13px 14px;margin-bottom:12px}
+.confirm-title{font-size:14px;font-weight:600;color:var(--green);margin-bottom:3px}
+.confirm-sub{font-size:12px;color:var(--muted)}
+.unrecog{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--muted);margin-bottom:10px}
+.submitted-box{background:#1A2E10;border:1px solid #3A6A22;border-radius:12px;padding:20px;text-align:center;margin-bottom:12px}
+.sub-icon{font-size:36px;color:var(--green);margin-bottom:8px}
+.sub-title{font-size:16px;font-weight:700;color:var(--green);margin-bottom:4px}
+.sub-meta{font-size:12px;color:var(--muted)}
+.history-row{padding:10px 0;border-bottom:1px solid var(--border)}
+.history-row:last-child{border-bottom:none}
+.history-name{font-size:13px;font-weight:500}
+.history-meta{font-size:12px;color:var(--muted);margin-top:2px}
+.history-sync{font-size:11px;margin-top:3px}
+.history-sync.synced{color:var(--green)}.history-sync.pending{color:var(--yellow)}.history-sync.err{color:var(--red)}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:12px;font-weight:500}
+.badge-r{background:rgba(224,107,90,.15);color:var(--red)}
+.badge-y{background:rgba(240,192,64,.15);color:var(--yellow)}
+.badge-g{background:rgba(109,191,130,.15);color:var(--green)}
+
+/* SECTION HEADER */
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+
+/* MODALS */
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:200;align-items:flex-end}
+.modal-ov.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:18px 18px 0 0;padding:18px 18px 44px;width:100%;max-height:90vh;overflow-y:auto}
+.modal-handle{width:36px;height:4px;background:var(--border);border-radius:4px;margin:0 auto 16px}
+.modal-title{font-size:16px;font-weight:700;color:var(--amber);margin-bottom:14px}
+.step-badge{display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;border-radius:50%;background:var(--amber);color:#1A1410;font-size:11px;font-weight:700;flex-shrink:0}
+.step-row{display:flex;gap:9px;align-items:flex-start;margin-bottom:9px;font-size:13px;color:var(--muted);line-height:1.55}
+.step-row a{color:var(--amber);text-decoration:none}
+.notice{background:rgba(240,192,64,.08);border:1px solid rgba(240,192,64,.2);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--yellow);margin-top:11px}
+
+/* EMPTY */
+.empty{text-align:center;padding:28px 16px;color:var(--muted)}
+.empty-icon{font-size:30px;margin-bottom:7px}
+.empty p{font-size:13px}
+
+/* TOAST */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(18px);background:var(--green);color:#1A1410;font-size:13px;font-weight:600;padding:9px 18px;border-radius:20px;opacity:0;transition:all .22s;z-index:300;pointer-events:none;max-width:88vw;text-align:center;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.e{background:var(--red);color:#fff}
+.toast.w{background:var(--yellow);color:#1A1410}
+
+textarea.paste-area{min-height:140px;font-family:'DM Mono',monospace;font-size:13px;line-height:1.75;resize:vertical}
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+</head>
+<body>
+
+<!-- CONFIG BANNER -->
+<div class="cfg-bar" id="cfgBar" onclick="openModal('cfgModal')">
+  <div class="cfg-dot" id="cfgDot"></div>
+  <div class="cfg-txt">
+    <strong id="cfgStatus">Not connected to Google Sheets</strong>
+    <span id="cfgSub">Tap to set up sync →</span>
+  </div>
+  <span class="arrow">⚙️</span>
+</div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-top">
+    <h1>🍳 Uncle Lim's Kitchen</h1>
+    <span class="hdr-date" id="hdrDate"></span>
+  </div>
+  <div class="hdr-sub">Central Kitchen Tracker</div>
+  <div class="sync-row">
+    <div class="sync-dot" id="syncDot"></div>
+    <span class="sync-lbl" id="syncLbl">Not connected</span>
+    <span id="pendingPill" style="display:none" class="pending-pill"></span>
+  </div>
+</div>
+
+<!-- NAV -->
+<div class="nav">
+  <div class="nav-tab active" onclick="showPage('dash')"><i class="ti ti-layout-dashboard"></i>Dashboard</div>
+  <div class="nav-tab" onclick="showPage('paste')"><i class="ti ti-clipboard-text"></i>Record</div>
+  <div class="nav-tab" onclick="showPage('stock')"><i class="ti ti-box"></i>Stock</div>
+  <div class="nav-tab" onclick="showPage('setup')"><i class="ti ti-settings"></i>Setup</div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dash">
+  <div class="tiles" id="dashTiles"></div>
+  <div class="card">
+    <div class="sec-hdr"><span class="card-title">Low Stock Alerts</span><span id="alertBadge" class="badge"></span></div>
+    <div id="alertList"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Today's Production</div>
+    <div id="todayProd"></div>
+  </div>
+  <div class="card" id="pendingCard" style="display:none">
+    <div class="sec-hdr"><span class="card-title">Pending Sync</span><button class="btn btn-sm btn-ghost" style="margin-top:0" onclick="syncQueue()">Sync Now</button></div>
+    <div id="pendingList"></div>
+  </div>
+</div>
+
+<!-- PASTE / RECORD -->
+<div class="page" id="page-paste">
+
+  <!-- STEP 1: PASTE -->
+  <div id="pastePanel">
+    <div class="card">
+      <div class="step-strip" id="stepStrip1">
+        <div class="step-item active" id="ps1"><span class="step-num">1</span>Paste report</div>
+        <span class="step-sep">›</span>
+        <div class="step-item" id="ps2"><span class="step-num">2</span>Review</div>
+        <span class="step-sep">›</span>
+        <div class="step-item" id="ps3"><span class="step-num">3</span>Confirm</div>
+      </div>
+      <label>Worker name</label>
+      <input type="text" id="workerName" placeholder="e.g. Azman / Siti Aishah">
+      <label style="margin-top:12px">Paste production report</label>
+      <textarea class="paste-area" id="pasteBox" placeholder="Paste exactly as WhatsApp message:&#10;&#10;Nasi 3kg ✅️&#10;Kacang 500gm ❎️&#10;Ikan bilis ❎️&#10;Ayam berempah × 10 ✅️&#10;Ayam rendang × 5 ✅️&#10;Sambal pedas 2kg ✅️"></textarea>
+      <button class="btn btn-amber" onclick="parseReport()"><i class="ti ti-scan"></i>Parse & Summarise</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: REVIEW -->
+  <div id="reviewPanel" style="display:none">
+    <div class="card">
+      <div class="step-strip">
+        <div class="step-item done" id="rs1"><span class="step-num">1</span>Pasted</div>
+        <span class="step-sep">›</span>
+        <div class="step-item active" id="rs2"><span class="step-num">2</span>Review summary</div>
+        <span class="step-sep">›</span>
+        <div class="step-item" id="rs3"><span class="step-num">3</span>Confirm</div>
+      </div>
+      <div class="tiles" id="reviewTiles" style="margin-bottom:14px"></div>
+      <div class="card-title">Parsed items</div>
+      <div id="parsedList"></div>
+      <div id="unrecogBlock" style="display:none;margin-top:10px">
+        <div class="card-title" style="color:var(--red)">Lines not recognised</div>
+        <div class="unrecog" id="unrecogList"></div>
+      </div>
+    </div>
+    <div class="confirm-box">
+      <div class="confirm-title"><i class="ti ti-circle-check"></i> Review complete — ready to submit?</div>
+      <div class="confirm-sub" id="confirmSub"></div>
+    </div>
+    <button class="btn btn-green" onclick="submitRecord()"><i class="ti ti-send"></i>Confirm & Submit to Report</button>
+    <button class="btn btn-ghost" onclick="backToPaste()"><i class="ti ti-arrow-left"></i>Edit / Re-paste</button>
+  </div>
+
+  <!-- STEP 3: SUBMITTED -->
+  <div id="submittedPanel" style="display:none">
+    <div class="submitted-box">
+      <div class="sub-icon"><i class="ti ti-circle-check"></i></div>
+      <div class="sub-title">Production Recorded!</div>
+      <div class="sub-meta" id="subMeta"></div>
+    </div>
+    <div class="card" id="subSyncStatus"></div>
+    <div class="card">
+      <div class="card-title">Submitted items</div>
+      <div id="subItemsList"></div>
+    </div>
+    <button class="btn btn-amber" onclick="newRecord()"><i class="ti ti-plus"></i>Record Another Batch</button>
+  </div>
+</div>
+
+<!-- STOCK -->
+<div class="page" id="page-stock">
+  <div class="card">
+    <div class="sec-hdr"><span class="card-title">Ingredient Stock</span><button class="btn btn-sm btn-ghost" style="margin-top:0" onclick="openModal('addIngModal')">+ Add</button></div>
+    <div id="stockList"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Update Stock</div>
+    <label>Ingredient</label><select id="usageIng"></select>
+    <div class="r2">
+      <div><label>Used (−)</label><input type="number" id="usageAmt" placeholder="0" min="0" step="0.1"></div>
+      <div><label>Restocked (+)</label><input type="number" id="restockAmt" placeholder="0" min="0" step="0.1"></div>
+    </div>
+    <label>Updated by</label><input type="text" id="stockWorker" placeholder="Staff name">
+    <button class="btn btn-amber" onclick="updateStock()"><i class="ti ti-refresh"></i>Update & Sync</button>
+  </div>
+</div>
+
+<!-- SETUP -->
+<div class="page" id="page-setup">
+  <div class="card">
+    <div class="card-title">Add Dish</div>
+    <label>Dish name</label><input type="text" id="dishName" placeholder="e.g. Ayam Berempah">
+    <div class="r2">
+      <div><label>Servings/batch</label><input type="number" id="dishSrv" placeholder="10" min="1"></div>
+      <div><label>Price/serving (RM)</label><input type="number" id="dishPrice" placeholder="9.00" min="0" step="0.01"></div>
+    </div>
+    <button class="btn btn-amber" onclick="addDish()">Add Dish</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Add Ingredient</div>
+    <label>Name</label><input type="text" id="ingName" placeholder="e.g. Santan">
+    <div class="r2">
+      <div><label>Unit</label>
+        <select id="ingUnit"><option>kg</option><option>g</option><option>L</option><option>ml</option><option>pcs</option><option>pack</option><option>bottle</option></select>
+      </div>
+      <div><label>Reorder at</label><input type="number" id="ingReorder" placeholder="2" min="0" step="0.1"></div>
+    </div>
+    <label>Opening stock</label><input type="number" id="ingStock" placeholder="0" min="0" step="0.1">
+    <button class="btn btn-amber" onclick="addIngredient()">Add Ingredient</button>
+  </div>
+  <div class="card"><div class="card-title">Dishes</div><div id="dishesList"></div></div>
+  <div class="card"><div class="card-title">Ingredients</div><div id="ingList"></div></div>
+  <button class="btn btn-danger" onclick="resetAll()">⚠️ Reset All Data</button>
+</div>
+
+<!-- ADD ING MODAL -->
+<div class="modal-ov" id="addIngModal" onclick="closeOv(event,'addIngModal')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Add Ingredient</div>
+    <label>Name</label><input type="text" id="mIngName" placeholder="e.g. Serai">
+    <div class="r2">
+      <div><label>Unit</label>
+        <select id="mIngUnit"><option>kg</option><option>g</option><option>L</option><option>ml</option><option>pcs</option><option>pack</option><option>bottle</option></select>
+      </div>
+      <div><label>Reorder at</label><input type="number" id="mIngReorder" placeholder="2" step="0.1"></div>
+    </div>
+    <label>Opening stock</label><input type="number" id="mIngStock" placeholder="0" step="0.1">
+    <button class="btn btn-amber" onclick="addIngModal()">Add</button>
+  </div>
+</div>
+
+<!-- CONFIG MODAL -->
+<div class="modal-ov" id="cfgModal" onclick="closeOv(event,'cfgModal')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔗 Connect to Google Sheets</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">Workers submit from this app → rows appear instantly in your Uncle Lim's Kitchen Report Google Sheet.</p>
+
+    <div class="step-row"><span class="step-badge">1</span>Upload the Excel report to <a href="https://sheets.google.com" target="_blank">Google Sheets</a>. Copy the <strong style="color:var(--text)">Sheet ID</strong> from the URL between <code style="color:var(--amber)">/d/</code> and <code style="color:var(--amber)">/edit</code></div>
+    <div class="step-row"><span class="step-badge">2</span>Go to <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> → Enable <strong style="color:var(--text)">Google Sheets API</strong> → Credentials → <strong style="color:var(--text)">Create Service Account</strong> → Keys → Add Key → JSON → Download</div>
+    <div class="step-row"><span class="step-badge">3</span>Open the JSON file. Copy <code style="color:var(--amber)">client_email</code> and <code style="color:var(--amber)">private_key</code> values below</div>
+    <div class="step-row"><span class="step-badge">4</span>In your Google Sheet → Share → paste the <code style="color:var(--amber)">client_email</code> → give <strong style="color:var(--text)">Editor</strong> access</div>
+
+    <label style="margin-top:14px">Google Sheet ID</label>
+    <input type="text" id="cfgId" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" style="font-family:'DM Mono',monospace;font-size:12px">
+    <label>Service Account Email</label>
+    <input type="text" id="cfgEmail" placeholder="your-sa@project.iam.gserviceaccount.com" style="font-size:12px">
+    <label>Private Key (full text from JSON)</label>
+    <textarea id="cfgKey" rows="4" placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...paste full key...&#10;-----END RSA PRIVATE KEY-----" style="font-family:'DM Mono',monospace;font-size:11px;resize:vertical;min-height:90px"></textarea>
+    <div class="notice">🔒 Credentials stored only on this device — sent directly to Google's API, never to any other server.</div>
+    <button class="btn btn-amber" style="margin-top:14px" onclick="saveCfg()"><i class="ti ti-plug"></i>Save & Test Connection</button>
+    <button class="btn btn-ghost" onclick="clearCfg()">Disconnect</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ────────────────────────────────────────────────────────────────────
+let S = JSON.parse(localStorage.getItem('ulk3')||'null') || {
+  dishes:[
+    {id:1,name:'Ayam Berempah',servings:10,price:9.00},
+    {id:2,name:'Ayam Rendang',servings:10,price:10.00},
+    {id:3,name:'Nasi Lemak',servings:20,price:5.00},
+    {id:4,name:'Sambal Pedas',servings:15,price:4.00},
+  ],
+  ingredients:[
+    {id:1,name:'Ayam',unit:'kg',stock:15,reorder:5,cost:9.50},
+    {id:2,name:'Santan',unit:'L',stock:8,reorder:3,cost:4.20},
+    {id:3,name:'Beras',unit:'kg',stock:20,reorder:8,cost:2.80},
+    {id:4,name:'Rempah',unit:'kg',stock:2,reorder:1,cost:15.00},
+    {id:5,name:'Kacang',unit:'kg',stock:3,reorder:1,cost:7.00},
+    {id:6,name:'Ikan Bilis',unit:'kg',stock:1,reorder:0.5,cost:18.00},
+  ],
+  productionLog:[],
+  pendingSync:[],
+  nextId:20
+};
+
+let CFG = JSON.parse(localStorage.getItem('ulkCfg')||'null') || {id:'',email:'',key:''};
+let parsedItems = [];
+
+function save(){localStorage.setItem('ulk3',JSON.stringify(S))}
+function saveCfgStore(){localStorage.setItem('ulkCfg',JSON.stringify(CFG))}
+function isConn(){return CFG.id&&CFG.email&&CFG.key}
+
+// ── GOOGLE SHEETS ────────────────────────────────────────────────────────────
+async function getToken(){
+  const now=Math.floor(Date.now()/1000);
+  const hdr={alg:'RS256',typ:'JWT'};
+  const pay={iss:CFG.email,scope:'https://www.googleapis.com/auth/spreadsheets',aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now};
+  const enc=o=>btoa(JSON.stringify(o)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const si=enc(hdr)+'.'+enc(pay);
+  let pem=CFG.key.replace(/-----BEGIN[^-]+-----|-----END[^-]+-----|\n|\r/g,'');
+  const kd=Uint8Array.from(atob(pem),c=>c.charCodeAt(0));
+  const ck=await crypto.subtle.importKey('pkcs8',kd.buffer,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
+  const sig=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',ck,new TextEncoder().encode(si));
+  const sb=btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const jwt=si+'.'+sb;
+  const r=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`});
+  const d=await r.json();
+  if(!d.access_token) throw new Error(d.error_description||'Auth failed');
+  return d.access_token;
+}
+
+async function appendRow(tab,row){
+  if(!isConn()) return false;
+  const tok=await getToken();
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${CFG.id}/values/${encodeURIComponent(tab)}!A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+  const r=await fetch(url,{method:'POST',headers:{'Authorization':'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({values:[row]})});
+  if(!r.ok){const e=await r.json();throw new Error(e.error?.message||'Write failed')}
+  return true;
+}
+
+// ── SYNC ─────────────────────────────────────────────────────────────────────
+function setSyncUI(state){
+  const d=document.getElementById('syncDot');
+  const l=document.getElementById('syncLbl');
+  d.className='sync-dot';
+  if(state==='syncing'){d.classList.add('syncing');l.textContent='Syncing to Google Sheets...'}
+  else if(state==='ok'){d.classList.add('ok');l.textContent='Synced to Google Sheets ✓'}
+  else if(state==='err'){d.classList.add('err');l.textContent='Sync failed — saved locally'}
+  else{l.textContent=isConn()?'Connected — ready to sync':'Not connected to Google Sheets'}
+}
+
+function updatePendingUI(){
+  const n=S.pendingSync.length;
+  const pill=document.getElementById('pendingPill');
+  pill.style.display=n>0?'inline':'none';
+  if(n>0)pill.textContent=`⏳ ${n} pending`;
+  const pc=document.getElementById('pendingCard');
+  pc.style.display=n>0?'block':'none';
+  if(n>0){
+    document.getElementById('pendingList').innerHTML=S.pendingSync.map(p=>`
+      <div class="row"><div class="row-info"><div class="row-name">${p.type==='production'?'Production':'Stock Update'}</div><div class="row-meta">${p.summary}</div></div></div>`).join('');
+  }
+}
+
+async function doSync(type,row,summary){
+  if(!isConn()){S.pendingSync.push({type,row,summary,ts:Date.now()});save();updatePendingUI();return'queued'}
+  setSyncUI('syncing');
+  try{
+    const tab=type==='production'?'📋 Daily Production':'📦 Stock & Usage';
+    await appendRow(tab,row);
+    setSyncUI('ok');setTimeout(()=>setSyncUI('idle'),3000);
+    return'synced';
+  }catch(e){
+    console.error(e);
+    S.pendingSync.push({type,row,summary,ts:Date.now()});save();updatePendingUI();
+    setSyncUI('err');setTimeout(()=>setSyncUI('idle'),4000);
+    return'queued';
+  }
+}
+
+async function syncQueue(){
+  if(!isConn()){toast('Set up Google Sheets first','w');openModal('cfgModal');return}
+  if(!S.pendingSync.length){toast('Nothing to sync');return}
+  setSyncUI('syncing');
+  const failed=[];
+  for(const item of S.pendingSync){
+    try{await appendRow(item.type==='production'?'📋 Daily Production':'📦 Stock & Usage',item.row)}
+    catch(e){failed.push(item)}
+  }
+  S.pendingSync=failed;save();updatePendingUI();
+  if(!failed.length){setSyncUI('ok');toast('✓ All data synced to Sheets')}
+  else{setSyncUI('err');toast(`${failed.length} items failed`,'w')}
+  setTimeout(()=>setSyncUI('idle'),3000);render();
+}
+
+// ── CONFIG ───────────────────────────────────────────────────────────────────
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeOv(e,id){if(e.target.classList.contains('modal-ov'))document.getElementById(id).classList.remove('open')}
+
+async function saveCfg(){
+  CFG.id=document.getElementById('cfgId').value.trim();
+  CFG.email=document.getElementById('cfgEmail').value.trim();
+  CFG.key=document.getElementById('cfgKey').value.trim();
+  saveCfgStore();
+  document.getElementById('cfgModal').classList.remove('open');
+  updateCfgBar();
+  if(isConn()){
+    toast('Testing connection...');
+    try{await getToken();toast('✓ Connected to Google Sheets!');setSyncUI('idle');if(S.pendingSync.length)setTimeout(syncQueue,1200)}
+    catch(e){toast('Connection failed: '+e.message,'e')}
+  }
+}
+
+function clearCfg(){
+  if(!confirm('Disconnect from Google Sheets?'))return;
+  CFG={id:'',email:'',key:''};saveCfgStore();
+  document.getElementById('cfgModal').classList.remove('open');
+  updateCfgBar();setSyncUI('idle');
+}
+
+function updateCfgBar(){
+  const bar=document.getElementById('cfgBar');
+  const status=document.getElementById('cfgStatus');
+  const sub=document.getElementById('cfgSub');
+  if(isConn()){
+    bar.className='cfg-bar ok';
+    status.textContent='Connected to Google Sheets';
+    sub.textContent='Sheet ID: '+CFG.id.substring(0,24)+'...';
+  } else {
+    bar.className='cfg-bar';
+    status.textContent='Not connected to Google Sheets';
+    sub.textContent='Tap to set up sync →';
+  }
+  // pre-fill modal
+  document.getElementById('cfgId').value=CFG.id||'';
+  document.getElementById('cfgEmail').value=CFG.email||'';
+  document.getElementById('cfgKey').value=CFG.key||'';
+}
+
+// ── PARSE REPORT ─────────────────────────────────────────────────────────────
+function parseReport(){
+  const raw=document.getElementById('pasteBox').value.trim();
+  if(!raw){toast('Paste the worker report first','w');return}
+  const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l);
+  parsedItems=[];
+  const unrecog=[];
+
+  lines.forEach(line=>{
+    const isReady=/✅/.test(line);
+    const isNotReady=/❎|❌|✖|✗/.test(line);
+    if(!isReady&&!isNotReady){unrecog.push(line);return}
+
+    let clean=line.replace(/✅️?|❎️?|❌️?|✖️?|✗️?/g,'').replace(/[×x]\s*/gi,'× ').trim();
+    let qty=null,unit=null,name=clean;
+
+    const patterns=[
+      /×\s*(\d+(?:\.\d+)?)\s*(kg|gm|g|liter|L|ml|pcs|unit|biji)?/i,
+      /(\d+(?:\.\d+)?)\s*(kg|gm|g|liter|L|ml|pcs|unit|biji)/i,
+      /×\s*(\d+)/i,
+    ];
+    for(const p of patterns){
+      const m=clean.match(p);
+      if(m){qty=parseFloat(m[1]);unit=m[2]||'pcs';name=clean.replace(p,'').replace(/[×x]/gi,'').replace(/\s+/g,' ').replace(/[,\-]+$/,'').trim();break}
+    }
+
+    if(!name){unrecog.push(line);return}
+    name=name.charAt(0).toUpperCase()+name.slice(1);
+    parsedItems.push({name,qty,unit,status:isReady?'ready':'notready',raw:line});
+  });
+
+  const ready=parsedItems.filter(i=>i.status==='ready').length;
+  const not=parsedItems.filter(i=>i.status==='notready').length;
+  const worker=document.getElementById('workerName').value.trim()||'Worker';
+  const now=new Date();
+  const timeStr=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+
+  // tiles
+  document.getElementById('reviewTiles').innerHTML=`
+    <div class="tile a"><div class="tile-lbl">Total items</div><div class="tile-val">${parsedItems.length}</div></div>
+    <div class="tile"><div class="tile-lbl">Submitted by</div><div class="tile-val" style="font-size:14px;padding-top:4px">${worker}</div></div>
+    <div class="tile g"><div class="tile-lbl">✅ Ready</div><div class="tile-val">${ready}</div></div>
+    <div class="tile r"><div class="tile-lbl">❎ Not ready</div><div class="tile-val">${not}</div></div>`;
+
+  document.getElementById('parsedList').innerHTML=parsedItems.map(item=>{
+    const ok=item.status==='ready';
+    const qtyStr=item.qty!=null?`${item.qty}${item.unit?' '+item.unit:''}`:'-';
+    return`<div class="parse-item ${ok?'ready':'notready'}">
+      <i class="ti ${ok?'ti-circle-check':'ti-circle-x'} parse-icon" style="color:${ok?'var(--green)':'var(--red)'}"></i>
+      <div class="row-info"><div class="parse-name">${item.name}</div><div class="parse-qty">${qtyStr}</div></div>
+      <span class="parse-pill ${ok?'pill-ok':'pill-no'}">${ok?'Ready':'Not ready'}</span>
+    </div>`;
+  }).join('');
+
+  if(unrecog.length){
+    document.getElementById('unrecogBlock').style.display='block';
+    document.getElementById('unrecogList').innerHTML=unrecog.map(l=>`<div>• ${l}</div>`).join('');
+  } else document.getElementById('unrecogBlock').style.display='none';
+
+  document.getElementById('confirmSub').textContent=`${parsedItems.length} items · ${ready} ready · ${not} not ready · ${timeStr} · by ${worker}`;
+
+  document.getElementById('pastePanel').style.display='none';
+  document.getElementById('reviewPanel').style.display='block';
+  document.getElementById('submittedPanel').style.display='none';
+}
+
+async function submitRecord(){
+  const worker=document.getElementById('workerName').value.trim()||'Worker';
+  const now=new Date();
+  const timeStr=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  const dateStr=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+  const dayStr=now.toLocaleDateString('en-MY',{weekday:'short'});
+  const ready=parsedItems.filter(i=>i.status==='ready');
+  const notReady=parsedItems.filter(i=>i.status==='notready');
+
+  // Log to local state (production log)
+  const entry={
+    id:S.nextId++,worker,date:dateStr,time:timeStr,
+    items:parsedItems.map(i=>({...i})),
+    readyCount:ready.length,notReadyCount:notReady.length,
+    ts:Date.now(),synced:false,syncFailed:false
+  };
+  S.productionLog.push(entry);save();
+
+  // Build Google Sheet rows — one per item for detailed log
+  const baseRow=[dateStr,dayStr,worker,timeStr,parsedItems.length,ready.length,notReady.length];
+  const itemsStr=parsedItems.map(i=>`${i.name}${i.qty?' '+i.qty+(i.unit?' '+i.unit:''):''}(${i.status==='ready'?'✅':'❎'})`).join(' | ');
+  const readyStr=ready.map(i=>i.name+(i.qty?' '+i.qty+(i.unit?' '+i.unit:''):'')).join(', ');
+  const notReadyStr=notReady.map(i=>i.name).join(', ');
+  const fullRow=[...baseRow,itemsStr,readyStr,notReadyStr];
+
+  const result=await doSync('production',fullRow,`${worker} — ${ready.length} ready, ${notReady.length} not ready`);
+  entry.synced=result==='synced';entry.syncFailed=result==='queued'&&!isConn();save();
+
+  // Show submitted panel
+  document.getElementById('subMeta').textContent=`${dateStr} · ${timeStr} · ${worker}`;
+  const syncMsg=result==='synced'
+    ?`<div style="display:flex;align-items:center;gap:8px;padding:10px 0"><i class="ti ti-circle-check" style="color:var(--green);font-size:18px"></i><span style="font-size:13px;color:var(--green)">Successfully synced to Google Sheets</span></div>`
+    :`<div style="display:flex;align-items:center;gap:8px;padding:10px 0"><i class="ti ti-clock" style="color:var(--yellow);font-size:18px"></i><span style="font-size:13px;color:var(--yellow)">${isConn()?'Sync queued — will retry':'Saved locally — connect Google Sheets to sync'}</span></div>`;
+  document.getElementById('subSyncStatus').innerHTML=`<div class="card-title">Sync Status</div>${syncMsg}`;
+  document.getElementById('subItemsList').innerHTML=parsedItems.map(item=>{
+    const ok=item.status==='ready';
+    const qtyStr=item.qty!=null?`${item.qty}${item.unit?' '+item.unit:''}`:'-';
+    return`<div class="parse-item ${ok?'ready':'notready'}">
+      <i class="ti ${ok?'ti-circle-check':'ti-circle-x'} parse-icon" style="color:${ok?'var(--green)':'var(--red)'}"></i>
+      <div class="row-info"><div class="parse-name">${item.name}</div><div class="parse-qty">${qtyStr}</div></div>
+      <span class="parse-pill ${ok?'pill-ok':'pill-no'}">${ok?'Ready':'Not ready'}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('reviewPanel').style.display='none';
+  document.getElementById('submittedPanel').style.display='block';
+  render();
+}
+
+function backToPaste(){
+  document.getElementById('reviewPanel').style.display='none';
+  document.getElementById('pastePanel').style.display='block';
+}
+
+function newRecord(){
+  parsedItems=[];
+  document.getElementById('pasteBox').value='';
+  document.getElementById('workerName').value='';
+  document.getElementById('submittedPanel').style.display='none';
+  document.getElementById('pastePanel').style.display='block';
+}
+
+// ── STOCK ────────────────────────────────────────────────────────────────────
+async function updateStock(){
+  const ingId=parseInt(document.getElementById('usageIng').value);
+  const used=parseFloat(document.getElementById('usageAmt').value)||0;
+  const added=parseFloat(document.getElementById('restockAmt').value)||0;
+  const worker=document.getElementById('stockWorker').value.trim()||'Staff';
+  const ing=S.ingredients.find(i=>i.id===ingId);
+  if(!ing)return;
+  const old=ing.stock;
+  ing.stock=Math.max(0,ing.stock-used+added);
+  document.getElementById('usageAmt').value='';
+  document.getElementById('restockAmt').value='';
+  document.getElementById('stockWorker').value='';
+  save();render();
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+  const status=ing.stock<=0?'OUT':ing.stock<=ing.reorder?'LOW':'OK';
+  const row=[dateStr,ing.name,ing.unit,old,added,used,0,ing.stock,ing.reorder,status,(ing.cost||0),used*(ing.cost||0),ing.stock*(ing.cost||0),`Updated by ${worker}`];
+  const result=await doSync('stock',row,`${ing.name} — used ${used}, added ${added}`);
+  toast(result==='synced'?`✓ ${ing.name} synced to Sheets`:`${ing.name} updated: ${ing.stock.toFixed(1)} ${ing.unit}`);
+}
+
+// ── SETUP ────────────────────────────────────────────────────────────────────
+function addDish(){
+  const name=document.getElementById('dishName').value.trim();
+  const s=parseInt(document.getElementById('dishSrv').value);
+  const p=parseFloat(document.getElementById('dishPrice').value);
+  if(!name||!s||isNaN(p)){toast('Fill all fields','w');return}
+  S.dishes.push({id:S.nextId++,name,servings:s,price:p});
+  document.getElementById('dishName').value='';document.getElementById('dishSrv').value='';document.getElementById('dishPrice').value='';
+  save();render();toast(`✓ ${name} added`);
+}
+
+function addIngredient(){
+  const name=document.getElementById('ingName').value.trim();
+  const unit=document.getElementById('ingUnit').value;
+  const reorder=parseFloat(document.getElementById('ingReorder').value)||0;
+  const stock=parseFloat(document.getElementById('ingStock').value)||0;
+  if(!name){toast('Enter ingredient name','w');return}
+  S.ingredients.push({id:S.nextId++,name,unit,reorder,stock,cost:0});
+  document.getElementById('ingName').value='';document.getElementById('ingReorder').value='';document.getElementById('ingStock').value='';
+  save();render();toast(`✓ ${name} added`);
+}
+
+function addIngModal(){
+  const name=document.getElementById('mIngName').value.trim();
+  const unit=document.getElementById('mIngUnit').value;
+  const reorder=parseFloat(document.getElementById('mIngReorder').value)||0;
+  const stock=parseFloat(document.getElementById('mIngStock').value)||0;
+  if(!name){toast('Enter ingredient name','w');return}
+  S.ingredients.push({id:S.nextId++,name,unit,reorder,stock,cost:0});
+  document.getElementById('mIngName').value='';document.getElementById('mIngReorder').value='';document.getElementById('mIngStock').value='';
+  document.getElementById('addIngModal').classList.remove('open');
+  save();render();toast(`✓ ${name} added`);
+}
+
+function deleteDish(id){if(!confirm('Remove dish?'))return;S.dishes=S.dishes.filter(d=>d.id!==id);save();render()}
+function deleteIng(id){if(!confirm('Remove ingredient?'))return;S.ingredients=S.ingredients.filter(i=>i.id!==id);save();render()}
+function resetAll(){if(!confirm('Reset ALL data? Cannot be undone.'))return;localStorage.removeItem('ulk3');location.reload()}
+
+// ── NAV ──────────────────────────────────────────────────────────────────────
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-tab')[['dash','paste','stock','setup'].indexOf(id)].classList.add('active');
+  render();
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+function render(){
+  const today=new Date().toDateString();
+  const todayLogs=S.productionLog.filter(l=>new Date(l.ts).toDateString()===today);
+
+  // Dashboard tiles
+  const totalItems=todayLogs.reduce((s,l)=>s+l.items.length,0);
+  const totalReady=todayLogs.reduce((s,l)=>s+l.readyCount,0);
+  const alerts=S.ingredients.filter(i=>i.stock<=i.reorder);
+  const batches=todayLogs.length;
+  document.getElementById('dashTiles').innerHTML=`
+    <div class="tile a"><div class="tile-lbl">Batches Today</div><div class="tile-val">${batches}</div></div>
+    <div class="tile g"><div class="tile-lbl">Items Ready</div><div class="tile-val">${totalReady}</div></div>
+    <div class="tile"><div class="tile-lbl">Items Logged</div><div class="tile-val">${totalItems}</div></div>
+    <div class="tile ${alerts.length?'r':'g'}"><div class="tile-lbl">Low Stock</div><div class="tile-val">${alerts.length}</div></div>`;
+
+  // Alerts
+  const ab=document.getElementById('alertBadge');
+  if(alerts.length){ab.textContent=alerts.length+' item'+(alerts.length>1?'s':'');ab.className='badge badge-r'}
+  else{ab.textContent='';ab.className='badge'}
+  document.getElementById('alertList').innerHTML=alerts.length
+    ?alerts.map(i=>`<div class="row"><div class="row-info"><div class="row-name">${i.name}</div><div class="row-meta">Reorder at ${i.reorder} ${i.unit}</div></div><span class="badge ${i.stock<=0?'badge-r':'badge-y'}">${i.stock} ${i.unit}</span></div>`).join('')
+    :'<div class="empty"><div class="empty-icon">✅</div><p>All stock levels are good</p></div>';
+
+  // Today production
+  const tp=document.getElementById('todayProd');
+  if(!todayLogs.length){tp.innerHTML='<div class="empty"><div class="empty-icon">🍳</div><p>No production recorded today</p></div>'}
+  else{
+    tp.innerHTML=todayLogs.slice().reverse().map(l=>{
+      const syncCls=l.synced?'synced':l.syncFailed?'err':'pending';
+      const syncTxt=l.synced?'✓ Synced to Sheets':l.syncFailed?'⚠ Sync failed':'⏳ Pending sync';
+      return`<div class="row"><div class="row-info">
+        <div class="row-name">${l.worker||'Worker'}</div>
+        <div class="row-meta">${l.readyCount} ready · ${l.notReadyCount} not ready · ${l.time}</div>
+        <div class="history-sync ${syncCls}">${syncTxt}</div>
+      </div></div>`;
+    }).join('');
+  }
+
+  // Stock
+  const sl=document.getElementById('stockList');
+  if(sl) sl.innerHTML=S.ingredients.length
+    ?S.ingredients.map(i=>{
+        const pct=Math.min(100,(i.stock/Math.max(i.reorder*3,1))*100);
+        const cls=i.stock<=0?'crit':i.stock<=i.reorder?'low':'ok';
+        const fc=i.stock<=0?'var(--red)':i.stock<=i.reorder?'var(--yellow)':'var(--green)';
+        return`<div class="row"><div class="row-info"><div class="row-name">${i.name}</div><div class="row-meta">Reorder at ${i.reorder} ${i.unit}</div><div class="bar"><div class="bar-fill" style="width:${pct}%;background:${fc}"></div></div></div><div class="row-val ${cls}">${i.stock}<br><span style="font-size:11px;color:var(--muted)">${i.unit}</span></div></div>`;
+    }).join('')
+    :'<div class="empty"><p>No ingredients added yet</p></div>';
+
+  // Dropdowns
+  const iOpts=S.ingredients.map(i=>`<option value="${i.id}">${i.name} (${i.stock} ${i.unit})</option>`).join('');
+  ['usageIng'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=iOpts||'<option>No ingredients</option>'});
+
+  // Setup lists
+  const dl=document.getElementById('dishesList');
+  if(dl) dl.innerHTML=S.dishes.length
+    ?S.dishes.map(d=>`<div class="row"><div class="row-info"><div class="row-name">${d.name}</div><div class="row-meta">${d.servings} srv/batch · RM${d.price.toFixed(2)}/srv</div></div><button class="btn btn-sm btn-danger" onclick="deleteDish(${d.id})">✕</button></div>`).join('')
+    :'<div class="empty"><p>No dishes yet</p></div>';
+  const il=document.getElementById('ingList');
+  if(il) il.innerHTML=S.ingredients.length
+    ?S.ingredients.map(i=>`<div class="row"><div class="row-info"><div class="row-name">${i.name}</div><div class="row-meta">${i.unit} · reorder at ${i.reorder}</div></div><button class="btn btn-sm btn-danger" onclick="deleteIng(${i.id})">✕</button></div>`).join('')
+    :'<div class="empty"><p>No ingredients yet</p></div>';
+
+  updatePendingUI();
+  document.getElementById('hdrDate').textContent=new Date().toLocaleDateString('en-MY',{weekday:'short',day:'numeric',month:'short'});
+}
+
+// ── TOAST ────────────────────────────────────────────────────────────────────
+function toast(msg,type){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast'+(type==='e'?' e':type==='w'?' w':'');
+  el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2400);
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+updateCfgBar();setSyncUI('idle');render();
+</script>
+</body>
+</html>
