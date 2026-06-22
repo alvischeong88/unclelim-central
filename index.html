@@ -461,15 +461,24 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
     <div class="srow"><span class="sbadge">1</span>Upload Excel report to <a href="https://sheets.google.com" target="_blank">Google Sheets</a>. Copy the Sheet ID from the URL (between /d/ and /edit)</div>
     <div class="srow"><span class="sbadge">2</span>Go to <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> → Enable Sheets API → Credentials → Create Service Account → Keys → JSON → Download</div>
     <div class="srow"><span class="sbadge">3</span>Share your Sheet with the <strong>client_email</strong> from the JSON → give Editor access</div>
-    <label style="margin-top:14px">Google Sheet ID</label>
-    <input type="text" id="cfgId" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" style="font-family:'DM Mono',monospace;font-size:12px">
+    <label style="margin-top:14px">Google Sheet ID (or full URL)</label>
+    <input type="text" id="cfgId" placeholder="Paste full URL or just the ID — app extracts automatically" style="font-family:'DM Mono',monospace;font-size:12px">
+    <div style="font-size:11px;color:var(--mt);margin-top:4px;margin-bottom:2px">From URL: docs.google.com/spreadsheets/d/<strong style="color:var(--green)">THIS_PART</strong>/edit</div>
     <label>Service Account Email</label>
     <input type="text" id="cfgEmail" placeholder="uncle-lim@project.iam.gserviceaccount.com" style="font-size:12px">
     <label>Private Key (from JSON file)</label>
     <textarea id="cfgKey" rows="5" placeholder="Paste the entire private_key value from your JSON file.&#10;&#10;It can be pasted in any of these formats:&#10;• With \n characters (from JSON copy)&#10;• With real line breaks&#10;The app handles both automatically." style="width:100%;background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;padding:11px 13px;font-family:'DM Mono',monospace;font-size:11px;resize:vertical;min-height:110px;outline:none;color:var(--tx)"></textarea>
     <div class="noticeg">🔒 Credentials stored only on this device — never sent anywhere except Google's API directly.<br><br>💡 <strong>Tip:</strong> Open your JSON file in Notepad → find "private_key" → copy everything between the outer quotes (including -----BEGIN PRIVATE KEY----- and -----END PRIVATE KEY-----) → paste here.</div>
     <button class="btn btn-g" style="margin-top:14px" onclick="saveCfg()">Save & Test Connection</button>
-    <button class="btn btn-o" onclick="clearCfg()">Disconnect</button>
+    <button class="btn btn-o" style="margin-top:8px" onclick="testConnection()">🔄 Test Again (without saving)</button>
+    <button class="btn btn-r" onclick="clearCfg()">Disconnect</button>
+    <div id="connHelp" style="display:none;margin-top:12px;background:var(--rl);border-radius:10px;padding:12px;font-size:12px;color:var(--red);line-height:1.7">
+      <strong>Common issues:</strong><br>
+      ❌ Wrong Sheet ID → paste full Google Sheet URL<br>
+      ❌ Sheet not shared → Share sheet with your service account email → give Editor access<br>
+      ❌ Key format wrong → open JSON in Notepad, copy private_key value including -----BEGIN...<br>
+      ❌ Wrong email → must end in .iam.gserviceaccount.com (not your Gmail)
+    </div>
   </div>
 </div>
 
@@ -726,10 +735,51 @@ function closeOv(e,id){if(e.target.classList.contains('mov'))document.getElement
 
 function saveCfg(){
   var rawId=document.getElementById('cfgId').value.trim();
+  // Auto-extract sheet ID from full URL
   if(rawId.includes('/d/'))rawId=rawId.split('/d/')[1].split('/')[0];
-  CFG.id=rawId;CFG.email=document.getElementById('cfgEmail').value.trim();CFG.key=document.getElementById('cfgKey').value.trim();// key is cleaned at use time in cleanPrivateKey()
-  saveCfgStore();document.getElementById('cfgModal').classList.remove('open');updateCfgBar();
-  if(isConn()){toast('Testing connection...');getToken().then(function(){toast('✓ Connected!','g');setSyncUI('idle');if(S.pendSync.length)setTimeout(syncQ,1200)}).catch(function(e){toast('Failed: '+e.message,'e')})}
+  // Remove any trailing spaces or slashes
+  rawId=rawId.replace(/[\/\s]+$/,'').trim();
+  CFG.id=rawId;
+  CFG.email=document.getElementById('cfgEmail').value.trim();
+  CFG.key=document.getElementById('cfgKey').value.trim();
+  saveCfgStore();
+  document.getElementById('cfgModal').classList.remove('open');
+  updateCfgBar();
+  if(isConn()){
+    toast('Testing connection...');
+    testConnection();
+  }
+}
+
+function testConnection(){
+  getToken()
+    .then(function(tok){
+      // Test by actually reading the sheet
+      return fetch('https://sheets.googleapis.com/v4/spreadsheets/'+CFG.id+'?fields=spreadsheetId,properties.title',{
+        headers:{'Authorization':'Bearer '+tok}
+      });
+    })
+    .then(function(r){return r.json()})
+    .then(function(d){
+      if(d.error){
+        var msg=d.error.message||'Unknown error';
+        if(msg.includes('not found')||msg.includes('404')) toast('❌ Sheet not found — check Sheet ID','e');
+        else if(msg.includes('permission')||msg.includes('403')) toast('❌ No access — share Sheet with service account email','e');
+        else toast('❌ '+msg,'e');
+        return;
+      }
+      toast('✓ Connected to: '+d.properties.title,'g');
+      setSyncUI('idle');
+      if(S.pendSync.length)setTimeout(syncQ,1200);
+    })
+    .catch(function(e){
+      var msg=e.message||'Unknown error';
+      if(msg.includes('atob')||msg.includes('encoded')) toast('❌ Private key format error — paste key exactly from JSON file','e');
+      else if(msg.includes('import')||msg.includes('pkcs8')) toast('❌ Invalid private key — make sure you copied the full key','e');
+      else if(msg.includes('Auth')||msg.includes('token')) toast('❌ Auth failed — check service account email is correct','e');
+      else toast('❌ '+msg,'e');
+      document.getElementById('connHelp').style.display='block';
+    });
 }
 function clearCfg(){if(!confirm('Disconnect?'))return;CFG={id:'',email:'',key:''};saveCfgStore();document.getElementById('cfgModal').classList.remove('open');updateCfgBar();setSyncUI('idle')}
 function updateCfgBar(){
