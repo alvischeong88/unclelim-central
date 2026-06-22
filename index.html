@@ -86,7 +86,7 @@ body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;font-si
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .tile{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:14px 12px;box-shadow:var(--sh)}
 .tlbl{font-size:11px;color:var(--mt);margin-bottom:3px;font-weight:500}
-.tval{font-size:22px;font-weight:700;font-family:'DM Mono',monospace}
+.tval{font-size:22px;font-weight:700;font-family:monospace}
 .tile.g .tval{color:var(--green)}.tile.r .tval{color:var(--red)}.tile.a .tval{color:var(--am)}
 
 /* FORMS */
@@ -110,7 +110,7 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
 .ri{flex:1;min-width:0}
 .rn{font-size:14px;font-weight:500}
 .rm{font-size:12px;color:var(--mt);margin-top:2px}
-.rv{font-family:'DM Mono',monospace;font-size:13px;font-weight:600;text-align:right;flex-shrink:0}
+.rv{font-family:monospace;font-size:13px;font-weight:600;text-align:right;flex-shrink:0}
 .ok{color:var(--green)}.low{color:var(--am)}.crit{color:var(--red)}
 .bar{height:5px;background:var(--bd);border-radius:5px;margin-top:4px;overflow:hidden}
 .bfill{height:100%;border-radius:5px}
@@ -140,7 +140,7 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
 .pname{font-size:13px;font-weight:500}
 .pcode{font-size:11px;color:var(--mt);margin-top:1px}
 .pwrap{display:flex;align-items:center;gap:5px;justify-content:center}
-.pinp{width:60px;background:#fff;border:1.5px solid var(--bd);border-radius:8px;padding:8px 4px;color:var(--tx);font-family:'DM Mono',monospace;font-size:16px;font-weight:700;text-align:center;outline:none;-moz-appearance:textfield}
+.pinp{width:60px;background:#fff;border:1.5px solid var(--bd);border-radius:8px;padding:8px 4px;color:var(--tx);font-family:monospace;font-size:16px;font-weight:700;text-align:center;outline:none;-moz-appearance:textfield}
 .pinp::-webkit-outer-spin-button,.pinp::-webkit-inner-spin-button{-webkit-appearance:none}
 .pinp:focus{border-color:var(--green)}
 .pinp.ok{border-color:var(--green);color:var(--green)}
@@ -193,7 +193,7 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
 .empty-icon{font-size:32px;margin-bottom:8px}
 
 /* DATE TIME BOX */
-.dtbox{background:var(--gl);border:1.5px solid #A8D8B8;border-radius:10px;padding:10px 12px;font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--green)}
+.dtbox{background:var(--gl);border:1.5px solid #A8D8B8;border-radius:10px;padding:10px 12px;font-family:monospace;font-size:13px;font-weight:700;color:var(--green)}
 </style>
 </head>
 <body>
@@ -462,12 +462,12 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
     <div class="srow"><span class="sbadge">2</span>Go to <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> → Enable Sheets API → Credentials → Create Service Account → Keys → JSON → Download</div>
     <div class="srow"><span class="sbadge">3</span>Share your Sheet with the <strong>client_email</strong> from the JSON → give Editor access</div>
     <label style="margin-top:14px">Google Sheet ID (or full URL)</label>
-    <input type="text" id="cfgId" placeholder="Paste full URL or just the ID — app extracts automatically" style="font-family:'DM Mono',monospace;font-size:12px">
+    <input type="text" id="cfgId" placeholder="Paste full URL or just the ID — app extracts automatically" style="font-family:monospace;font-size:12px">
     <div style="font-size:11px;color:var(--mt);margin-top:4px;margin-bottom:2px">From URL: docs.google.com/spreadsheets/d/<strong style="color:var(--green)">THIS_PART</strong>/edit</div>
     <label>Service Account Email</label>
     <input type="text" id="cfgEmail" placeholder="uncle-lim@project.iam.gserviceaccount.com" style="font-size:12px">
     <label>Private Key (from JSON file)</label>
-    <textarea id="cfgKey" rows="5" placeholder="Paste the entire private_key value from your JSON file.&#10;&#10;It can be pasted in any of these formats:&#10;• With \n characters (from JSON copy)&#10;• With real line breaks&#10;The app handles both automatically." style="width:100%;background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;padding:11px 13px;font-family:'DM Mono',monospace;font-size:11px;resize:vertical;min-height:110px;outline:none;color:var(--tx)"></textarea>
+    <textarea id="cfgKey" rows="5" placeholder="Paste the entire private_key value from your JSON file.&#10;&#10;It can be pasted in any of these formats:&#10;• With \n characters (from JSON copy)&#10;• With real line breaks&#10;The app handles both automatically." style="width:100%;background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;padding:11px 13px;font-family:monospace;font-size:11px;resize:vertical;min-height:110px;outline:none;color:var(--tx)"></textarea>
     <div class="noticeg">🔒 Credentials stored only on this device — never sent anywhere except Google's API directly.<br><br>💡 <strong>Tip:</strong> Open your JSON file in Notepad → find "private_key" → copy everything between the outer quotes (including -----BEGIN PRIVATE KEY----- and -----END PRIVATE KEY-----) → paste here.</div>
     <button class="btn btn-g" style="margin-top:14px" onclick="saveCfg()">Save & Test Connection</button>
     <button class="btn btn-o" style="margin-top:8px" onclick="testConnection()">🔄 Test Again (without saving)</button>
@@ -852,8 +852,8 @@ function reviewRecord(){
   var zeros=parsedItems.filter(function(i){return i.sets===0});
 
   document.getElementById('revMeta').innerHTML=
-    '<div style="background:var(--gl);border:1.5px solid #A8D8B8;border-radius:10px;padding:10px 12px"><div style="font-size:11px;color:var(--mt);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Date</div><div style="font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:var(--green)">'+dateStr+'</div></div>'
-    +'<div style="background:var(--gl);border:1.5px solid #A8D8B8;border-radius:10px;padding:10px 12px"><div style="font-size:11px;color:var(--mt);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Time · Worker</div><div style="font-family:\'DM Mono\',monospace;font-size:12px;font-weight:700;color:var(--green)">'+timeStr+' · '+worker+'</div></div>';
+    '<div style="background:var(--gl);border:1.5px solid #A8D8B8;border-radius:10px;padding:10px 12px"><div style="font-size:11px;color:var(--mt);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Date</div><div style="font-family:monospace;font-size:13px;font-weight:700;color:var(--green)">'+dateStr+'</div></div>'
+    +'<div style="background:var(--gl);border:1.5px solid #A8D8B8;border-radius:10px;padding:10px 12px"><div style="font-size:11px;color:var(--mt);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Time · Worker</div><div style="font-family:monospace;font-size:12px;font-weight:700;color:var(--green)">'+timeStr+' · '+worker+'</div></div>';
 
   document.getElementById('revTiles').innerHTML=
     '<div class="tile a"><div class="tlbl">Total Sets</div><div class="tval">'+totalSets+'</div></div>'
@@ -864,7 +864,7 @@ function reviewRecord(){
   document.getElementById('revRows').innerHTML=parsedItems.map(function(item,i){
     var bg=i%2===0?'#fff':'var(--bg)';
     return '<div class="rrow" style="background:'+bg+'"><div><div style="font-size:13px;font-weight:500">'+item.name+'</div><div style="font-size:11px;color:var(--mt)">'+item.code+'</div></div>'
-      +'<div style="text-align:center;font-family:\'DM Mono\',monospace;font-size:18px;font-weight:700;color:'+(item.sets>0?'var(--green)':'var(--dim)')+'">'+item.sets+'</div></div>';
+      +'<div style="text-align:center;font-family:monospace;font-size:18px;font-weight:700;color:'+(item.sets>0?'var(--green)':'var(--dim)')+'">'+item.sets+'</div></div>';
   }).join('');
 
   document.getElementById('revSub').textContent=parsedItems.length+' products · '+totalSets+' total sets · '+produced.length+' produced · '+zeros.length+' zero';
@@ -888,21 +888,42 @@ function submitRecord(){
   S.prodLog.push(entry);save();
 
   var prodCols=S.products.map(function(p){var item=parsedItems.find(function(i){return i.id===p.id});return item?item.sets:0});
-  var row=[dateStr,dayStr,worker,timeStr,totalSets,produced.length,zeros.length,totalRevenue.toFixed(2)].concat(prodCols);
+  // Calculate cost per product
+  var totalCost=S.products.reduce(function(sum,p){
+    var item=parsedItems.find(function(i){return i.id===p.id});
+    if(!item||!item.sets)return sum;
+    return sum+calcSetCost(p.id)*item.sets;
+  },0);
+  var grossProfit=totalRevenue-totalCost;
+  var margin=totalRevenue>0?((grossProfit/totalRevenue)*100).toFixed(1):'0';
+  var row=[dateStr,dayStr,worker,timeStr,totalSets,produced.length,zeros.length,
+           totalRevenue.toFixed(2),totalCost.toFixed(2),grossProfit.toFixed(2),margin+'%'].concat(prodCols);
 
   doSync('production',row,worker+' — '+totalSets+' sets').then(function(result){
     entry.synced=(result==='synced');save();
     document.getElementById('subMeta').textContent=dateStr+' · '+timeStr+' · '+worker+' · '+totalSets+' sets';
-    document.getElementById('subSync').innerHTML='<div class="ctitle">Sync Status</div>'
-      +'<div style="display:flex;align-items:center;gap:9px;padding:8px 0">'
-      +(entry.synced
-        ?'<span style="font-size:20px">✅</span><span style="font-size:13px;color:var(--green);font-weight:500">Synced to Google Sheets</span>'
-        :'<span style="font-size:20px">⏳</span><span style="font-size:13px;color:var(--am);font-weight:500">Saved locally — will sync when connected</span>')
-      +'</div>';
+    var subCost=S.products.reduce(function(sum,p){
+    var item=parsedItems.find(function(i){return i.id===p.id});
+    if(!item||!item.sets)return sum;
+    return sum+calcSetCost(p.id)*item.sets;
+  },0);
+  var subRevenue=parsedItems.reduce(function(s,item){return s+(item.price||0)*item.sets},0);
+  var subProfit=subRevenue-subCost;
+  document.getElementById('subSync').innerHTML='<div class="ctitle">Sync Status</div>'
+    +'<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--bd)">'
+    +(entry.synced
+      ?'<span style="font-size:20px">✅</span><span style="font-size:13px;color:var(--green);font-weight:500">Synced to Google Sheets</span>'
+      :'<span style="font-size:20px">⏳</span><span style="font-size:13px;color:var(--am);font-weight:500">Saved locally — will sync when connected</span>')
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px">'
+    +'<div style="text-align:center"><div style="font-size:10px;color:var(--mt);text-transform:uppercase;letter-spacing:.4px">Est. Cost</div><div style="font-family:monospace;font-size:15px;font-weight:700;color:var(--red)">RM '+subCost.toFixed(2)+'</div></div>'
+    +'<div style="text-align:center"><div style="font-size:10px;color:var(--mt);text-transform:uppercase;letter-spacing:.4px">Revenue</div><div style="font-family:monospace;font-size:15px;font-weight:700;color:var(--green)">RM '+subRevenue.toFixed(2)+'</div></div>'
+    +'<div style="text-align:center"><div style="font-size:10px;color:var(--mt);text-transform:uppercase;letter-spacing:.4px">Profit</div><div style="font-family:monospace;font-size:15px;font-weight:700;color:'+(subProfit>=0?'var(--green)':'var(--red)')+'">RM '+subProfit.toFixed(2)+'</div></div>'
+    +'</div>';
     document.getElementById('subRows').innerHTML=parsedItems.map(function(item,i){
       var bg=i%2===0?'#fff':'var(--bg)';
       return '<div class="rrow" style="background:'+bg+'"><div><div style="font-size:13px;font-weight:500">'+item.name+'</div><div style="font-size:11px;color:var(--mt)">'+item.code+'</div></div>'
-        +'<div style="text-align:center;font-family:\'DM Mono\',monospace;font-size:18px;font-weight:700;color:'+(item.sets>0?'var(--green)':'var(--dim)')+'">'+item.sets+'</div></div>';
+        +'<div style="text-align:center;font-family:monospace;font-size:18px;font-weight:700;color:'+(item.sets>0?'var(--green)':'var(--dim)')+'">'+item.sets+'</div></div>';
     }).join('');
     document.getElementById('recStep2').style.display='none';
     document.getElementById('recStep3').style.display='block';
@@ -1043,22 +1064,35 @@ function renderIngCostList(){
     var last=null;
     for(var j=PHIST.length-1;j>=0;j--){if(PHIST[j].ingId===ing.id){last=PHIST[j];break}}
     var lastDate=last?new Date(last.ts).toLocaleDateString('en-MY',{day:'2-digit',month:'short'}):'Never';
+    var isPcs=(ing.unit==='pcs'||ing.unit==='pack');
     var perKg=((ing.cost||0)*1000).toFixed(4);
     var per100=((ing.cost||0)*100).toFixed(4);
     var bg=i%2===0?'#fff':'var(--bg)';
     html+='<div style="padding:13px 16px;border-bottom:'+(i===S.ingredients.length-1?'none':'1px solid var(--bd)')+';background:'+bg+'">'
       +'<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:9px">'
-      +'<div><div style="font-size:14px;font-weight:600">'+ing.name+'</div><div style="font-size:11px;color:var(--mt);margin-top:1px">Last updated: '+lastDate+'</div></div>'
+      +'<div><div style="font-size:14px;font-weight:600">'+ing.name+'</div>'
+      +'<div style="font-size:11px;color:var(--mt);margin-top:1px">Unit: '+ing.unit+' · Last updated: '+lastDate+'</div></div>'
       +'<div style="text-align:right"><div style="font-size:10px;color:var(--mt);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Current</div>'
-      +'<div style="font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:var(--green)">RM '+(ing.cost||0).toFixed(6)+'/g</div></div>'
+      +'<div style="font-family:monospace;font-size:13px;font-weight:700;color:var(--green)">'
+      +(isPcs?'RM '+(ing.costPerUnit||0).toFixed(4)+'/'+ing.unit:'RM '+(ing.cost||0).toFixed(6)+'/g')
+      +'</div></div>'
       +'</div>'
-      +'<div style="display:flex;align-items:center;gap:8px">'
+      // Cost per gram (for weight-based)
+      +(isPcs?'':'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
       +'<input type="number" min="0" step="0.000001" placeholder="0.000000" value="'+(ing.cost||'')+'" id="ic_'+ing.id+'"'
-      +' style="flex:1;background:#fff;border:1.5px solid var(--bd);border-radius:9px;padding:10px 12px;font-family:\'DM Mono\',monospace;font-size:14px;font-weight:600;color:var(--tx);outline:none;-moz-appearance:textfield">'
+      +' style="flex:1;background:#fff;border:1.5px solid var(--bd);border-radius:9px;padding:10px 12px;font-family:monospace;font-size:14px;font-weight:600;color:var(--tx);outline:none;-moz-appearance:textfield">'
       +'<span style="font-size:12px;color:var(--mt);white-space:nowrap;font-weight:500">RM/g</span>'
-      +'<button data-iid="'+ing.id+'" class="save-ing-cost-btn" style="padding:10px 14px;background:var(--green);color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">Save</button>'
       +'</div>'
-      +'<div style="margin-top:5px;font-size:11px;color:var(--dim)">≈ RM '+perKg+'/kg · RM '+per100+'/100g</div>'
+      +'<div style="margin-bottom:6px;font-size:11px;color:var(--dim)">≈ RM '+perKg+'/kg · RM '+per100+'/100g</div>')
+      // Cost per unit (for pcs/pack)
+      +(isPcs?'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+      +'<input type="number" min="0" step="0.0001" placeholder="0.0000" value="'+(ing.costPerUnit||'')+'" id="icu_'+ing.id+'"'
+      +' style="flex:1;background:#fff;border:1.5px solid var(--bd);border-radius:9px;padding:10px 12px;font-family:monospace;font-size:14px;font-weight:600;color:var(--tx);outline:none;-moz-appearance:textfield">'
+      +'<span style="font-size:12px;color:var(--mt);white-space:nowrap;font-weight:500">RM/'+ing.unit+'</span>'
+      +'</div>':'')
+      +'<div style="display:flex;justify-content:flex-end">'
+      +'<button data-iid="'+ing.id+'" class="save-ing-cost-btn" style="padding:9px 16px;background:var(--green);color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">Save</button>'
+      +'</div>'
       +'</div>';
   }
   el.innerHTML=html;
@@ -1070,13 +1104,18 @@ function renderIngCostList(){
 function saveOneIngCost(ingId){
   var ing=S.ingredients.find(function(i){return i.id===ingId});if(!ing)return;
   var el=document.getElementById('ic_'+ingId);if(!el)return;
+  var el2=document.getElementById('icu_'+ingId);
   var newCost=parseFloat(el.value)||0;
   var oldCost=ing.cost||0;
-  if(newCost===oldCost){toast('No change','w');return}
-  PHIST.push({ingId:ingId,ingName:ing.name,oldPrice:oldCost,newPrice:newCost,
-    date:new Date().toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'}),
-    time:new Date().toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'}),ts:Date.now()});
-  ing.cost=newCost;save();savePHist();
+  if(el2) ing.costPerUnit=parseFloat(el2.value)||0;
+  if(newCost===oldCost&&!el2){toast('No change','w');return}
+  if(newCost!==oldCost){
+    PHIST.push({ingId:ingId,ingName:ing.name,oldPrice:oldCost,newPrice:newCost,
+      date:new Date().toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'}),
+      time:new Date().toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'}),ts:Date.now()});
+    ing.cost=newCost;
+  }
+  save();savePHist();
   renderIngCostList();toast('✓ '+ing.name+' price saved','g');
 }
 
@@ -1092,9 +1131,9 @@ function renderPriceHist(){
       +'<div style="flex:1"><div style="font-size:13px;font-weight:600">'+h.ingName+'</div>'
       +'<div style="font-size:11px;color:var(--mt);margin-top:2px">'+h.date+' · '+h.time+'</div>'
       +'<div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap">'
-      +'<span style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--mt);text-decoration:line-through">RM '+h.oldPrice.toFixed(6)+'/g</span>'
+      +'<span style="font-family:monospace;font-size:12px;color:var(--mt);text-decoration:line-through">RM '+h.oldPrice.toFixed(6)+'/g</span>'
       +'<span style="color:var(--dim)">→</span>'
-      +'<span style="font-family:\'DM Mono\',monospace;font-size:12px;font-weight:700">RM '+h.newPrice.toFixed(6)+'/g</span>'
+      +'<span style="font-family:monospace;font-size:12px;font-weight:700">RM '+h.newPrice.toFixed(6)+'/g</span>'
       +(pct?'<span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:8px;background:'+(up?'var(--rl)':'var(--gl)')+';color:'+(up?'var(--red)':'var(--green)')+'">'+( up?'+':'')+pct+'%</span>':'')
       +'</div></div></div>';
   }).join('');
@@ -1104,7 +1143,24 @@ function calcSetCost(prodId){
   var recipe=RECIPES[prodId]||[];
   return recipe.reduce(function(t,line){
     var ing=S.ingredients.find(function(i){return i.id===line.ingId});
-    return t+(ing?(ing.cost||0)*line.grams:0);
+    if(!ing)return t;
+    // Convert qty to grams for cost calculation based on ingredient unit
+    var costPerG=ing.cost||0; // stored as RM per gram
+    var qty=line.qty||line.grams||0;
+    var unit=line.unit||'g';
+    var qtyInG=qty;
+    if(unit==='kg') qtyInG=qty*1000;
+    else if(unit==='L') qtyInG=qty*1000;
+    else if(unit==='ml') qtyInG=qty;
+    else if(unit==='pcs'||unit==='pack') qtyInG=qty; // pcs: use cost per pcs stored as cost field directly
+    // For pcs/pack, ingredient cost field = RM per pcs
+    var lineCost=0;
+    if(unit==='pcs'||unit==='pack'){
+      lineCost=(ing.costPerUnit||ing.cost||0)*qty;
+    } else {
+      lineCost=costPerG*qtyInG;
+    }
+    return t+lineCost;
   },0);
 }
 
@@ -1123,68 +1179,95 @@ function renderRecipeEditor(){
   var sellPrice=(product&&product.price)||0;
   var profit=sellPrice-setCost;
 
+  // Build recipe rows
   var lines='';
   for(var idx=0;idx<recipe.length;idx++){
     var line=recipe[idx];
     var ing=S.ingredients.find(function(i){return i.id===line.ingId});
-    var lc=(ing?ing.cost||0:0)*line.grams;
+    var qty=line.qty||line.grams||0;
+    var unit=line.unit||'g';
+    var lineCost=0;
+    if(ing){
+      if(unit==='pcs'||unit==='pack') lineCost=(ing.costPerUnit||ing.cost||0)*qty;
+      else{
+        var qInG=unit==='kg'?qty*1000:unit==='L'?qty*1000:qty;
+        lineCost=(ing.cost||0)*qInG;
+      }
+    }
     var bg=idx%2===0?'#fff':'var(--bg)';
-    lines+='<div style="display:grid;grid-template-columns:1fr 75px 65px 34px;gap:8px;padding:10px 16px;border-bottom:1px solid var(--bd);align-items:center;background:'+bg+'">'
-      +'<div><div style="font-size:13px;font-weight:500">'+(ing?ing.name:'?')+'</div><div style="font-size:10px;color:var(--mt)">RM '+(ing?ing.cost||0:0).toFixed(6)+'/g</div></div>'
-      +'<input type="number" min="0" step="0.1" value="'+line.grams+'" data-ridx="'+idx+'" class="rgrams"'
-      +' style="width:100%;background:var(--bg);border:1.5px solid var(--bd);border-radius:7px;padding:7px 4px;font-family:\'DM Mono\',monospace;font-size:13px;font-weight:600;text-align:center;outline:none;-moz-appearance:textfield">'
-      +'<div style="font-family:\'DM Mono\',monospace;font-size:12px;font-weight:600;color:var(--green);text-align:right">RM '+lc.toFixed(4)+'</div>'
+    lines+='<div style="display:grid;grid-template-columns:1fr 70px 70px 60px 34px;gap:6px;padding:10px 14px;border-bottom:1px solid var(--bd);align-items:center;background:'+bg+'">'
+      +'<div><div style="font-size:13px;font-weight:500">'+(ing?ing.name:'?')+'</div>'
+      +'<div style="font-size:10px;color:var(--mt)">RM '+(ing?((unit==='pcs'||unit==='pack')?(ing.costPerUnit||ing.cost||0).toFixed(4):(ing.cost||0).toFixed(6)):0)+'/'+unit+'</div></div>'
+      +'<input type="number" min="0" step="0.01" value="'+qty+'" data-ridx="'+idx+'" class="rgrams"'
+      +' style="width:100%;background:var(--bg);border:1.5px solid var(--bd);border-radius:7px;padding:7px 4px;font-family:monospace;font-size:13px;font-weight:600;text-align:center;outline:none;-moz-appearance:textfield">'
+      +'<select data-ridx="'+idx+'" class="runit" style="background:var(--bg);border:1.5px solid var(--bd);border-radius:7px;padding:7px 4px;font-size:12px;outline:none;-webkit-appearance:none;text-align:center">'
+      +['g','kg','ml','L','pcs','pack'].map(function(u){return'<option value="'+u+'"'+(u===unit?' selected':'')+'>'+u+'</option>'}).join('')
+      +'</select>'
+      +'<div style="font-family:monospace;font-size:11px;font-weight:600;color:var(--green);text-align:right">RM '+lineCost.toFixed(3)+'</div>'
       +'<button data-ridx="'+idx+'" class="rm-recipe" style="width:30px;height:30px;border-radius:8px;background:var(--rl);border:none;cursor:pointer;color:var(--red);font-size:16px;font-weight:700">×</button>'
       +'</div>';
   }
 
-  var ingOpts=S.ingredients.map(function(i){return'<option value="'+i.id+'">'+i.name+'</option>'}).join('');
+  var ingOpts=S.ingredients.map(function(i){return'<option value="'+i.id+'">'+i.name+' ('+i.unit+')</option>'}).join('');
 
   document.getElementById('recipeEditor').innerHTML=
     '<div class="card" style="padding:0;overflow:hidden">'
     +'<div style="padding:12px 16px;background:var(--green);display:flex;align-items:center;justify-content:space-between">'
     +'<div style="font-size:13px;font-weight:700;color:#fff">'+(product?product.name:'')+' </div>'
-    +'<div style="text-align:right"><div style="font-size:10px;color:rgba(255,255,255,.7)">Cost/set</div><div style="font-family:\'DM Mono\',monospace;font-size:16px;font-weight:700;color:#fff">RM '+setCost.toFixed(4)+'</div></div>'
+    +'<div style="text-align:right"><div style="font-size:10px;color:rgba(255,255,255,.7)">Cost/set</div>'
+    +'<div style="font-family:monospace;font-size:16px;font-weight:700;color:#fff">RM '+setCost.toFixed(3)+'</div></div>'
     +'</div>'
-    +'<div style="padding:9px 16px;border-bottom:1px solid var(--bd);background:var(--bg)">'
-    +'<div style="display:grid;grid-template-columns:1fr 75px 65px 34px;gap:8px">'
+    // Table header
+    +'<div style="padding:8px 14px;border-bottom:1px solid var(--bd);background:var(--bg)">'
+    +'<div style="display:grid;grid-template-columns:1fr 70px 70px 60px 34px;gap:6px">'
     +'<div style="font-size:10px;font-weight:700;color:var(--mt);text-transform:uppercase;letter-spacing:.5px">Ingredient</div>'
-    +'<div style="font-size:10px;font-weight:700;color:var(--mt);text-transform:uppercase;letter-spacing:.5px;text-align:center">g / set</div>'
+    +'<div style="font-size:10px;font-weight:700;color:var(--mt);text-transform:uppercase;letter-spacing:.5px;text-align:center">Qty</div>'
+    +'<div style="font-size:10px;font-weight:700;color:var(--mt);text-transform:uppercase;letter-spacing:.5px;text-align:center">Unit</div>'
     +'<div style="font-size:10px;font-weight:700;color:var(--mt);text-transform:uppercase;letter-spacing:.5px;text-align:right">Cost</div>'
     +'<div></div></div></div>'
-    +(recipe.length===0?'<div class="empty" style="padding:16px"><p>No ingredients added yet</p></div>':'')
+    +(recipe.length===0?'<div class="empty" style="padding:16px"><p>No ingredients added yet — add below</p></div>':'')
     +lines
-    +'<div style="padding:12px 16px;border-bottom:1px solid var(--bd);background:#fff">'
-    +'<div style="display:grid;grid-template-columns:1fr 75px auto;gap:8px;align-items:center">'
+    // Add ingredient row
+    +'<div style="padding:12px 14px;border-bottom:1px solid var(--bd);background:#fff">'
+    +'<div style="display:grid;grid-template-columns:1fr 70px 70px auto;gap:6px;align-items:center">'
     +'<select id="newRIng" style="background:var(--bg);border:1.5px solid var(--bd);border-radius:9px;padding:9px 8px;font-size:12px;outline:none;-webkit-appearance:none;color:var(--tx)">'+ingOpts+'</select>'
-    +'<input type="number" id="newRGrams" min="0" step="0.1" placeholder="g" style="background:var(--bg);border:1.5px solid var(--bd);border-radius:9px;padding:9px 6px;font-family:\'DM Mono\',monospace;font-size:14px;font-weight:600;text-align:center;outline:none;-moz-appearance:textfield;color:var(--tx)">'
-    +'<button id="addRLineBtn" style="padding:9px 14px;background:var(--green);color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">+ Add</button>'
+    +'<input type="number" id="newRQty" min="0" step="0.01" placeholder="qty" style="background:var(--bg);border:1.5px solid var(--bd);border-radius:9px;padding:9px 6px;font-family:monospace;font-size:14px;font-weight:600;text-align:center;outline:none;-moz-appearance:textfield;color:var(--tx)">'
+    +'<select id="newRUnit" style="background:var(--bg);border:1.5px solid var(--bd);border-radius:9px;padding:9px 6px;font-size:12px;outline:none;-webkit-appearance:none;color:var(--tx)">'
+    +['g','kg','ml','L','pcs','pack'].map(function(u){return'<option value="'+u+'">'+u+'</option>'}).join('')
+    +'</select>'
+    +'<button id="addRLineBtn" style="padding:9px 14px;background:var(--green);color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">+ Add</button>'
     +'</div></div>'
-    +'<div style="padding:12px 16px;background:var(--gl);display:flex;align-items:center;justify-content:space-between;gap:10px">'
-    +'<div><div style="font-size:12px;font-weight:600;color:var(--green)">Selling Price/set (RM)</div><div style="font-size:11px;color:var(--gm)">From Setup — edit there</div></div>'
-    +'<div style="font-family:\'DM Mono\',monospace;font-size:18px;font-weight:700;color:var(--green)">RM '+sellPrice.toFixed(2)+'</div>'
+    // Selling price row
+    +'<div style="padding:12px 14px;background:var(--gl);display:flex;align-items:center;justify-content:space-between;gap:10px">'
+    +'<div><div style="font-size:12px;font-weight:600;color:var(--green)">Selling Price/set (RM)</div>'
+    +'<div style="font-size:11px;color:var(--gm)">Edit in Setup tab</div></div>'
+    +'<div style="font-family:monospace;font-size:18px;font-weight:700;color:var(--green)">RM '+sellPrice.toFixed(2)+'</div>'
     +'</div></div>';
 
   document.getElementById('recipeSummary').innerHTML=
-    '<div class="ctitle">Cost Summary</div>'
+    '<div class="ctitle">Cost Summary — '+(product?product.name:'')+'</div>'
     +'<div class="tiles" style="margin-bottom:0">'
-    +'<div class="tile g"><div class="tlbl">Cost/set</div><div class="tval" style="font-size:16px">RM '+setCost.toFixed(4)+'</div></div>'
-    +'<div class="tile a"><div class="tlbl">Price/set</div><div class="tval" style="font-size:16px">RM '+sellPrice.toFixed(2)+'</div></div>'
-    +'<div class="tile '+(profit>=0?'g':'r')+'"><div class="tlbl">Profit/set</div><div class="tval" style="font-size:16px">RM '+profit.toFixed(4)+'</div></div>'
-    +'<div class="tile"><div class="tlbl">Margin</div><div class="tval" style="font-size:16px">'+(sellPrice>0?((profit/sellPrice)*100).toFixed(1):0)+'%</div></div>'
+    +'<div class="tile g"><div class="tlbl">Cost/set</div><div class="tval" style="font-size:15px">RM '+setCost.toFixed(3)+'</div></div>'
+    +'<div class="tile a"><div class="tlbl">Price/set</div><div class="tval" style="font-size:15px">RM '+sellPrice.toFixed(2)+'</div></div>'
+    +'<div class="tile '+(profit>=0?'g':'r')+'"><div class="tlbl">Profit/set</div><div class="tval" style="font-size:15px">RM '+profit.toFixed(3)+'</div></div>'
+    +'<div class="tile"><div class="tlbl">Margin</div><div class="tval" style="font-size:15px">'+(sellPrice>0?((profit/sellPrice)*100).toFixed(1):0)+'%</div></div>'
     +'</div>';
 
-  // Bind all events
+  // Bind events
   setTimeout(function(){
     var addBtn=document.getElementById('addRLineBtn');
     if(addBtn)addBtn.addEventListener('click',function(){
       var ingId=parseInt(document.getElementById('newRIng').value);
-      var grams=parseFloat(document.getElementById('newRGrams').value)||0;
-      if(!grams){toast('Enter grams','w');return}
+      var qty=parseFloat(document.getElementById('newRQty').value)||0;
+      var unit=document.getElementById('newRUnit').value;
+      if(!qty){toast('Enter quantity','w');return}
       if(!RECIPES[curRecipeProd])RECIPES[curRecipeProd]=[];
       var ex=RECIPES[curRecipeProd].find(function(l){return l.ingId===ingId});
-      if(ex)ex.grams=parseFloat((ex.grams+grams).toFixed(2));else RECIPES[curRecipeProd].push({ingId:ingId,grams:grams});
-      saveRecipes();document.getElementById('newRGrams').value='';renderRecipeEditor();toast('✓ Added','g');
+      if(ex){ex.qty=parseFloat((ex.qty+qty).toFixed(3));ex.unit=unit;}
+      else RECIPES[curRecipeProd].push({ingId:ingId,qty:qty,unit:unit,grams:qty});
+      saveRecipes();
+      document.getElementById('newRQty').value='';
+      renderRecipeEditor();toast('✓ Added','g');
     });
     document.querySelectorAll('.rm-recipe').forEach(function(btn){
       btn.addEventListener('click',function(){
@@ -1194,10 +1277,17 @@ function renderRecipeEditor(){
       });
     });
     document.querySelectorAll('.rgrams').forEach(function(inp){
-      inp.addEventListener('input',function(){
+      inp.addEventListener('change',function(){
         var idx=parseInt(this.getAttribute('data-ridx'));
-        if(RECIPES[curRecipeProd])RECIPES[curRecipeProd][idx].grams=parseFloat(this.value)||0;
-        saveRecipes();
+        if(RECIPES[curRecipeProd]){RECIPES[curRecipeProd][idx].qty=parseFloat(this.value)||0;RECIPES[curRecipeProd][idx].grams=parseFloat(this.value)||0;}
+        saveRecipes();renderRecipeEditor();
+      });
+    });
+    document.querySelectorAll('.runit').forEach(function(sel){
+      sel.addEventListener('change',function(){
+        var idx=parseInt(this.getAttribute('data-ridx'));
+        if(RECIPES[curRecipeProd])RECIPES[curRecipeProd][idx].unit=this.value;
+        saveRecipes();renderRecipeEditor();
       });
     });
   },30);
