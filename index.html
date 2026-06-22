@@ -1103,16 +1103,31 @@ function renderIngCostList(){
 
 function saveOneIngCost(ingId){
   var ing=S.ingredients.find(function(i){return i.id===ingId});if(!ing)return;
-  var el=document.getElementById('ic_'+ingId);if(!el)return;
-  var el2=document.getElementById('icu_'+ingId);
-  var newCost=parseFloat(el.value)||0;
-  var oldCost=ing.cost||0;
-  if(el2) ing.costPerUnit=parseFloat(el2.value)||0;
-  if(newCost===oldCost&&!el2){toast('No change','w');return}
-  if(newCost!==oldCost){
+  var isPcs=(ing.unit==='pcs'||ing.unit==='pack');
+  var now=new Date();
+  var dateStr=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+  var timeStr=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+
+  if(isPcs){
+    // pcs/pack: save costPerUnit from icu_ input
+    var elU=document.getElementById('icu_'+ingId);
+    if(!elU){toast('Input not found','e');return}
+    var newCostPerUnit=parseFloat(elU.value)||0;
+    var oldCostPerUnit=ing.costPerUnit||0;
+    if(newCostPerUnit===oldCostPerUnit){toast('No change','w');return}
+    PHIST.push({ingId:ingId,ingName:ing.name,oldPrice:oldCostPerUnit,newPrice:newCostPerUnit,
+      date:dateStr,time:timeStr,ts:Date.now(),unit:ing.unit});
+    ing.costPerUnit=newCostPerUnit;
+    ing.cost=newCostPerUnit; // also store in cost for backward compat
+  } else {
+    // gram-based: save cost from ic_ input
+    var elG=document.getElementById('ic_'+ingId);
+    if(!elG){toast('Input not found','e');return}
+    var newCost=parseFloat(elG.value)||0;
+    var oldCost=ing.cost||0;
+    if(newCost===oldCost){toast('No change','w');return}
     PHIST.push({ingId:ingId,ingName:ing.name,oldPrice:oldCost,newPrice:newCost,
-      date:new Date().toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'}),
-      time:new Date().toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'}),ts:Date.now()});
+      date:dateStr,time:timeStr,ts:Date.now(),unit:'g'});
     ing.cost=newCost;
   }
   save();savePHist();
@@ -1144,20 +1159,21 @@ function calcSetCost(prodId){
   return recipe.reduce(function(t,line){
     var ing=S.ingredients.find(function(i){return i.id===line.ingId});
     if(!ing)return t;
-    // Convert qty to grams for cost calculation based on ingredient unit
-    var costPerG=ing.cost||0; // stored as RM per gram
     var qty=line.qty||line.grams||0;
     var unit=line.unit||'g';
-    var qtyInG=qty;
-    if(unit==='kg') qtyInG=qty*1000;
-    else if(unit==='L') qtyInG=qty*1000;
-    else if(unit==='ml') qtyInG=qty;
-    else if(unit==='pcs'||unit==='pack') qtyInG=qty; // pcs: use cost per pcs stored as cost field directly
-    // For pcs/pack, ingredient cost field = RM per pcs
     var lineCost=0;
     if(unit==='pcs'||unit==='pack'){
-      lineCost=(ing.costPerUnit||ing.cost||0)*qty;
+      // Use costPerUnit (RM per piece), fallback to cost
+      var costPer=ing.costPerUnit||ing.cost||0;
+      lineCost=costPer*qty;
     } else {
+      // Weight/volume based — cost stored as RM per gram
+      var costPerG=ing.cost||0;
+      var qtyInG=qty;
+      if(unit==='kg') qtyInG=qty*1000;
+      else if(unit==='L') qtyInG=qty*1000;
+      else if(unit==='ml') qtyInG=qty;
+      // g and ml both = qty as-is
       lineCost=costPerG*qtyInG;
     }
     return t+lineCost;
@@ -1373,41 +1389,67 @@ function handleXlsxFile(file){
 
 function parseWorkbook(wb){
   importData={products:[],ingredients:[]};
-  var msgs=[];
+
+  // Helper: convert sheet to array of arrays, find header row, parse from there
+  function parseSheet(sheet){
+    // Get all rows as arrays
+    var arr=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+    // Find header row — look for row containing 'Product Code' or 'Ingredient Name'
+    var headerIdx=-1;
+    var headers=[];
+    for(var i=0;i<arr.length;i++){
+      var row=arr[i];
+      var rowStr=row.join('|').toLowerCase();
+      if(rowStr.indexOf('product code')>=0||rowStr.indexOf('ingredient name')>=0||rowStr.indexOf('product name')>=0){
+        headerIdx=i;
+        headers=row.map(function(h){return String(h||'').trim()});
+        break;
+      }
+    }
+    if(headerIdx<0)return[];
+    // Build objects from rows after header
+    var result=[];
+    for(var r=headerIdx+1;r<arr.length;r++){
+      var rowArr=arr[r];
+      if(!rowArr||!rowArr.length)continue;
+      // Skip warning/note rows
+      var firstCell=String(rowArr[0]||'').trim();
+      if(!firstCell||firstCell.startsWith('⚠️'))continue;
+      var obj={};
+      headers.forEach(function(h,ci){obj[h]=rowArr[ci]!==undefined?rowArr[ci]:''});
+      result.push(obj);
+    }
+    return result;
+  }
 
   // Parse Products sheet
   var prodSheet=wb.Sheets['Products']||wb.Sheets[wb.SheetNames[0]];
   if(prodSheet){
-    var rows=XLSX.utils.sheet_to_json(prodSheet,{defval:''});
-    var count=0;
+    var rows=parseSheet(prodSheet);
     rows.forEach(function(row){
-      // Try different header name variations
-      var code=String(row['Product Code']||row['Code']||row['CODE']||'').trim();
-      var name=String(row['Product Name']||row['Name']||row['NAME']||'').trim();
-      var price=parseFloat(row['Selling Price / Set (RM)']||row['Price']||row['Selling Price']||0)||0;
-      if(code&&name){
-        importData.products.push({code:code,name:name,price:price});count++;
+      var code=String(row['Product Code']||row['Code']||'').trim();
+      var name=String(row['Product Name']||row['Name']||'').trim();
+      var price=parseFloat(row['Selling Price / Set (RM)']||row['Price']||0)||0;
+      if(code&&name&&!code.startsWith('⚠️')){
+        importData.products.push({code:code,name:name,price:price});
       }
     });
-    msgs.push({type:'product',count:count,ok:count>0});
   }
 
   // Parse Ingredients sheet
   var ingSheet=wb.Sheets['Ingredients']||wb.Sheets[wb.SheetNames[1]];
   if(ingSheet){
-    var irows=XLSX.utils.sheet_to_json(ingSheet,{defval:''});
-    var icount=0;
+    var irows=parseSheet(ingSheet);
     irows.forEach(function(row){
-      var name=String(row['Ingredient Name']||row['Name']||row['NAME']||'').trim();
-      var unit=String(row['Unit']||row['UNIT']||'g').trim()||'g';
-      var stock=parseFloat(row['Opening Stock']||row['Stock']||0)||0;
-      var reorder=parseFloat(row['Reorder Level']||row['Reorder']||0)||0;
-      var cost=parseFloat(row['Cost per Gram (RM/g)']||row['Cost']||row['Cost/g']||0)||0;
-      if(name){
-        importData.ingredients.push({name:name,unit:unit,stock:stock,reorder:reorder,cost:cost});icount++;
+      var name=String(row['Ingredient Name']||row['Name']||'').trim();
+      var unit=String(row['Unit']||'g').trim()||'g';
+      var stock=parseFloat(row['Opening Stock']||0)||0;
+      var reorder=parseFloat(row['Reorder Level']||0)||0;
+      var cost=parseFloat(row['Cost per Gram (RM/g)']||row['Cost']||0)||0;
+      if(name&&!name.startsWith('⚠️')){
+        importData.ingredients.push({name:name,unit:unit,stock:stock,reorder:reorder,cost:cost});
       }
     });
-    msgs.push({type:'ingredient',count:icount,ok:icount>0});
   }
 
   if(!importData.products.length&&!importData.ingredients.length){
