@@ -20,6 +20,28 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:15px;min-height:100vh;padding-bottom:80px;max-width:430px;margin:0 auto}
 
+
+/* ── LOGIN SCREEN ── */
+.login-screen{position:fixed;inset:0;background:var(--green-d);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;padding:24px}
+.login-logo{font-size:48px;margin-bottom:8px}
+.login-brand{font-size:22px;font-weight:700;color:#fff;margin-bottom:4px;letter-spacing:-.5px}
+.login-sub{font-size:13px;color:rgba(255,255,255,.6);margin-bottom:36px}
+.login-card{background:#fff;border-radius:20px;padding:24px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.login-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:18px}
+.login-input{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:15px;outline:none;margin-bottom:10px;transition:border-color .15s}
+.login-input:focus{border-color:var(--green)}
+.login-btn{width:100%;padding:13px;background:var(--green);color:#fff;border:none;border-radius:11px;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px;box-shadow:0 4px 12px rgba(27,107,58,.3);transition:opacity .15s}
+.login-btn:active{opacity:.85}
+.login-error{background:var(--red-l);color:var(--red);font-size:13px;font-weight:500;padding:10px 12px;border-radius:9px;margin-top:10px;display:none;text-align:center}
+
+/* ── USER PILL ── */
+.user-pill{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border-radius:20px;padding:4px 10px 4px 6px;cursor:pointer}
+.user-avatar{width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff}
+.user-name{font-size:12px;font-weight:600;color:#fff}
+
+/* ── BOSS PANEL ── */
+.boss-modal{background:#fff;border-radius:20px 20px 0 0;padding:20px 20px 44px;width:100%;max-height:90vh;overflow-y:auto}
+
 /* CONFIG BANNER */
 .cfg-bar{background:#FEE8E6;border-bottom:2px solid var(--red);padding:10px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .2s}
 .cfg-bar.ok{background:#E8F5EE;border-bottom-color:var(--green)}
@@ -197,6 +219,55 @@ select option{background:#fff}
 </head>
 <body>
 
+<!-- ── LOGIN SCREEN ───────────────────────────────────────────────────────── -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-logo">🍳</div>
+  <div class="login-brand">Uncle Lim's Kitchen</div>
+  <div class="login-sub">Central Kitchen Tracker</div>
+  <div class="login-card">
+    <div class="login-title">Sign in to continue</div>
+    <input class="login-input" type="text" id="loginUser" placeholder="Username" autocomplete="username" autocapitalize="none">
+    <input class="login-input" type="password" id="loginPass" placeholder="Password" autocomplete="current-password"
+      onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">Sign In</button>
+    <div class="login-error" id="loginError">Incorrect username or password</div>
+  </div>
+</div>
+
+<!-- ── BOSS PANEL MODAL ────────────────────────────────────────────────────── -->
+<div class="modal-ov" id="bossModal" onclick="closeOv(event,'bossModal')">
+  <div class="boss-modal">
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="modal-title" style="margin-bottom:0">Team Accounts</div>
+      <button onclick="openAddUser()" style="padding:8px 14px;background:var(--green);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer">+ Add User</button>
+    </div>
+    <div id="userList"></div>
+
+    <div id="addUserPanel" style="display:none;margin-top:16px;background:var(--bg);border-radius:12px;padding:14px">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">New Account</div>
+      <input class="login-input" type="text" id="newUsername" placeholder="Username" style="margin-bottom:8px">
+      <input class="login-input" type="password" id="newPassword" placeholder="Password" style="margin-bottom:8px">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text);text-transform:none;letter-spacing:0;margin:0;flex:1">
+          <input type="radio" name="newRole" value="worker" checked> Worker
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text);text-transform:none;letter-spacing:0;margin:0;flex:1">
+          <input type="radio" name="newRole" value="boss"> Boss
+        </label>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px;background:var(--amber-l);padding:8px 10px;border-radius:8px">
+        🔑 <strong>Boss</strong> — sees all tabs including Cost, Setup & Reports<br>
+        👷 <strong>Worker</strong> — sees Record tab only
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="saveNewUser()" style="flex:1;padding:11px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">Save</button>
+        <button onclick="document.getElementById('addUserPanel').style.display='none'" style="flex:1;padding:11px;background:var(--bg);color:var(--muted);border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- CONFIG BANNER -->
 <div class="cfg-bar" id="cfgBar" onclick="openModal('cfgModal')">
   <div class="cfg-dot" id="cfgDot"></div>
@@ -211,7 +282,10 @@ select option{background:#fff}
 <div class="hdr">
   <div class="hdr-top">
     <h1>🍳 Uncle Lim's Kitchen</h1>
-    <span class="hdr-date" id="hdrDate"></span>
+    <div class="user-pill" onclick="openUserMenu()" id="userPill">
+      <div class="user-avatar" id="userAvatar">?</div>
+      <div class="user-name" id="userNameDisplay">...</div>
+    </div>
   </div>
   <div class="hdr-sub">Central Kitchen Tracker</div>
   <div class="sync-row">
@@ -1149,9 +1223,142 @@ function toast(msg,type){
   el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2400);
 }
 
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+// Users stored as [{username, passHash, role:'boss'|'worker'}]
+// We use a simple hash (SHA-256 via SubtleCrypto) for password storage
+let USERS = JSON.parse(localStorage.getItem('ulkUsers')||'null');
+let currentUser = null;
+
+// Default boss account on first run
+function initUsers(){
+  if(!USERS){
+    USERS=[{username:'boss',passHash:'',role:'boss',plain:'boss123'}];
+    // We'll store plain temporarily and hash on first login check
+    localStorage.setItem('ulkUsers',JSON.stringify(USERS));
+  }
+}
+
+async function sha256(str){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function doLogin(){
+  const username=document.getElementById('loginUser').value.trim().toLowerCase();
+  const password=document.getElementById('loginPass').value;
+  const errEl=document.getElementById('loginError');
+  errEl.style.display='none';
+  if(!username||!password){errEl.textContent='Enter username and password';errEl.style.display='block';return}
+  const hash=await sha256(password);
+  // Check against users — support plain (first login) and hashed
+  const user=USERS.find(u=>u.username.toLowerCase()===username&&(u.passHash===hash||(u.plain&&u.plain===password)));
+  if(!user){errEl.textContent='Incorrect username or password';errEl.style.display='block';return}
+  // Upgrade plain to hash
+  if(user.plain){user.passHash=hash;delete user.plain;localStorage.setItem('ulkUsers',JSON.stringify(USERS))}
+  currentUser=user;
+  sessionStorage.setItem('ulkSession',JSON.stringify({username:user.username,role:user.role}));
+  document.getElementById('loginScreen').style.display='none';
+  applyRoleUI();
+  updateCfgBar();setSyncUI('idle');render();renderChecklist();
+  setInterval(updateDateTime,30000);
+}
+
+function applyRoleUI(){
+  if(!currentUser)return;
+  // Update user pill
+  document.getElementById('userAvatar').textContent=currentUser.username.charAt(0).toUpperCase();
+  document.getElementById('userNameDisplay').textContent=currentUser.username;
+  // Worker: show only Record tab, hide others
+  const tabs=document.querySelectorAll('.nav-tab');
+  const pages=['dash','record','cost','stock','setup'];
+  if(currentUser.role==='worker'){
+    tabs.forEach((t,i)=>{t.style.display=i===1?'flex':'none'});
+    showPage('record');
+    // pre-fill worker name
+    const wn=document.getElementById('workerName');
+    if(wn&&!wn.value)wn.value=currentUser.username;
+  } else {
+    tabs.forEach(t=>t.style.display='flex');
+    showPage('dash');
+  }
+}
+
+function openUserMenu(){
+  if(currentUser?.role==='boss'){
+    renderUserList();openModal('bossModal');
+  } else {
+    if(confirm('Sign out of Uncle Lim\'s Kitchen?'))signOut();
+  }
+}
+
+function signOut(){
+  currentUser=null;sessionStorage.removeItem('ulkSession');
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('loginUser').value='';
+  document.getElementById('loginPass').value='';
+}
+
+function renderUserList(){
+  const el=document.getElementById('userList');
+  if(!el)return;
+  el.innerHTML=USERS.map(u=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border)">
+      <div style="width:36px;height:36px;border-radius:10px;background:${u.role==='boss'?'var(--green-l)':'var(--blue-l)'};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:${u.role==='boss'?'var(--green)':'var(--blue)'};flex-shrink:0">${u.username.charAt(0).toUpperCase()}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:600;color:var(--text)">${u.username}</div>
+        <div style="font-size:11px;margin-top:2px"><span style="background:${u.role==='boss'?'var(--green-l)':'var(--amber-l)'};color:${u.role==='boss'?'var(--green)':'var(--amber)'};padding:2px 8px;border-radius:6px;font-weight:600">${u.role==='boss'?'👑 Boss':'👷 Worker'}</span></div>
+      </div>
+      ${u.username===currentUser?.username?'<span style="font-size:11px;color:var(--muted);font-weight:500">You</span>':
+        `<button onclick="deleteUser('${u.username}')" style="padding:6px 10px;background:var(--red-l);color:var(--red);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Remove</button>`
+      }
+    </div>`).join('');
+  // Sign out button
+  el.innerHTML+=`<button onclick="signOut()" style="width:100%;margin-top:14px;padding:12px;background:var(--bg);color:var(--red);border:1.5px solid var(--red);border-radius:11px;font-size:14px;font-weight:700;cursor:pointer">Sign Out</button>`;
+}
+
+function openAddUser(){
+  document.getElementById('addUserPanel').style.display='block';
+  document.getElementById('newUsername').value='';
+  document.getElementById('newPassword').value='';
+}
+
+async function saveNewUser(){
+  const username=document.getElementById('newUsername').value.trim().toLowerCase();
+  const password=document.getElementById('newPassword').value;
+  const role=document.querySelector('input[name="newRole"]:checked').value;
+  if(!username||!password){toast('Fill in username and password','w');return}
+  if(USERS.find(u=>u.username===username)){toast('Username already exists','w');return}
+  const hash=await sha256(password);
+  USERS.push({username,passHash:hash,role});
+  localStorage.setItem('ulkUsers',JSON.stringify(USERS));
+  document.getElementById('addUserPanel').style.display='none';
+  renderUserList();toast('✓ '+username+' added','g');
+}
+
+function deleteUser(username){
+  if(!confirm('Remove user "'+username+'"?'))return;
+  USERS=USERS.filter(u=>u.username!==username);
+  localStorage.setItem('ulkUsers',JSON.stringify(USERS));
+  renderUserList();toast('User removed','g');
+}
+
+function checkSession(){
+  initUsers();
+  const sess=sessionStorage.getItem('ulkSession');
+  if(sess){
+    try{
+      const s=JSON.parse(sess);
+      const user=USERS.find(u=>u.username===s.username&&u.role===s.role);
+      if(user){currentUser=user;document.getElementById('loginScreen').style.display='none';applyRoleUI();return}
+    }catch(e){}
+  }
+  document.getElementById('loginScreen').style.display='flex';
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
-initProductData();updateCfgBar();setSyncUI('idle');render();renderChecklist();
-setInterval(updateDateTime,30000);
+initProductData();
+// Auth check — renders app only after login
+checkSession();
 </script>
 </body>
 </html>
