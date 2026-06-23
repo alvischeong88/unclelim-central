@@ -388,7 +388,20 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
       <input type="file" id="xlsxInput" class="upload-input" accept=".xlsx,.xls" onchange="handleXlsxFile(this.files[0])">
     </div>
     <div id="importPreview" style="display:none"></div>
-    <button class="btn btn-g" id="importConfirmBtn" style="display:none" onclick="confirmImport()">✓ Import All into App</button>
+    <div id="importModePanel" style="display:none;background:var(--bg);border-radius:12px;padding:14px;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:10px">Import Mode</div>
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:10px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--tx);font-weight:400">
+        <input type="radio" name="importMode" value="merge" checked style="width:18px;height:18px;margin-top:1px;flex-shrink:0;accent-color:var(--green)">
+        <div><div style="font-weight:600;color:var(--tx)">Merge (recommended)</div>
+        <div style="font-size:12px;color:var(--mt);margin-top:2px">Add new items + update prices/names. Existing recipes kept unless Excel has newer version.</div></div>
+      </label>
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:13px;color:var(--tx);font-weight:400">
+        <input type="radio" id="importModeUpdate" name="importMode" value="update" style="width:18px;height:18px;margin-top:1px;flex-shrink:0;accent-color:var(--green)">
+        <div><div style="font-weight:600;color:var(--tx)">Full Update</div>
+        <div style="font-size:12px;color:var(--mt);margin-top:2px">Replace recipes entirely from Excel. Use this when you have changed ingredient quantities in the recipe.</div></div>
+      </label>
+    </div>
+    <button class="btn btn-g" id="importConfirmBtn" style="display:none" onclick="confirmImport()">✓ Import & Update</button>
     <button class="btn btn-o" id="importCancelBtn" style="display:none;margin-top:8px" onclick="cancelImport()">✕ Cancel</button>
   </div>
 
@@ -448,7 +461,13 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
     </div>
   </div>
 
-  <button class="btn btn-r" onclick="resetAll()">⚠️ Reset All Data</button>
+  <div style="background:var(--gl);border:1.5px solid #A8D8B8;border-radius:12px;padding:14px;margin-bottom:10px">
+  <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:4px">📱 Multi-Device Sync</div>
+  <div style="font-size:12px;color:var(--mt);margin-bottom:10px;line-height:1.5">Push your products, ingredients and recipes to Google Sheets so all phones load the same setup automatically.</div>
+  <button onclick="pushSetupToSheets().then(function(){toast('✓ Setup pushed to all devices','g')})" style="width:100%;padding:11px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">↑ Push Setup to All Devices</button>
+  <button onclick="pullSetupFromSheets().then(function(c){if(c){render();renderProdRows();renderSetup();toast('✓ Setup pulled from Sheets','g')}else{toast('No new data found','w')}})" style="width:100%;padding:11px;background:#fff;color:var(--green);border:1.5px solid var(--green);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px">↓ Pull Setup from Sheets</button>
+</div>
+<button class="btn btn-r" onclick="resetAll()">⚠️ Reset All Data</button>
 </div>
 
 </div><!-- end APP -->
@@ -578,6 +597,12 @@ function launchApp(){
   if(CU.role==='worker'){
     var wn=document.getElementById('wName');
     if(wn)wn.value=CU.username;
+  }
+  // Auto-pull setup from Sheets if connected and no local products
+  if(isConn()&&S.products.length===0){
+    pullSetupFromSheets().then(function(changed){
+      if(changed){render();renderProdRows();renderSetup();toast('✓ Setup loaded from Google Sheets','g');}
+    });
   }
 }
 
@@ -975,10 +1000,10 @@ function addProduct(){
   S.products.push({id:S.nextId++,name:name,code:code,price:price});
   document.getElementById('pName').value='';document.getElementById('pCode').value='';document.getElementById('pPrice').value='';
   save();renderSetup();renderProdRows();
-  // update recipe dropdown
   var rp=document.getElementById('recProd');
   if(rp)rp.innerHTML=S.products.map(function(p){return'<option value="'+p.id+'">'+p.name+'</option>'}).join('');
   toast('✓ '+name+' added','g');
+  pushSetupToSheets();
 }
 
 function delProduct(id){
@@ -996,6 +1021,7 @@ function addIngredient(){
   S.ingredients.push({id:S.nextId++,name:name,unit:unit,reorder:reorder,stock:stock,cost:0});
   document.getElementById('iName').value='';document.getElementById('iReorder').value='';document.getElementById('iStock').value='';
   save();renderSetup();renderStock();toast('✓ '+name+' added','g');
+  pushSetupToSheets();
 }
 
 function addIngModal(){
@@ -1603,76 +1629,247 @@ function parseWorkbook(wb){
 
   prev.innerHTML=html;
   prev.style.display='block';
+  document.getElementById('importModePanel').style.display='block';
   document.getElementById('importConfirmBtn').style.display='flex';
   document.getElementById('importCancelBtn').style.display='flex';
   document.getElementById('uploadZone').style.display='none';
 }
 
 function confirmImport(){
-  var added={products:0,ingredients:0,recipes:0,skipped:0};
+  var importMode=document.getElementById('importModeUpdate')&&document.getElementById('importModeUpdate').checked?'update':'merge';
+  var stats={newProd:0,updProd:0,newIng:0,updIng:0,newRec:0,updRec:0,skip:0};
 
-  // Import products — skip if code OR name already exists
+  // ── PRODUCTS ────────────────────────────────────────────────────────────────
   importData.products.forEach(function(p){
-    var existsByCode=S.products.find(function(ep){return ep.code===p.code});
-    var existsByName=S.products.find(function(ep){return ep.name.toLowerCase()===p.name.toLowerCase()});
-    if(existsByCode){
-      // Update price if it was 0
-      if(existsByCode.price===0&&p.price>0){existsByCode.price=p.price;}
-      added.skipped++;return;
-    }
-    if(existsByName){added.skipped++;return}
-    S.products.push({id:S.nextId++,name:p.name,code:p.code,price:p.price});
-    added.products++;
-  });
-
-  // Import ingredients
-  importData.ingredients.forEach(function(ing){
-    var exists=S.ingredients.find(function(ei){return ei.name.toLowerCase()===ing.name.toLowerCase()});
+    if(!p.code||!p.name)return;
+    var exists=S.products.find(function(ep){return ep.code===p.code});
     if(exists){
-      // Update cost if provided
-      if(ing.cost>0){exists.cost=ing.cost;}
-      if(ing.costPerUnit>0){exists.costPerUnit=ing.costPerUnit;}
-      added.skipped++;return;
+      // Always update name and price from Excel
+      var changed=false;
+      if(p.name&&p.name!==exists.name){exists.name=p.name;changed=true;}
+      if(p.price>0&&p.price!==exists.price){exists.price=p.price;changed=true;}
+      if(changed)stats.updProd++;else stats.skip++;
+    } else {
+      S.products.push({id:S.nextId++,name:p.name,code:p.code,price:p.price||0});
+      stats.newProd++;
     }
-    var newIng={id:S.nextId++,name:ing.name,unit:ing.unit,stock:ing.stock,reorder:ing.reorder,cost:ing.cost};
-    if(ing.costPerUnit) newIng.costPerUnit=ing.costPerUnit;
-    S.ingredients.push(newIng);
-    added.ingredients++;
   });
 
-  // Import recipes — link product codes to ingredient names
+  // ── INGREDIENTS ─────────────────────────────────────────────────────────────
+  importData.ingredients.forEach(function(ing){
+    if(!ing.name)return;
+    var exists=S.ingredients.find(function(i){return i.name.toLowerCase()===ing.name.toLowerCase()});
+    if(exists){
+      var changed=false;
+      // Always update cost values from Excel
+      if(ing.unit&&ing.unit!==exists.unit){exists.unit=ing.unit;changed=true;}
+      if(ing.cost>0&&ing.cost!==exists.cost){exists.cost=ing.cost;changed=true;}
+      if(ing.costPerUnit>0&&ing.costPerUnit!==exists.costPerUnit){exists.costPerUnit=ing.costPerUnit;changed=true;}
+      if(ing.reorder>0&&ing.reorder!==exists.reorder){exists.reorder=ing.reorder;changed=true;}
+      if(changed)stats.updIng++;else stats.skip++;
+    } else {
+      var ni={id:S.nextId++,name:ing.name,unit:ing.unit||'g',
+              stock:ing.stock||0,reorder:ing.reorder||0,cost:ing.cost||0};
+      if(ing.costPerUnit)ni.costPerUnit=ing.costPerUnit;
+      S.ingredients.push(ni);
+      stats.newIng++;
+    }
+  });
+
+  // ── RECIPES ─────────────────────────────────────────────────────────────────
   if(importData.recipes&&importData.recipes.length){
+    // Group recipe lines by product code
+    var byProd={};
     importData.recipes.forEach(function(line){
-      // Find product by code
-      var prod=S.products.find(function(p){return p.code===line.productCode});
+      if(!byProd[line.productCode])byProd[line.productCode]=[];
+      byProd[line.productCode].push(line);
+    });
+
+    Object.keys(byProd).forEach(function(code){
+      var prod=S.products.find(function(p){return p.code===code});
       if(!prod)return;
-      // Find ingredient by name (case-insensitive)
-      var ing=S.ingredients.find(function(i){return i.name.toLowerCase()===line.ingName.toLowerCase()});
-      if(!ing)return;
-      // Add to RECIPES
+      var lines=byProd[code];
+
+      if(importMode==='update'){
+        // REPLACE entire recipe for this product
+        RECIPES[prod.id]=[];
+      }
       if(!RECIPES[prod.id])RECIPES[prod.id]=[];
-      // Skip if already exists
-      var ex=RECIPES[prod.id].find(function(r){return r.ingId===ing.id});
-      if(ex)return;
-      RECIPES[prod.id].push({ingId:ing.id,qty:line.qty,unit:line.unit,grams:line.qty});
-      added.recipes++;
+
+      lines.forEach(function(line){
+        var ing=S.ingredients.find(function(i){
+          return i.name.toLowerCase()===line.ingName.toLowerCase()});
+        if(!ing)return;
+        var ex=RECIPES[prod.id].find(function(r){return r.ingId===ing.id});
+        if(ex){
+          // Update qty and unit
+          ex.qty=line.qty;ex.grams=line.qty;ex.unit=line.unit;
+          stats.updRec++;
+        } else {
+          RECIPES[prod.id].push({ingId:ing.id,qty:line.qty,unit:line.unit,grams:line.qty});
+          stats.newRec++;
+        }
+      });
     });
     saveRecipes();
   }
 
   save();cancelImport();renderSetup();renderProdRows();renderStock();
-  var msg='✓ Imported: '+added.products+' products, '+added.ingredients+' ingredients, '+added.recipes+' recipe lines';
-  if(added.skipped) msg+=' ('+added.skipped+' skipped)';
-  toast(msg,'g');
+
+  var msg='✓ Import complete — ';
+  var parts=[];
+  if(stats.newProd)parts.push(stats.newProd+' new products');
+  if(stats.updProd)parts.push(stats.updProd+' products updated');
+  if(stats.newIng)parts.push(stats.newIng+' new ingredients');
+  if(stats.updIng)parts.push(stats.updIng+' ingredient prices updated');
+  if(stats.newRec)parts.push(stats.newRec+' new recipe lines');
+  if(stats.updRec)parts.push(stats.updRec+' recipe lines updated');
+  if(stats.skip)parts.push(stats.skip+' unchanged');
+  toast(msg+(parts.length?parts.join(', '):'nothing to update'),'g');
+
+  if(isConn()){
+    setTimeout(function(){
+      pushSetupToSheets().then(function(){
+        toast('✓ All devices updated via Google Sheets','g');
+      });
+    },800);
+  }
 }
 
 function cancelImport(){
   importData={products:[],ingredients:[]};
   document.getElementById('importPreview').style.display='none';
   document.getElementById('importPreview').innerHTML='';
+  document.getElementById('importModePanel').style.display='none';
   document.getElementById('importConfirmBtn').style.display='none';
   document.getElementById('importCancelBtn').style.display='none';
   document.getElementById('uploadZone').style.display='block';
+  // Reset radio
+  var r=document.querySelector('input[name="importMode"][value="merge"]');
+  if(r)r.checked=true;
+}
+
+
+// ── SETUP DATA SYNC ───────────────────────────────────────────────────────────
+// Sheets tabs for setup data
+var SETUP_PRODUCTS_TAB  = '⚙️ Products Setup';
+var SETUP_ING_TAB       = '⚙️ Ingredients Setup';
+var SETUP_RECIPES_TAB   = '⚙️ Recipes Setup';
+
+function readSheet(tab){
+  return getToken().then(function(tok){
+    var url='https://sheets.googleapis.com/v4/spreadsheets/'+CFG.id
+      +'/values/'+encodeURIComponent(tab)+'?majorDimension=ROWS';
+    return fetch(url,{headers:{'Authorization':'Bearer '+tok}});
+  }).then(function(r){return r.json()})
+  .then(function(d){
+    if(d.error||!d.values||d.values.length<2)return[];
+    var headers=d.values[0];
+    return d.values.slice(1).map(function(row){
+      var obj={};
+      headers.forEach(function(h,i){obj[h]=row[i]||''});
+      return obj;
+    });
+  }).catch(function(){return[]});
+}
+
+function clearAndWriteSheet(tab, rows){
+  // Clear then write
+  return getToken().then(function(tok){
+    // Clear first
+    var clearUrl='https://sheets.googleapis.com/v4/spreadsheets/'+CFG.id
+      +'/values/'+encodeURIComponent(tab)+':clear';
+    return fetch(clearUrl,{method:'POST',headers:{'Authorization':'Bearer '+tok,'Content-Type':'application/json'}});
+  }).then(function(){
+    return getToken();
+  }).then(function(tok){
+    var url='https://sheets.googleapis.com/v4/spreadsheets/'+CFG.id
+      +'/values/'+encodeURIComponent(tab)+'?valueInputOption=USER_ENTERED';
+    return fetch(url,{
+      method:'PUT',
+      headers:{'Authorization':'Bearer '+tok,'Content-Type':'application/json'},
+      body:JSON.stringify({values:rows})
+    });
+  });
+}
+
+function pushSetupToSheets(){
+  if(!isConn())return Promise.resolve();
+  // Write products
+  var prodRows=[['id','code','name','price']].concat(
+    S.products.map(function(p){return[p.id,p.code,p.name,p.price]})
+  );
+  // Write ingredients
+  var ingRows=[['id','name','unit','stock','reorder','cost','costPerUnit']].concat(
+    S.ingredients.map(function(i){return[i.id,i.name,i.unit,i.stock,i.reorder,i.cost||0,i.costPerUnit||0]})
+  );
+  // Write recipes
+  var recRows=[['prodId','ingId','qty','unit']];
+  Object.keys(RECIPES).forEach(function(prodId){
+    (RECIPES[prodId]||[]).forEach(function(line){
+      recRows.push([prodId,line.ingId,line.qty||line.grams||0,line.unit||'g']);
+    });
+  });
+  return clearAndWriteSheet(SETUP_PRODUCTS_TAB, prodRows)
+    .then(function(){return clearAndWriteSheet(SETUP_ING_TAB, ingRows)})
+    .then(function(){return clearAndWriteSheet(SETUP_RECIPES_TAB, recRows)})
+    .catch(function(e){console.log('Setup sync error:',e)});
+}
+
+function pullSetupFromSheets(){
+  if(!isConn())return Promise.resolve(false);
+  toast('Loading setup from Google Sheets...','g');
+  return Promise.all([
+    readSheet(SETUP_PRODUCTS_TAB),
+    readSheet(SETUP_ING_TAB),
+    readSheet(SETUP_RECIPES_TAB)
+  ]).then(function(results){
+    var prods=results[0],ings=results[1],recs=results[2];
+    var changed=false;
+
+    // Merge products
+    prods.forEach(function(row){
+      if(!row.code||!row.name)return;
+      var exists=S.products.find(function(p){return p.code===row.code});
+      if(!exists){
+        S.products.push({id:parseInt(row.id)||S.nextId++,name:row.name,code:row.code,price:parseFloat(row.price)||0});
+        if(parseInt(row.id)>=S.nextId)S.nextId=parseInt(row.id)+1;
+        changed=true;
+      } else {
+        // Update price
+        if(parseFloat(row.price)>0&&exists.price!==parseFloat(row.price)){
+          exists.price=parseFloat(row.price);changed=true;
+        }
+      }
+    });
+
+    // Merge ingredients
+    ings.forEach(function(row){
+      if(!row.name)return;
+      var exists=S.ingredients.find(function(i){return i.name.toLowerCase()===row.name.toLowerCase()});
+      if(!exists){
+        S.ingredients.push({id:parseInt(row.id)||S.nextId++,name:row.name,unit:row.unit||'g',
+          stock:parseFloat(row.stock)||0,reorder:parseFloat(row.reorder)||0,
+          cost:parseFloat(row.cost)||0,costPerUnit:parseFloat(row.costPerUnit)||0});
+        if(parseInt(row.id)>=S.nextId)S.nextId=parseInt(row.id)+1;
+        changed=true;
+      }
+    });
+
+    // Merge recipes
+    if(recs.length){
+      recs.forEach(function(row){
+        var pid=parseInt(row.prodId);var iid=parseInt(row.ingId);
+        if(!pid||!iid)return;
+        if(!RECIPES[pid])RECIPES[pid]=[];
+        var ex=RECIPES[pid].find(function(l){return l.ingId===iid});
+        if(!ex){RECIPES[pid].push({ingId:iid,qty:parseFloat(row.qty)||0,unit:row.unit||'g',grams:parseFloat(row.qty)||0});changed=true;}
+      });
+    }
+
+    if(changed){save();saveRecipes();}
+    return changed;
+  });
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
