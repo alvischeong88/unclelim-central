@@ -208,7 +208,7 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
     <div class="ls-title">Sign in to continue</div>
     <input class="ls-inp" type="text" id="lu" placeholder="Username" autocomplete="username" autocapitalize="none">
     <input class="ls-inp" type="password" id="lp" placeholder="Password" autocomplete="current-password">
-    <button class="ls-btn" onclick="doLogin()">Sign In</button>
+    <button class="ls-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
     <div class="ls-err" id="lerr">Incorrect username or password</div>
 
   </div>
@@ -795,19 +795,41 @@ function applyRole(){
 
 function checkSession(){
   initUsers();
+
+  // Check existing session first
   var sess=sessionStorage.getItem('ulk5s');
   if(sess){
     try{
       var s=JSON.parse(sess);
       for(var i=0;i<USERS.length;i++){
-        if(USERS[i].username===s.username&&USERS[i].role===s.role){CU=USERS[i];launchApp();return}
+        if(USERS[i].username===s.username&&USERS[i].role===s.role){
+          CU=USERS[i];launchApp();return;
+        }
       }
     }catch(e){}
   }
-  // Show login
+
+  // No session — show login but pull users from Sheets FIRST
   document.getElementById('LS').style.display='flex';
   document.getElementById('APP').style.display='none';
 
+  // Disable login button and show syncing message
+  var btn=document.getElementById('loginBtn');
+  if(btn){btn.textContent='⏳ Loading accounts...';btn.disabled=true;btn.style.opacity='0.7';}
+  var info=document.getElementById('lerr');
+  if(info){
+    info.style.background='#E8F5EE';info.style.color='#1B6B3A';info.style.border='none';
+    info.textContent='Syncing accounts — please wait...';info.style.display='block';
+  }
+
+  // Pull users from Sheets then enable login
+  pullUsersFromSheets().then(function(){
+    if(btn){btn.textContent='Sign In';btn.disabled=false;btn.style.opacity='1';}
+    if(info){info.style.display='none';info.style.background='';info.style.color='';}
+  }).catch(function(){
+    if(btn){btn.textContent='Sign In';btn.disabled=false;btn.style.opacity='1';}
+    if(info){info.style.display='none';info.style.background='';info.style.color='';}
+  });
 }
 
 function signOut(){
@@ -1183,17 +1205,22 @@ function submitRecord(){
   },0);
   var subRevenue=parsedItems.reduce(function(s,item){return s+(item.price||0)*item.sets},0);
   var subProfit=subRevenue-subCost;
-  document.getElementById('subSync').innerHTML='<div class="ctitle">Sync Status</div>'
-    +'<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--bd)">'
-    +(entry.synced
-      ?'<span style="font-size:20px">✅</span><span style="font-size:13px;color:var(--green);font-weight:500">Synced to Google Sheets</span>'
-      :'<span style="font-size:20px">⏳</span><span style="font-size:13px;color:var(--am);font-weight:500">Saved locally — will sync when connected</span>')
-    +'</div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px">'
+  // Build sync status — hide cost/profit from workers
+  var isBoss=CU&&CU.role==='boss';
+  var syncIcon=entry.synced
+    ?'<span style="font-size:20px">✅</span><span style="font-size:13px;color:var(--green);font-weight:500">Synced to Google Sheets</span>'
+    :'<span style="font-size:20px">⏳</span><span style="font-size:13px;color:var(--am);font-weight:500">Saved locally — will sync when connected</span>';
+  var syncHTML='<div class="ctitle">Sync Status</div>'
+    +'<div style="display:flex;align-items:center;gap:9px;padding:8px 0'+(isBoss?';border-bottom:1px solid var(--bd)':'')+'">'
+    +syncIcon+'</div>';
+  if(isBoss){
+    syncHTML+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px">'
     +'<div style="text-align:center"><div style="font-size:10px;color:var(--mt);text-transform:uppercase;letter-spacing:.4px">Est. Cost</div><div style="font-family:monospace;font-size:15px;font-weight:700;color:var(--red)">RM '+subCost.toFixed(2)+'</div></div>'
     +'<div style="text-align:center"><div style="font-size:10px;color:var(--mt);text-transform:uppercase;letter-spacing:.4px">Revenue</div><div style="font-family:monospace;font-size:15px;font-weight:700;color:var(--green)">RM '+subRevenue.toFixed(2)+'</div></div>'
     +'<div style="text-align:center"><div style="font-size:10px;color:var(--mt);text-transform:uppercase;letter-spacing:.4px">Profit</div><div style="font-family:monospace;font-size:15px;font-weight:700;color:'+(subProfit>=0?'var(--green)':'var(--red)')+'">RM '+subProfit.toFixed(2)+'</div></div>'
     +'</div>';
+  }
+  document.getElementById('subSync').innerHTML=syncHTML;
     document.getElementById('subRows').innerHTML=parsedItems.map(function(item,i){
       var bg=i%2===0?'#fff':'var(--bg)';
       return '<div class="rrow" style="background:'+bg+'"><div><div style="font-size:13px;font-weight:500">'+item.name+'</div><div style="font-size:11px;color:var(--mt)">'+item.code+'</div></div>'
