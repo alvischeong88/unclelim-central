@@ -506,7 +506,17 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
     <div class="noticeg">🔒 Credentials stored only on this device — never sent anywhere except Google's API directly.<br><br>💡 <strong>Tip:</strong> Open your JSON file in Notepad → find "private_key" → copy everything between the outer quotes (including -----BEGIN PRIVATE KEY----- and -----END PRIVATE KEY-----) → paste here.</div>
     <button class="btn btn-g" style="margin-top:14px" onclick="saveCfg()">Save & Test Connection</button>
     <button class="btn btn-o" style="margin-top:8px" onclick="testConnection()">🔄 Test Again (without saving)</button>
+    <button class="btn btn-o" style="margin-top:8px" onclick="writeSheetHeaders()">📋 Write Column Headers to Sheet</button>
     <button class="btn btn-r" onclick="clearCfg()">Disconnect</button>
+    <div style="background:var(--gl);border:1.5px solid #A8D8B8;border-radius:10px;padding:12px;margin-top:12px;font-size:12px;color:var(--gd);line-height:1.6">
+      <strong>Your Google Sheet tab names must be exactly:</strong><br>
+      📋 Daily Production<br>
+      📦 Stock & Usage<br><br>
+      <strong>Setup tabs (auto-created):</strong><br>
+      ⚙️ Products Setup<br>
+      ⚙️ Ingredients Setup<br>
+      ⚙️ Recipes Setup
+    </div>
     <div id="connHelp" style="display:none;margin-top:12px;background:var(--rl);border-radius:10px;padding:12px;font-size:12px;color:var(--red);line-height:1.7">
       <strong>Common issues:</strong><br>
       ❌ Wrong Sheet ID → paste full Google Sheet URL<br>
@@ -839,21 +849,23 @@ function getHeaderRow(){
   return baseHeaders.concat(setProdHeaders).concat(costProdHeaders);
 }
 
-var headerSynced=false;
 function doSync(type,row,summary){
   if(!isConn()){S.pendSync.push({type:type,row:row,summary:summary,ts:Date.now()});save();updatePendingUI();return Promise.resolve('queued')}
   setSyncUI('sy');
   var tab=type==='production'?'📋 Daily Production':'📦 Stock & Usage';
-  // Write header row on first production sync of the session
-  var doWrite=Promise.resolve();
-  if(type==='production'&&!headerSynced){
-    headerSynced=true;
-    doWrite=appendRow(tab,getHeaderRow()).catch(function(){});
-  }
-  return doWrite.then(function(){
-    return appendRow(tab,row);
-  }).then(function(){setSyncUI('ok');setTimeout(function(){setSyncUI('idle')},3000);return'synced'})
+  return appendRow(tab,row)
+    .then(function(){setSyncUI('ok');setTimeout(function(){setSyncUI('idle')},3000);return'synced'})
     .catch(function(){S.pendSync.push({type:type,row:row,summary:summary,ts:Date.now()});save();updatePendingUI();setSyncUI('err');setTimeout(function(){setSyncUI('idle')},4000);return'queued'});
+}
+
+// Write header row once when sheet is first set up
+function writeSheetHeaders(){
+  if(!isConn())return;
+  var stockHeaders=['Date','Ingredient','Unit','Opening','Purchased','Used','Wasted',
+    'Closing','Reorder Level','Status','Cost/unit','Usage Cost','Stock Value','Notes'];
+  appendRow('📋 Daily Production', getHeaderRow()).catch(function(){});
+  appendRow('📦 Stock & Usage', stockHeaders).catch(function(){});
+  toast('✓ Headers written to Google Sheet','g');
 }
 
 function syncQ(){
