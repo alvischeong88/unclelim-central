@@ -210,14 +210,7 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
     <input class="ls-inp" type="password" id="lp" placeholder="Password" autocomplete="current-password">
     <button class="ls-btn" onclick="doLogin()">Sign In</button>
     <div class="ls-err" id="lerr">Incorrect username or password</div>
-    <div id="sheetIdPanel" style="margin-top:14px;padding-top:14px;border-top:1px solid #E2E8E4;display:none">
-      <div style="font-size:12px;font-weight:600;color:#6B8070;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">First time on this device?</div>
-      <div style="font-size:12px;color:#6B8070;margin-bottom:8px;line-height:1.5">Paste your Google Sheet URL to auto-load all products after login.</div>
-      <input class="ls-inp" type="text" id="quickSheetId" placeholder="Paste Google Sheet URL here" style="margin-bottom:0;font-size:12px">
-    </div>
-    <div style="text-align:center;margin-top:10px">
-      <span style="font-size:12px;color:#A8BDB2;cursor:pointer" onclick="toggleSheetPanel()">New device? Tap here to load products →</span>
-    </div>
+
   </div>
 </div>
 
@@ -471,9 +464,23 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
 
   <div style="background:var(--gl);border:1.5px solid #A8D8B8;border-radius:12px;padding:14px;margin-bottom:10px">
   <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:4px">📱 Multi-Device Sync</div>
-  <div style="font-size:12px;color:var(--mt);margin-bottom:10px;line-height:1.5">Push your products, ingredients and recipes to Google Sheets so all phones load the same setup automatically.</div>
-  <button onclick="pushSetupToSheets().then(function(){toast('✓ Setup pushed to all devices','g')})" style="width:100%;padding:11px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">↑ Push Setup to All Devices</button>
-  <button onclick="pullSetupFromSheets().then(function(c){if(c){render();renderProdRows();renderSetup();toast('✓ Setup pulled from Sheets','g')}else{toast('No new data found','w')}})" style="width:100%;padding:11px;background:#fff;color:var(--green);border:1.5px solid var(--green);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px">↓ Pull Setup from Sheets</button>
+  <div style="font-size:12px;color:var(--mt);margin-bottom:10px;line-height:1.5">
+    Changes you make here automatically sync to all devices via Google Sheets.<br>
+    Products, prices and recipes update on iPhone/desktop immediately after login.
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <button onclick="pushSetupToSheets().then(function(){toast('✓ Pushed to all devices','g')})" 
+      style="padding:11px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">
+      ↑ Push Now
+    </button>
+    <button onclick="pullSetupFromSheets().then(function(c){if(c){render();renderProdRows();renderSetup();toast('✓ Latest version loaded','g')}else{toast('Already up to date','g')}})" 
+      style="padding:11px;background:#fff;color:var(--green);border:1.5px solid var(--green);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">
+      ↓ Pull Latest
+    </button>
+  </div>
+  <div style="font-size:11px;color:var(--mt);margin-top:8px;text-align:center">
+    Auto-syncs on every login when connected to Google Sheets
+  </div>
 </div>
 <button class="btn btn-r" onclick="resetAll()">⚠️ Reset All Data</button>
 </div>
@@ -529,12 +536,78 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
 
 <script>
 // ── STATE ─────────────────────────────────────────────────────────────────────
-var S = JSON.parse(localStorage.getItem('ulk5')||'null') || {
-  products: [],   // {id, name, code, price}
-  ingredients: [], // {id, name, unit, stock, reorder, cost}
+// Default products & ingredients pre-loaded for all devices
+var DEFAULT_PRODUCTS = [
+  {id:1,  name:'Ayam Berempah (Thigh) 5 pcs',    code:'001',  price:21.60},
+  {id:2,  name:'Ayam Berempah (Drumstick) 5 pcs', code:'002',  price:21.60},
+  {id:3,  name:'Ayam Rendang (Thigh) 5 pcs',      code:'003',  price:19.20},
+  {id:4,  name:'Ayam Rendang (Drumstick) 5 pcs',  code:'004',  price:19.20},
+  {id:5,  name:'Sambal Sotong 2300g',              code:'005',  price:85.08},
+  {id:6,  name:'Kerang Sambal 1kg',                code:'006',  price:41.64},
+  {id:7,  name:'Nasi 3kg + Material',              code:'007',  price:35.40},
+  {id:8,  name:'Kacang 500g',                      code:'008',  price:4.28},
+  {id:9,  name:'Ikan Bilis 500g',                  code:'009',  price:21.77},
+  {id:10, name:'Sambal 1kg',                       code:'010',  price:4.92},
+  {id:11, name:'Nasi 1.5kg + Material',            code:'007B', price:17.70},
+];
+
+var DEFAULT_INGREDIENTS = [
+  {id:101,name:'Halia/Halia Tua',       unit:'g',  stock:0,reorder:0,cost:0.0061,  costPerUnit:0},
+  {id:102,name:'Serai',                 unit:'g',  stock:0,reorder:0,cost:0.0050,  costPerUnit:0},
+  {id:103,name:'Garam',                 unit:'g',  stock:0,reorder:0,cost:0.001866,costPerUnit:0},
+  {id:104,name:'Lengkuas/Lengkuang',    unit:'g',  stock:0,reorder:0,cost:0.0079,  costPerUnit:0},
+  {id:105,name:'Bawang Putih',          unit:'g',  stock:0,reorder:0,cost:0.00899, costPerUnit:0},
+  {id:106,name:'Gula Putih',            unit:'g',  stock:0,reorder:0,cost:0.00295, costPerUnit:0},
+  {id:107,name:'Bawang Merah',          unit:'g',  stock:0,reorder:0,cost:0.00229, costPerUnit:0},
+  {id:108,name:'Serbuk Kunyit Basah',   unit:'g',  stock:0,reorder:0,cost:0.0312,  costPerUnit:0},
+  {id:109,name:'Serbuk Kari Daging',    unit:'g',  stock:0,reorder:0,cost:0.0280,  costPerUnit:0},
+  {id:110,name:'Daun Kari',             unit:'g',  stock:0,reorder:0,cost:0.0000,  costPerUnit:0},
+  {id:111,name:'Cili Kering Cina',      unit:'g',  stock:0,reorder:0,cost:0.00162, costPerUnit:0},
+  {id:112,name:'Bilis Bala Siam',       unit:'g',  stock:0,reorder:0,cost:0.0398,  costPerUnit:0},
+  {id:113,name:'Asam Keping',           unit:'g',  stock:0,reorder:0,cost:0.0130,  costPerUnit:0},
+  {id:114,name:'Belacan Kampung',       unit:'g',  stock:0,reorder:0,cost:0.0180,  costPerUnit:0},
+  {id:115,name:'Penambah Rasa',         unit:'g',  stock:0,reorder:0,cost:0.01099, costPerUnit:0},
+  {id:116,name:'Oil',                   unit:'g',  stock:0,reorder:0,cost:0.0598,  costPerUnit:0},
+  {id:117,name:'Gula Melaka',           unit:'g',  stock:0,reorder:0,cost:0.0150,  costPerUnit:0},
+  {id:118,name:'Cili Merah',            unit:'g',  stock:0,reorder:0,cost:0.01299, costPerUnit:0},
+  {id:119,name:'Cili Padi Merah',       unit:'g',  stock:0,reorder:0,cost:0.00999, costPerUnit:0},
+  {id:120,name:'Daun Kunyit',           unit:'g',  stock:0,reorder:0,cost:0.5000,  costPerUnit:0},
+  {id:121,name:'Sri Johan MILK',        unit:'g',  stock:0,reorder:0,cost:0.008717,costPerUnit:0},
+  {id:122,name:'Kara Coconut Extract',  unit:'g',  stock:0,reorder:0,cost:0.0159,  costPerUnit:0},
+  {id:123,name:'Buah Keras',            unit:'g',  stock:0,reorder:0,cost:0.0179,  costPerUnit:0},
+  {id:124,name:'Biji Ketumbar',         unit:'g',  stock:0,reorder:0,cost:0.0129,  costPerUnit:0},
+  {id:125,name:'Jintan Manis',          unit:'g',  stock:0,reorder:0,cost:0.0099,  costPerUnit:0},
+  {id:126,name:'Jintan Putih',          unit:'g',  stock:0,reorder:0,cost:0.0219,  costPerUnit:0},
+  {id:127,name:'SERBUK PATI AYAM',      unit:'g',  stock:0,reorder:0,cost:0.0176,  costPerUnit:0},
+  {id:128,name:'SAMBAL (OWN MAKE)',     unit:'g',  stock:0,reorder:0,cost:0.0041,  costPerUnit:0},
+  {id:129,name:'RICE RAW',              unit:'g',  stock:0,reorder:0,cost:0.005798,costPerUnit:0},
+  {id:130,name:'CHICKEN THIGH',         unit:'pcs',stock:0,reorder:0,cost:2.6500,  costPerUnit:2.6500},
+  {id:131,name:'CHICKEN DRUMSTICK',     unit:'pcs',stock:0,reorder:0,cost:2.6500,  costPerUnit:2.6500},
+  {id:132,name:'SOTONG RENDAM',         unit:'g',  stock:0,reorder:0,cost:0.03299, costPerUnit:0},
+  {id:133,name:'BILIS BELAH PANGKOR',   unit:'g',  stock:0,reorder:0,cost:0.03299, costPerUnit:0},
+  {id:134,name:'KACANG TANAH INDIA',    unit:'g',  stock:0,reorder:0,cost:0.00595, costPerUnit:0},
+  {id:135,name:'SANTAN KELAPA BIJI',    unit:'g',  stock:0,reorder:0,cost:0.0059,  costPerUnit:0},
+  {id:136,name:'KERANG WITH SHELL',     unit:'g',  stock:0,reorder:0,cost:0.0110,  costPerUnit:0},
+];
+
+var _saved = localStorage.getItem('ulk5');
+var _parsed = null;
+try{ _parsed = _saved ? JSON.parse(_saved) : null; }catch(e){}
+
+// If saved data exists but has no products, inject defaults
+if(_parsed && _parsed.products && _parsed.products.length === 0){
+  _parsed.products = DEFAULT_PRODUCTS.map(function(p){return Object.assign({},p)});
+  _parsed.ingredients = DEFAULT_INGREDIENTS.map(function(i){return Object.assign({},i)});
+  if(_parsed.nextId < 200) _parsed.nextId = 200;
+  localStorage.setItem('ulk5', JSON.stringify(_parsed));
+}
+
+var S = _parsed || {
+  products: DEFAULT_PRODUCTS.map(function(p){return Object.assign({},p)}),
+  ingredients: DEFAULT_INGREDIENTS.map(function(i){return Object.assign({},i)}),
   prodLog: [],
   pendSync: [],
-  nextId: 1
+  nextId: 200
 };
 var PCOST   = JSON.parse(localStorage.getItem('ulk5pc')||'{}');   // {prodId: {price}}
 var RECIPES = JSON.parse(localStorage.getItem('ulk5rec')||'{}');  // {prodId: [{ingId,grams}]}
@@ -568,29 +641,12 @@ function sha256(str){
   });
 }
 
-function toggleSheetPanel(){
-  var p=document.getElementById('sheetIdPanel');
-  p.style.display=p.style.display==='none'?'block':'none';
-}
-
 function doLogin(){
   var u=document.getElementById('lu').value.trim().toLowerCase();
   var p=document.getElementById('lp').value;
   var err=document.getElementById('lerr');
   err.style.display='none';
   if(!u||!p){err.textContent='Enter username and password';err.style.display='block';return}
-
-  // Save quick sheet ID if provided
-  var quickId=document.getElementById('quickSheetId');
-  if(quickId&&quickId.value.trim()){
-    var rawId=quickId.value.trim();
-    if(rawId.includes('/d/'))rawId=rawId.split('/d/')[1].split('/')[0];
-    rawId=rawId.replace(/[\/\s]+$/,'').trim();
-    if(rawId&&!CFG.id){
-      CFG.id=rawId;
-      saveCfgStore();
-    }
-  }
 
   sha256(p).then(function(hash){
     var user=null;
@@ -624,23 +680,16 @@ function launchApp(){
     var wn=document.getElementById('wName');
     if(wn)wn.value=CU.username;
   }
-  // Auto-pull setup if we have Sheet ID and no local products
-  if(S.products.length===0&&CFG.id){
-    if(isConn()){
-      // Full credentials - pull directly
-      toast('Loading products from Google Sheets...','g');
+  // Always pull latest setup from Sheets on login (silent background sync)
+  if(isConn()){
+    setTimeout(function(){
       pullSetupFromSheets().then(function(changed){
         if(changed){
           render();renderProdRows();renderSetup();
-          toast('✓ Products loaded! ('+S.products.length+' products)','g');
-        } else {
-          toast('No products found in Sheets. Go to Setup to add.','w');
+          toast('✓ Products & prices updated from latest version','g');
         }
       });
-    } else if(CFG.id){
-      // Only have Sheet ID - try public read
-      tryPublicPull();
-    }
+    },1000);
   }
 }
 
@@ -670,11 +719,7 @@ function checkSession(){
   // Show login
   document.getElementById('LS').style.display='flex';
   document.getElementById('APP').style.display='none';
-  // Auto-show sheet panel if first time (no products, no credentials)
-  if(!CFG.id&&S.products.length===0){
-    var sp=document.getElementById('sheetIdPanel');
-    if(sp)sp.style.display='block';
-  }
+
 }
 
 function signOut(){
@@ -1113,7 +1158,9 @@ function renderSetup(){
         var prod=S.products.find(function(p){return p.id===pid});
         if(!prod||!inp)return;
         prod.price=parseFloat(inp.value)||0;
-        save();renderSetup();toast('✓ Price saved: RM'+prod.price.toFixed(2)+'/set','g');
+        save();renderSetup();
+        toast('✓ Price saved — syncing to all devices...','g');
+        pushSetupToSheets().then(function(){toast('✓ RM'+prod.price.toFixed(2)+' saved & synced to all devices','g')});
       });
     });
     pl.querySelectorAll('.price-inp').forEach(function(inp){
@@ -1261,7 +1308,9 @@ function saveOneIngCost(ingId){
     ing.cost=newCost;
   }
   save();savePHist();
-  renderIngCostList();toast('✓ '+ing.name+' price saved','g');
+  renderIngCostList();
+  toast('✓ '+ing.name+' price saved — syncing...','g');
+  pushSetupToSheets().then(function(){toast('✓ '+ing.name+' synced to all devices','g')});
 }
 
 function renderPriceHist(){
@@ -1440,13 +1489,15 @@ function renderRecipeEditor(){
       else RECIPES[curRecipeProd].push({ingId:ingId,qty:qty,unit:unit,grams:qty});
       saveRecipes();
       document.getElementById('newRQty').value='';
-      renderRecipeEditor();toast('✓ Added','g');
+      renderRecipeEditor();toast('✓ Added — syncing...','g');
+      pushSetupToSheets().then(function(){toast('✓ Recipe synced to all devices','g')});
     });
     document.querySelectorAll('.rm-recipe').forEach(function(btn){
       btn.addEventListener('click',function(){
         var idx=parseInt(this.getAttribute('data-ridx'));
         if(RECIPES[curRecipeProd])RECIPES[curRecipeProd].splice(idx,1);
         saveRecipes();renderRecipeEditor();
+        pushSetupToSheets();
       });
     });
     document.querySelectorAll('.rgrams').forEach(function(inp){
@@ -1947,43 +1998,76 @@ function pullSetupFromSheets(){
     var prods=results[0],ings=results[1],recs=results[2];
     var changed=false;
 
-    // Merge products
+    // Merge/update products
     prods.forEach(function(row){
       if(!row.code||!row.name)return;
       var exists=S.products.find(function(p){return p.code===row.code});
       if(!exists){
-        S.products.push({id:parseInt(row.id)||S.nextId++,name:row.name,code:row.code,price:parseFloat(row.price)||0});
+        S.products.push({
+          id:parseInt(row.id)||S.nextId++,
+          name:row.name,code:row.code,
+          price:parseFloat(row.price)||0
+        });
         if(parseInt(row.id)>=S.nextId)S.nextId=parseInt(row.id)+1;
         changed=true;
       } else {
-        // Update price
-        if(parseFloat(row.price)>0&&exists.price!==parseFloat(row.price)){
+        // Always update name and price from Sheets
+        if(row.name&&row.name!==exists.name){exists.name=row.name;changed=true;}
+        if(parseFloat(row.price)>=0&&parseFloat(row.price)!==exists.price){
           exists.price=parseFloat(row.price);changed=true;
         }
       }
     });
 
-    // Merge ingredients
+    // Merge/update ingredients
     ings.forEach(function(row){
       if(!row.name)return;
       var exists=S.ingredients.find(function(i){return i.name.toLowerCase()===row.name.toLowerCase()});
       if(!exists){
-        S.ingredients.push({id:parseInt(row.id)||S.nextId++,name:row.name,unit:row.unit||'g',
-          stock:parseFloat(row.stock)||0,reorder:parseFloat(row.reorder)||0,
-          cost:parseFloat(row.cost)||0,costPerUnit:parseFloat(row.costPerUnit)||0});
+        S.ingredients.push({
+          id:parseInt(row.id)||S.nextId++,
+          name:row.name,unit:row.unit||'g',
+          stock:parseFloat(row.stock)||0,
+          reorder:parseFloat(row.reorder)||0,
+          cost:parseFloat(row.cost)||0,
+          costPerUnit:parseFloat(row.costPerUnit)||0
+        });
         if(parseInt(row.id)>=S.nextId)S.nextId=parseInt(row.id)+1;
         changed=true;
+      } else {
+        // Update cost values from Sheets
+        if(parseFloat(row.cost)>0&&parseFloat(row.cost)!==exists.cost){
+          exists.cost=parseFloat(row.cost);changed=true;
+        }
+        if(parseFloat(row.costPerUnit)>0&&parseFloat(row.costPerUnit)!==exists.costPerUnit){
+          exists.costPerUnit=parseFloat(row.costPerUnit);changed=true;
+        }
+        if(row.unit&&row.unit!==exists.unit){exists.unit=row.unit;changed=true;}
       }
     });
 
-    // Merge recipes
+    // Merge/update recipes
     if(recs.length){
+      // Group by prodId and replace entire recipe per product
+      var recsByProd={};
       recs.forEach(function(row){
-        var pid=parseInt(row.prodId);var iid=parseInt(row.ingId);
-        if(!pid||!iid)return;
-        if(!RECIPES[pid])RECIPES[pid]=[];
-        var ex=RECIPES[pid].find(function(l){return l.ingId===iid});
-        if(!ex){RECIPES[pid].push({ingId:iid,qty:parseFloat(row.qty)||0,unit:row.unit||'g',grams:parseFloat(row.qty)||0});changed=true;}
+        var pid=parseInt(row.prodId);
+        if(!pid)return;
+        if(!recsByProd[pid])recsByProd[pid]=[];
+        recsByProd[pid].push(row);
+      });
+      Object.keys(recsByProd).forEach(function(pid){
+        var lines=recsByProd[pid];
+        var newRecipe=[];
+        lines.forEach(function(row){
+          var iid=parseInt(row.ingId);
+          if(!iid)return;
+          newRecipe.push({ingId:iid,qty:parseFloat(row.qty)||0,unit:row.unit||'g',grams:parseFloat(row.qty)||0});
+        });
+        // Only update if different
+        var existing=JSON.stringify(RECIPES[pid]||[]);
+        var incoming=JSON.stringify(newRecipe);
+        if(existing!==incoming){RECIPES[pid]=newRecipe;changed=true;}
       });
     }
 
