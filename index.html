@@ -1387,6 +1387,7 @@ function handleXlsxFile(file){
   document.getElementById('xlsxInput').value='';
 }
 
+var BLUE_PREVIEW="#1A4A8A";
 function parseWorkbook(wb){
   importData={products:[],ingredients:[]};
 
@@ -1452,14 +1453,30 @@ function parseWorkbook(wb){
     });
   }
 
-  if(!importData.products.length&&!importData.ingredients.length){
+  // Parse Recipes sheet
+  importData.recipes=[];
+  var recSheet=wb.Sheets['Recipes']||wb.Sheets[wb.SheetNames[2]];
+  if(recSheet){
+    var rrows=parseSheet(recSheet);
+    rrows.forEach(function(row){
+      var productCode=String(row['Product Code *']||row['Product Code']||row['Code']||'').trim();
+      var ingName=String(row['Ingredient Name *']||row['Ingredient Name']||row['Ingredient']||'').trim();
+      var qty=parseFloat(row['Quantity *']||row['Quantity']||row['Qty']||0)||0;
+      var unit=String(row['Unit *']||row['Unit']||'g').trim()||'g';
+      if(productCode&&ingName&&qty){
+        importData.recipes.push({productCode:productCode,ingName:ingName,qty:qty,unit:unit});
+      }
+    });
+  }
+
+  if(!importData.products.length&&!importData.ingredients.length&&!importData.recipes.length){
     toast('No data found — check your file matches the template','e');return;
   }
 
   // Show preview
   var prev=document.getElementById('importPreview');
   var html='';
-  html+='<div class="import-hdr">Preview — '+importData.products.length+' products, '+importData.ingredients.length+' ingredients found</div>';
+  html+='<div class="import-hdr">Preview — '+importData.products.length+' products, '+importData.ingredients.length+' ingredients, '+(importData.recipes?importData.recipes.length:0)+' recipe lines found</div>';
 
   if(importData.products.length){
     html+='<div style="padding:8px 14px 4px;font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px">Products</div>';
@@ -1477,6 +1494,25 @@ function parseWorkbook(wb){
     if(importData.ingredients.length>10) html+='<div class="import-row" style="color:var(--mt)">...and '+(importData.ingredients.length-10)+' more ingredients</div>';
   }
 
+  // Show recipes preview
+  if(importData.recipes&&importData.recipes.length){
+    html+='<div style="padding:8px 14px 4px;font-size:11px;font-weight:700;color:'+BLUE_PREVIEW+';text-transform:uppercase;letter-spacing:.5px">Recipes ('+importData.recipes.length+' ingredient lines)</div>';
+    // Group by product
+    var recByProd={};
+    importData.recipes.forEach(function(r){
+      if(!recByProd[r.productCode])recByProd[r.productCode]=[];
+      recByProd[r.productCode].push(r);
+    });
+    Object.keys(recByProd).slice(0,6).forEach(function(code){
+      var lines=recByProd[code];
+      html+='<div class="import-row" style="flex-direction:column;align-items:flex-start">'
+        +'<div style="display:flex;align-items:center;gap:6px;width:100%"><span class="import-check">✓</span><strong style="font-size:13px">'+code+'</strong><span style="font-size:11px;color:#6B8070">('+lines.length+' ingredients)</span></div>'
+        +'<div style="font-size:11px;color:#6B8070;padding-left:20px;margin-top:3px">'+lines.map(function(l){return l.ingName+' '+l.qty+l.unit}).join(' · ')+'</div>'
+        +'</div>';
+    });
+    if(Object.keys(recByProd).length>6) html+='<div class="import-row" style="color:#6B8070">...and '+(Object.keys(recByProd).length-6)+' more products</div>';
+  }
+
   prev.innerHTML=html;
   prev.style.display='block';
   document.getElementById('importConfirmBtn').style.display='flex';
@@ -1485,26 +1521,55 @@ function parseWorkbook(wb){
 }
 
 function confirmImport(){
-  var added={products:0,ingredients:0,skipped:0};
+  var added={products:0,ingredients:0,recipes:0,skipped:0};
 
+  // Import products
   importData.products.forEach(function(p){
-    // Skip if code already exists
     var exists=S.products.find(function(ep){return ep.code===p.code});
     if(exists){added.skipped++;return}
     S.products.push({id:S.nextId++,name:p.name,code:p.code,price:p.price});
     added.products++;
   });
 
+  // Import ingredients
   importData.ingredients.forEach(function(ing){
-    // Skip if name already exists
     var exists=S.ingredients.find(function(ei){return ei.name.toLowerCase()===ing.name.toLowerCase()});
-    if(exists){added.skipped++;return}
-    S.ingredients.push({id:S.nextId++,name:ing.name,unit:ing.unit,stock:ing.stock,reorder:ing.reorder,cost:ing.cost});
+    if(exists){
+      // Update cost if provided
+      if(ing.cost>0){exists.cost=ing.cost;}
+      if(ing.costPerUnit>0){exists.costPerUnit=ing.costPerUnit;}
+      added.skipped++;return;
+    }
+    var newIng={id:S.nextId++,name:ing.name,unit:ing.unit,stock:ing.stock,reorder:ing.reorder,cost:ing.cost};
+    if(ing.costPerUnit) newIng.costPerUnit=ing.costPerUnit;
+    S.ingredients.push(newIng);
     added.ingredients++;
   });
 
+  // Import recipes — link product codes to ingredient names
+  if(importData.recipes&&importData.recipes.length){
+    importData.recipes.forEach(function(line){
+      // Find product by code
+      var prod=S.products.find(function(p){return p.code===line.productCode});
+      if(!prod)return;
+      // Find ingredient by name (case-insensitive)
+      var ing=S.ingredients.find(function(i){return i.name.toLowerCase()===line.ingName.toLowerCase()});
+      if(!ing)return;
+      // Add to RECIPES
+      if(!RECIPES[prod.id])RECIPES[prod.id]=[];
+      // Skip if already exists
+      var ex=RECIPES[prod.id].find(function(r){return r.ingId===ing.id});
+      if(ex)return;
+      RECIPES[prod.id].push({ingId:ing.id,qty:line.qty,unit:line.unit,grams:line.qty});
+      added.recipes++;
+    });
+    saveRecipes();
+  }
+
   save();cancelImport();renderSetup();renderProdRows();renderStock();
-  toast('✓ Imported: '+added.products+' products, '+added.ingredients+' ingredients'+(added.skipped?' ('+added.skipped+' skipped — already exist)':''),'g');
+  var msg='✓ Imported: '+added.products+' products, '+added.ingredients+' ingredients, '+added.recipes+' recipe lines';
+  if(added.skipped) msg+=' ('+added.skipped+' skipped)';
+  toast(msg,'g');
 }
 
 function cancelImport(){
