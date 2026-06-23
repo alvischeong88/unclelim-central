@@ -678,25 +678,60 @@ function sha256(str){
   });
 }
 
+function attemptLogin(u,p,hash,retry){
+  var err=document.getElementById('lerr');
+  var user=null;
+  for(var i=0;i<USERS.length;i++){
+    if(USERS[i].username.toLowerCase()===u&&
+       (USERS[i].passHash===hash||(USERS[i].plain&&USERS[i].plain===p))){
+      user=USERS[i];break;
+    }
+  }
+  if(user&&user.active===false){
+    err.style.background='';err.style.color='';
+    err.textContent='Account disabled — contact your boss';err.style.display='block';
+    return;
+  }
+  if(user){
+    // Success
+    err.style.display='none';
+    if(user.plain){user.passHash=hash;delete user.plain;localStorage.setItem('ulk5u',JSON.stringify(USERS))}
+    CU=user;
+    sessionStorage.setItem('ulk5s',JSON.stringify({username:user.username,role:user.role}));
+    launchApp();
+    return;
+  }
+  if(!retry){
+    // Not found locally — pull from Sheets and try again
+    err.style.background='var(--gl)';err.style.color='var(--green)';
+    err.textContent='Checking accounts...';err.style.display='block';
+    pullUsersFromSheets().then(function(){
+      err.style.background='';err.style.color='';
+      err.style.display='none';
+      attemptLogin(u,p,hash,true); // retry once after pull
+    }).catch(function(){
+      err.style.background='';err.style.color='';
+      err.textContent='Incorrect username or password';err.style.display='block';
+    });
+  } else {
+    // Still not found after pull
+    err.style.background='';err.style.color='';
+    err.textContent='Incorrect username or password';err.style.display='block';
+  }
+}
+
 function doLogin(){
   var u=document.getElementById('lu').value.trim().toLowerCase();
   var p=document.getElementById('lp').value;
   var err=document.getElementById('lerr');
   err.style.display='none';
   if(!u||!p){err.textContent='Enter username and password';err.style.display='block';return}
-
+  // Disable button while logging in
+  var btn=document.querySelector('.ls-btn');
+  if(btn){btn.textContent='Signing in...';btn.disabled=true;}
   sha256(p).then(function(hash){
-    var user=null;
-    for(var i=0;i<USERS.length;i++){
-      if(USERS[i].username.toLowerCase()===u&&(USERS[i].passHash===hash||(USERS[i].plain&&USERS[i].plain===p))){
-        user=USERS[i];break;
-      }
-    }
-    if(!user){err.textContent='Incorrect username or password';err.style.display='block';return}
-    if(user.plain){user.passHash=hash;delete user.plain;localStorage.setItem('ulk5u',JSON.stringify(USERS))}
-    CU=user;
-    sessionStorage.setItem('ulk5s',JSON.stringify({username:user.username,role:user.role}));
-    launchApp();
+    if(btn){btn.textContent='Sign In';btn.disabled=false;}
+    attemptLogin(u,p,hash,false);
   });
 }
 
