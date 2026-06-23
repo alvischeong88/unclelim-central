@@ -210,6 +210,14 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
     <input class="ls-inp" type="password" id="lp" placeholder="Password" autocomplete="current-password">
     <button class="ls-btn" onclick="doLogin()">Sign In</button>
     <div class="ls-err" id="lerr">Incorrect username or password</div>
+    <div id="sheetIdPanel" style="margin-top:14px;padding-top:14px;border-top:1px solid #E2E8E4;display:none">
+      <div style="font-size:12px;font-weight:600;color:#6B8070;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">First time on this device?</div>
+      <div style="font-size:12px;color:#6B8070;margin-bottom:8px;line-height:1.5">Paste your Google Sheet URL to auto-load all products after login.</div>
+      <input class="ls-inp" type="text" id="quickSheetId" placeholder="Paste Google Sheet URL here" style="margin-bottom:0;font-size:12px">
+    </div>
+    <div style="text-align:center;margin-top:10px">
+      <span style="font-size:12px;color:#A8BDB2;cursor:pointer" onclick="toggleSheetPanel()">New device? Tap here to load products →</span>
+    </div>
   </div>
 </div>
 
@@ -560,12 +568,30 @@ function sha256(str){
   });
 }
 
+function toggleSheetPanel(){
+  var p=document.getElementById('sheetIdPanel');
+  p.style.display=p.style.display==='none'?'block':'none';
+}
+
 function doLogin(){
   var u=document.getElementById('lu').value.trim().toLowerCase();
   var p=document.getElementById('lp').value;
   var err=document.getElementById('lerr');
   err.style.display='none';
   if(!u||!p){err.textContent='Enter username and password';err.style.display='block';return}
+
+  // Save quick sheet ID if provided
+  var quickId=document.getElementById('quickSheetId');
+  if(quickId&&quickId.value.trim()){
+    var rawId=quickId.value.trim();
+    if(rawId.includes('/d/'))rawId=rawId.split('/d/')[1].split('/')[0];
+    rawId=rawId.replace(/[\/\s]+$/,'').trim();
+    if(rawId&&!CFG.id){
+      CFG.id=rawId;
+      saveCfgStore();
+    }
+  }
+
   sha256(p).then(function(hash){
     var user=null;
     for(var i=0;i<USERS.length;i++){
@@ -598,11 +624,23 @@ function launchApp(){
     var wn=document.getElementById('wName');
     if(wn)wn.value=CU.username;
   }
-  // Auto-pull setup from Sheets if connected and no local products
-  if(isConn()&&S.products.length===0){
-    pullSetupFromSheets().then(function(changed){
-      if(changed){render();renderProdRows();renderSetup();toast('✓ Setup loaded from Google Sheets','g');}
-    });
+  // Auto-pull setup if we have Sheet ID and no local products
+  if(S.products.length===0&&CFG.id){
+    if(isConn()){
+      // Full credentials - pull directly
+      toast('Loading products from Google Sheets...','g');
+      pullSetupFromSheets().then(function(changed){
+        if(changed){
+          render();renderProdRows();renderSetup();
+          toast('✓ Products loaded! ('+S.products.length+' products)','g');
+        } else {
+          toast('No products found in Sheets. Go to Setup to add.','w');
+        }
+      });
+    } else if(CFG.id){
+      // Only have Sheet ID - try public read
+      tryPublicPull();
+    }
   }
 }
 
@@ -632,6 +670,11 @@ function checkSession(){
   // Show login
   document.getElementById('LS').style.display='flex';
   document.getElementById('APP').style.display='none';
+  // Auto-show sheet panel if first time (no products, no credentials)
+  if(!CFG.id&&S.products.length===0){
+    var sp=document.getElementById('sheetIdPanel');
+    if(sp)sp.style.display='block';
+  }
 }
 
 function signOut(){
@@ -1749,6 +1792,83 @@ function cancelImport(){
   if(r)r.checked=true;
 }
 
+
+
+// ── PUBLIC SHEET READ (no auth needed if sheet is shared publicly) ─────────────
+function tryPublicPull(){
+  // Try to read setup tabs using public CSV export
+  // This works if Google Sheet is shared as "Anyone with link can view"
+  var baseUrl='https://docs.google.com/spreadsheets/d/'+CFG.id+'/gviz/tq?tqx=out:json&sheet=';
+  
+  function readPublicTab(tabName){
+    return fetch(baseUrl+encodeURIComponent(tabName))
+      .then(function(r){return r.text()})
+      .then(function(text){
+        // Google wraps JSON in /*O_o*/
+        var match=text.match(/google\.visualization\.Query\.setResponse\((.+)\)/s);
+        if(!match)return[];
+        var data=JSON.parse(match[1]);
+        if(!data.table||!data.table.rows)return[];
+        var cols=data.table.cols.map(function(c){return c.label||c.id});
+        return data.table.rows.map(function(row){
+          var obj={};
+          cols.forEach(function(col,i){
+            obj[col]=row.c&&row.c[i]&&row.c[i].v!==null?String(row.c[i].v):'';
+          });
+          return obj;
+        });
+      }).catch(function(){return[]});
+  }
+
+  Promise.all([
+    readPublicTab('⚙️ Products Setup'),
+    readPublicTab('⚙️ Ingredients Setup'),
+    readPublicTab('⚙️ Recipes Setup')
+  ]).then(function(results){
+    var prods=results[0],ings=results[1],recs=results[2];
+    var changed=false;
+
+    prods.forEach(function(row){
+      if(!row.code||!row.name)return;
+      var exists=S.products.find(function(p){return p.code===row.code});
+      if(!exists){
+        S.products.push({id:parseInt(row.id)||S.nextId++,name:row.name,code:row.code,price:parseFloat(row.price)||0});
+        if(parseInt(row.id)>=S.nextId)S.nextId=parseInt(row.id)+1;
+        changed=true;
+      }
+    });
+
+    ings.forEach(function(row){
+      if(!row.name)return;
+      var exists=S.ingredients.find(function(i){return i.name.toLowerCase()===row.name.toLowerCase()});
+      if(!exists){
+        S.ingredients.push({id:parseInt(row.id)||S.nextId++,name:row.name,unit:row.unit||'g',
+          stock:parseFloat(row.stock)||0,reorder:parseFloat(row.reorder)||0,
+          cost:parseFloat(row.cost)||0,costPerUnit:parseFloat(row.costPerUnit)||0});
+        if(parseInt(row.id)>=S.nextId)S.nextId=parseInt(row.id)+1;
+        changed=true;
+      }
+    });
+
+    if(recs.length){
+      recs.forEach(function(row){
+        var pid=parseInt(row.prodId);var iid=parseInt(row.ingId);
+        if(!pid||!iid)return;
+        if(!RECIPES[pid])RECIPES[pid]=[];
+        var ex=RECIPES[pid].find(function(l){return l.ingId===iid});
+        if(!ex){RECIPES[pid].push({ingId:iid,qty:parseFloat(row.qty)||0,unit:row.unit||'g',grams:parseFloat(row.qty)||0});changed=true;}
+      });
+    }
+
+    if(changed){
+      save();saveRecipes();
+      render();renderProdRows();
+      toast('✓ '+S.products.length+' products loaded from Google Sheets','g');
+    } else if(prods.length===0){
+      toast('Sheet not public. Ask boss to share Sheet or set up full connection.','w');
+    }
+  });
+}
 
 // ── SETUP DATA SYNC ───────────────────────────────────────────────────────────
 // Sheets tabs for setup data
