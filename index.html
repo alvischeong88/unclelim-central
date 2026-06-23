@@ -217,10 +217,10 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
 <!-- MAIN APP (hidden until login) -->
 <div id="APP" style="display:none">
 
-<!-- CFG BAR -->
-<div class="cfg" id="cfgBar" onclick="openM('cfgModal')">
+<!-- CFG BAR — hidden by default, boss can access via Setup tab -->
+<div class="cfg ok" id="cfgBar" onclick="openM('cfgModal')" style="display:none">
   <div class="cfg-dot" id="cfgDot"></div>
-  <div><strong id="cfgSt">Not connected to Google Sheets</strong><span id="cfgSb">Tap to set up sync →</span></div>
+  <div><strong id="cfgSt">Connected to Google Sheets</strong><span id="cfgSb">Auto-connected</span></div>
   <span style="margin-left:auto;font-size:18px">⚙️</span>
 </div>
 
@@ -514,10 +514,13 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
       <strong>Your Google Sheet tab names must be exactly:</strong><br>
       📋 Daily Production<br>
       📦 Stock & Usage<br><br>
-      <strong>Setup tabs (auto-created):</strong><br>
+      <strong>Setup tabs (auto-created by app):</strong><br>
       ⚙️ Products Setup<br>
       ⚙️ Ingredients Setup<br>
-      ⚙️ Recipes Setup
+      ⚙️ Recipes Setup<br>
+      ⚙️ Users<br><br>
+      <strong>To add users via Sheets:</strong><br>
+      Open ⚙️ Users tab → add row with username, passHash, role (worker/boss)
     </div>
     <div id="connHelp" style="display:none;margin-top:12px;background:var(--rl);border-radius:10px;padding:12px;font-size:12px;color:var(--red);line-height:1.7">
       <strong>Common issues:</strong><br>
@@ -628,7 +631,19 @@ var PCOST   = JSON.parse(localStorage.getItem('ulk5pc')||'{}');   // {prodId: {p
 var RECIPES = JSON.parse(localStorage.getItem('ulk5rec')||'{}');  // {prodId: [{ingId,grams}]}
 var PHIST   = JSON.parse(localStorage.getItem('ulk5ph')||'[]');   // price history
 var USERS   = JSON.parse(localStorage.getItem('ulk5u')||'null');
-var CFG     = JSON.parse(localStorage.getItem('ulk5cfg')||'null') || {id:'',email:'',key:''};
+// Credentials baked in — all devices auto-connect
+var BAKED_CFG = {
+  id:   '1kVKFmwrQhRRLRv1PZd8A59WjWjEJkkpvP5UuhgpiC8s',
+  email:'uncle-lim-kitchen@uncle-lim-500206.iam.gserviceaccount.com',
+  key:  '-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC/Fj9fByyg0wcF\nWM0SIsDDuZ6GCrNxVSk5WYAeFuv9OVnQCKi4dp4u6wPMvA5QJUf2/00n0eTaSpSY\nHtPk9T78A128xMgPh85CCXLO5PdHKTHOSUhyhIinKjnVZV82d2MT7YMGJ+DREgsN\nNxUpOhiWYp3u6jzghyq3tJpSt+QflyG+I6W+DTBoZ91jERRsUpQcRA/mfhgocOkL\nSduUtrTXdSLNZ10xZ5CHtw/qH9WWGku4XwrI8xz12MxH5K1FaSQbjsN8qHeVn8OZ\ndRZtrCFZH8X3qmVhzPWmRzcYaf7PMqR3mgxHkG8InyTPcI1YHXeXmafaTpNqNXyt\nR/aGlL3PAgMBAAECggEAKc3SsFXv+AEixJMwTfrnZApcOWPm7PDeE2tWoX6PQzdE\nRERYsP5WTdphWu17TiJR06H3vbHoGK9/QaZg4fKbRGPyImWEhQ1HXOAXS1cBGALV\noBUdMdx3zuZof5xtT4uf09C+vN6Fiweg/lOiIAJTNbc+aPG6vr4jZMwwhM8xK42x\nh/YuZ3lt98OXg49ISsUgSC3FI8mm5sjtxo5WaqaIizngRkXa4/jdpmuuLSE1GL40\n884HGjkm7baL0nRa/5mwgWi/bYWLMf/2AKWW7MXh3R0fld6CWi4vlvueMCnvjH5F\nLbIJoDIhFl4wKVDCGv0JJnFNbMn5hY8M9SwSdSIr2QKBgQD9nv8cZ8snNwbmcRk1\nlQ8W3GoYdvFryp7DYdvyYc5mvJeNzBmL4bDF5B4x0AVY3pNw/TMpt6WeiVyT2f6p\nsVO6vH0QccP9Fccizlst6XzhroJE+NSSYUJyrIyKCsQKFNuhnfkUjLe3tu4gF6ns\nY7Hgg/MWCDWvBhYsAfhSzXnapwKBgQDA4ReDcSITdMpQkSkb6fWl9Dl3/iCp0r/K\ncsySN5PWVgfKupzVThyFEd2L0b8+IEmEn7XZOYIcUgPm64HWehCtle8SbfaGvQiP\nf6SmwgDCko41EOcxhkkKWecmgj/7DxD/XnNHfDbxNwLCZPbtvKonDZuFAgXIDd8C\nUPZ+qShwmQKBgEk44zxnNv7eYy6azoVqwI2AG11u0aqmOAn+scqbtERzBGpa17FL\n+oZXouQMw85xjC3d3CyaKcXIsKK7GEwTtzG9g3oA7m2eIP0KiMaLl5Nsl42kLXMJ\ng26qJHUiQJEMjpBtlGD7c3sl5D/9tQBblBpW3hKpUh5y6mnQM8psKlcXAoGAb61k\n6exFaLKEueVywgDTBMXFyJ5R10J5XgTeQgMADGg/lrg6Op9BkCLp/hzx+EzFhI7c\nweu0VCWAsOHHiaGfqoJXrHoS9azaGgw0D4Hg4sfsovkog9pWzDGFzxw3Y2wz0Uik\nws0/GqdZZ6kB+GD2vCn61CZ5pn2xlCvArVHQYnECgYBS2aojKNvI7MPlm9FCQF71\nSor78WH6zS6jdr9iFCaXdaOOJ4HYmpNt+ZmgyarK4YNVDPcmKfA9891yku1tocFk\nYwY2rvajVPAB7exRAqVHV8ONDauorS/yzOcaOrztALiAQ04H2C2GA75cv6YuWbcQ\nMHf8hcewpI+2qDqjaRuV4Q==\n-----END PRIVATE KEY-----'
+};
+var CFG = (function(){
+  var saved = localStorage.getItem('ulk5cfg');
+  var parsed = null;
+  try{ parsed = saved ? JSON.parse(saved) : null; }catch(e){}
+  // Always use baked credentials — override any saved ones
+  return BAKED_CFG;
+})();
 var CU      = null; // current user
 var prodData= {}; // {prodId: sets value string}
 var parsedItems = [];
@@ -638,8 +653,15 @@ function save(){localStorage.setItem('ulk5',JSON.stringify(S))}
 function savePcost(){localStorage.setItem('ulk5pc',JSON.stringify(PCOST))}
 function saveRecipes(){localStorage.setItem('ulk5rec',JSON.stringify(RECIPES))}
 function savePHist(){localStorage.setItem('ulk5ph',JSON.stringify(PHIST))}
-function saveCfgStore(){localStorage.setItem('ulk5cfg',JSON.stringify(CFG))}
-function isConn(){return !!(CFG.id&&CFG.email&&CFG.key)}
+function saveCfgStore(){
+  // Merge with baked credentials — baked values take priority
+  Object.assign(CFG, BAKED_CFG);
+  localStorage.setItem('ulk5cfg',JSON.stringify(CFG));
+}
+function isConn(){
+  // Always connected — credentials baked in
+  return !!(BAKED_CFG.id&&BAKED_CFG.email&&BAKED_CFG.key);
+}
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 function initUsers(){
@@ -695,11 +717,15 @@ function launchApp(){
     var wn=document.getElementById('wName');
     if(wn)wn.value=CU.username;
   }
-  // Always load products from Sheets on login — Sheets is source of truth
+  // Always load products + users from Sheets on login
   if(isConn()){
     setSyncUI('sy');
-    document.getElementById('slbl').textContent='Loading products...';
-    pullSetupFromSheets().then(function(changed){
+    document.getElementById('slbl').textContent='Loading...';
+    // Pull users and products in parallel
+    Promise.all([
+      pullUsersFromSheets(),
+      pullSetupFromSheets()
+    ]).then(function(results){
       setSyncUI('idle');
       render();renderProdRows();
       if(CU.role==='boss')renderSetup();
@@ -708,27 +734,25 @@ function launchApp(){
       render();renderProdRows();
     });
   } else {
-    // Not connected — use local defaults, show warning
+    // Not connected — use local data
     render();renderProdRows();
     if(S.products.length===0){
-      toast('Connect to Google Sheets to load products','w');
+      toast('No products — connect to Google Sheets in Setup','w');
     }
   }
 }
 
 function applyRole(){
   var tabs=document.querySelectorAll('.nt');
+  var cfgBar=document.getElementById('cfgBar');
   if(CU.role==='worker'){
-    // Worker: Record tab ONLY — no access to Dashboard, Stock, Cost, Setup
+    // Worker: Record tab ONLY
     for(var i=0;i<tabs.length;i++) tabs[i].style.display=i===1?'flex':'none';
-    // Hide cfg bar (no need to see connection status)
-    var cfgBar=document.getElementById('cfgBar');
     if(cfgBar)cfgBar.style.display='none';
     showPage('record');
   } else {
-    // Boss: all tabs visible
+    // Boss: all tabs, can access cfg
     for(var i=0;i<tabs.length;i++) tabs[i].style.display='flex';
-    var cfgBar=document.getElementById('cfgBar');
     if(cfgBar)cfgBar.style.display='flex';
     showPage('dash');
   }
@@ -785,11 +809,18 @@ function saveNewUser(){
   var btn=document.getElementById('saveUserBtn');
   if(btn){btn.textContent='Creating...';btn.disabled=true;}
   sha256(p).then(function(hash){
-    USERS.push({username:u,passHash:hash,role:'worker'});
+    USERS.push({username:u,passHash:hash,role:'worker',displayName:u,active:true});
     localStorage.setItem('ulk5u',JSON.stringify(USERS));
-    cancelAddUser();
-    renderSetup();
-    toast('✓ Worker account "'+u+'" created','g');
+    // Push to Sheets so all devices get the new user
+    pushUsersToSheets().then(function(){
+      cancelAddUser();
+      renderSetup();
+      toast('✓ Worker "'+u+'" created & synced to all devices','g');
+    }).catch(function(){
+      cancelAddUser();
+      renderSetup();
+      toast('✓ Worker "'+u+'" created (offline — will sync later)','g');
+    });
   }).catch(function(){
     if(btn){btn.textContent='Create Account';btn.disabled=false;}
     toast('Error creating account — try again','e');
@@ -804,10 +835,10 @@ function cancelAddUser(){
   if(btn){btn.textContent='Create Account';btn.disabled=false;}
 }
 function deleteUser(u){
-  if(!confirm('Remove "'+u+'"?'))return;
+  if(!confirm('Remove worker "'+u+'"? They will no longer be able to login.'))return;
   USERS=USERS.filter(function(x){return x.username!==u});
   localStorage.setItem('ulk5u',JSON.stringify(USERS));
-  renderSetup();toast('User removed','g');
+  pushUsersToSheets().then(function(){renderSetup();toast('✓ "'+u+'" removed from all devices','g')});
 }
 
 // ── GOOGLE SHEETS ─────────────────────────────────────────────────────────────
@@ -859,11 +890,12 @@ function appendRow(tab,row){
 
 function setSyncUI(st){
   var d=document.getElementById('sdot'),l=document.getElementById('slbl');
+  if(!d||!l)return;
   d.className='sdot';
   if(st==='sy'){d.classList.add('sy');l.textContent='Syncing...'}
   else if(st==='ok'){d.classList.add('ok');l.textContent='Synced ✓'}
-  else if(st==='err'){d.classList.add('err');l.textContent='Sync failed — saved locally'}
-  else{l.textContent=isConn()?'Connected — ready to sync':'Not connected'}
+  else if(st==='err'){d.classList.add('err');l.textContent='Sync failed — will retry'}
+  else{d.classList.add('ok');l.textContent='Auto-connected ✓'}
 }
 
 function updatePendingUI(){
@@ -898,7 +930,9 @@ function writeSheetHeaders(){
     'Closing','Reorder Level','Status','Cost/unit','Usage Cost','Stock Value','Notes'];
   appendRow('📋 Daily Production', getHeaderRow()).catch(function(){});
   appendRow('📦 Stock & Usage', stockHeaders).catch(function(){});
-  toast('✓ Headers written to Google Sheet','g');
+  // Also init users tab
+  pushUsersToSheets();
+  toast('✓ Headers & users written to Google Sheets','g');
 }
 
 function syncQ(){
@@ -970,10 +1004,19 @@ function testConnection(){
 }
 function clearCfg(){if(!confirm('Disconnect?'))return;CFG={id:'',email:'',key:''};saveCfgStore();document.getElementById('cfgModal').classList.remove('open');updateCfgBar();setSyncUI('idle')}
 function updateCfgBar(){
-  var b=document.getElementById('cfgBar'),s=document.getElementById('cfgSt'),sb=document.getElementById('cfgSb');
-  if(isConn()){b.className='cfg ok';s.textContent='Connected to Google Sheets';sb.textContent='Sheet: '+CFG.id.substring(0,20)+'...'}
-  else{b.className='cfg';s.textContent='Not connected to Google Sheets';sb.textContent='Tap to set up sync →'}
-  document.getElementById('cfgId').value=CFG.id||'';document.getElementById('cfgEmail').value=CFG.email||'';document.getElementById('cfgKey').value=CFG.key||'';
+  // Always connected with baked credentials
+  var b=document.getElementById('cfgBar');
+  if(b){
+    b.className='cfg ok';
+    // Only show to boss
+    b.style.display=(CU&&CU.role==='boss')?'flex':'none';
+  }
+  var s=document.getElementById('cfgSt'),sb=document.getElementById('cfgSb');
+  if(s)s.textContent='Connected to Google Sheets';
+  if(sb)sb.textContent='Auto-connected · Sheet: '+BAKED_CFG.id.substring(0,20)+'...';
+  var ci=document.getElementById('cfgId');if(ci)ci.value=BAKED_CFG.id;
+  var ce=document.getElementById('cfgEmail');if(ce)ce.value=BAKED_CFG.email;
+  var ck=document.getElementById('cfgKey');if(ck)ck.value='(baked in — contact admin to change)';
 }
 
 // ── DATETIME ──────────────────────────────────────────────────────────────────
@@ -2008,6 +2051,7 @@ function tryPublicPull(){
 var SETUP_PRODUCTS_TAB  = '⚙️ Products Setup';
 var SETUP_ING_TAB       = '⚙️ Ingredients Setup';
 var SETUP_RECIPES_TAB   = '⚙️ Recipes Setup';
+var SETUP_USERS_TAB     = '⚙️ Users';
 
 function readSheet(tab){
   return getToken().then(function(tok){
@@ -2066,7 +2110,43 @@ function pushSetupToSheets(){
   return clearAndWriteSheet(SETUP_PRODUCTS_TAB, prodRows)
     .then(function(){return clearAndWriteSheet(SETUP_ING_TAB, ingRows)})
     .then(function(){return clearAndWriteSheet(SETUP_RECIPES_TAB, recRows)})
+    .then(function(){return pushUsersToSheets()})
     .catch(function(e){console.log('Setup sync error:',e)});
+}
+
+function pushUsersToSheets(){
+  if(!isConn())return Promise.resolve();
+  var rows=[['username','passHash','role','displayName','active']];
+  USERS.forEach(function(u){
+    rows.push([u.username,u.passHash,u.role,u.displayName||u.username,u.active!==false?'yes':'no']);
+  });
+  return clearAndWriteSheet(SETUP_USERS_TAB,rows).catch(function(e){console.log('Users push error:',e)});
+}
+
+function pullUsersFromSheets(){
+  if(!isConn())return Promise.resolve(false);
+  return readSheet(SETUP_USERS_TAB).then(function(rows){
+    if(!rows||!rows.length)return false;
+    var changed=false;
+    rows.forEach(function(row){
+      if(!row.username||!row.passHash)return;
+      if(row.active==='no')return; // skip disabled users
+      var exists=USERS.find(function(u){return u.username===row.username});
+      if(!exists){
+        USERS.push({username:row.username,passHash:row.passHash,
+          role:row.role||'worker',displayName:row.displayName||row.username,active:true});
+        changed=true;
+      } else {
+        // Update password and role from Sheets
+        if(row.passHash&&row.passHash!==exists.passHash){exists.passHash=row.passHash;changed=true;}
+        if(row.role&&row.role!==exists.role){exists.role=row.role;changed=true;}
+        if(row.displayName)exists.displayName=row.displayName;
+        exists.active=row.active!=='no';
+      }
+    });
+    if(changed)localStorage.setItem('ulk5u',JSON.stringify(USERS));
+    return changed;
+  }).catch(function(){return false});
 }
 
 function pullSetupFromSheets(){
