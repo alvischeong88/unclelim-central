@@ -478,8 +478,9 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
       ↓ Pull Latest
     </button>
   </div>
-  <div style="font-size:11px;color:var(--mt);margin-top:8px;text-align:center">
-    Auto-syncs on every login when connected to Google Sheets
+  <div style="font-size:11px;color:var(--mt);margin-top:8px;text-align:center;line-height:1.5">
+    ✅ Products auto-update on every device at login<br>
+    All devices always show the same product list
   </div>
 </div>
 <button class="btn btn-r" onclick="resetAll()">⚠️ Reset All Data</button>
@@ -594,14 +595,8 @@ var _saved = localStorage.getItem('ulk5');
 var _parsed = null;
 try{ _parsed = _saved ? JSON.parse(_saved) : null; }catch(e){}
 
-// If saved data exists but has no products, inject defaults
-if(_parsed && _parsed.products && _parsed.products.length === 0){
-  _parsed.products = DEFAULT_PRODUCTS.map(function(p){return Object.assign({},p)});
-  _parsed.ingredients = DEFAULT_INGREDIENTS.map(function(i){return Object.assign({},i)});
-  if(_parsed.nextId < 200) _parsed.nextId = 200;
-  localStorage.setItem('ulk5', JSON.stringify(_parsed));
-}
-
+// S holds local state — products will be REPLACED from Sheets on login
+// DEFAULT_PRODUCTS used only as offline fallback when not connected
 var S = _parsed || {
   products: DEFAULT_PRODUCTS.map(function(p){return Object.assign({},p)}),
   ingredients: DEFAULT_INGREDIENTS.map(function(i){return Object.assign({},i)}),
@@ -609,6 +604,14 @@ var S = _parsed || {
   pendSync: [],
   nextId: 200
 };
+
+// Always start fresh for products — Sheets is the source of truth
+// (keeps prodLog and pendSync from local storage)
+if(!_parsed){
+  // First time on device — use defaults until Sheets loads
+  S.products = DEFAULT_PRODUCTS.map(function(p){return Object.assign({},p)});
+  S.ingredients = DEFAULT_INGREDIENTS.map(function(i){return Object.assign({},i)});
+}
 var PCOST   = JSON.parse(localStorage.getItem('ulk5pc')||'{}');   // {prodId: {price}}
 var RECIPES = JSON.parse(localStorage.getItem('ulk5rec')||'{}');  // {prodId: [{ingId,grams}]}
 var PHIST   = JSON.parse(localStorage.getItem('ulk5ph')||'[]');   // price history
@@ -680,16 +683,24 @@ function launchApp(){
     var wn=document.getElementById('wName');
     if(wn)wn.value=CU.username;
   }
-  // Always pull latest setup from Sheets on login (silent background sync)
+  // Always load products from Sheets on login — Sheets is source of truth
   if(isConn()){
-    setTimeout(function(){
-      pullSetupFromSheets().then(function(changed){
-        if(changed){
-          render();renderProdRows();renderSetup();
-          toast('✓ Products & prices updated from latest version','g');
-        }
-      });
-    },1000);
+    setSyncUI('sy');
+    document.getElementById('slbl').textContent='Loading products...';
+    pullSetupFromSheets().then(function(changed){
+      setSyncUI('idle');
+      render();renderProdRows();
+      if(CU.role==='boss')renderSetup();
+    }).catch(function(){
+      setSyncUI('err');
+      render();renderProdRows();
+    });
+  } else {
+    // Not connected — use local defaults, show warning
+    render();renderProdRows();
+    if(S.products.length===0){
+      toast('Connect to Google Sheets to load products','w');
+    }
   }
 }
 
@@ -1996,83 +2007,65 @@ function pullSetupFromSheets(){
     readSheet(SETUP_RECIPES_TAB)
   ]).then(function(results){
     var prods=results[0],ings=results[1],recs=results[2];
-    var changed=false;
 
-    // Merge/update products
+    // If no data in Sheets yet, return false (nothing to load)
+    if(!prods.length&&!ings.length)return false;
+
+    // REPLACE products entirely from Sheets — single source of truth
+    var newProducts=[];
     prods.forEach(function(row){
       if(!row.code||!row.name)return;
-      var exists=S.products.find(function(p){return p.code===row.code});
-      if(!exists){
-        S.products.push({
-          id:parseInt(row.id)||S.nextId++,
-          name:row.name,code:row.code,
-          price:parseFloat(row.price)||0
-        });
-        if(parseInt(row.id)>=S.nextId)S.nextId=parseInt(row.id)+1;
-        changed=true;
-      } else {
-        // Always update name and price from Sheets
-        if(row.name&&row.name!==exists.name){exists.name=row.name;changed=true;}
-        if(parseFloat(row.price)>=0&&parseFloat(row.price)!==exists.price){
-          exists.price=parseFloat(row.price);changed=true;
-        }
-      }
-    });
-
-    // Merge/update ingredients
-    ings.forEach(function(row){
-      if(!row.name)return;
-      var exists=S.ingredients.find(function(i){return i.name.toLowerCase()===row.name.toLowerCase()});
-      if(!exists){
-        S.ingredients.push({
-          id:parseInt(row.id)||S.nextId++,
-          name:row.name,unit:row.unit||'g',
-          stock:parseFloat(row.stock)||0,
-          reorder:parseFloat(row.reorder)||0,
-          cost:parseFloat(row.cost)||0,
-          costPerUnit:parseFloat(row.costPerUnit)||0
-        });
-        if(parseInt(row.id)>=S.nextId)S.nextId=parseInt(row.id)+1;
-        changed=true;
-      } else {
-        // Update cost values from Sheets
-        if(parseFloat(row.cost)>0&&parseFloat(row.cost)!==exists.cost){
-          exists.cost=parseFloat(row.cost);changed=true;
-        }
-        if(parseFloat(row.costPerUnit)>0&&parseFloat(row.costPerUnit)!==exists.costPerUnit){
-          exists.costPerUnit=parseFloat(row.costPerUnit);changed=true;
-        }
-        if(row.unit&&row.unit!==exists.unit){exists.unit=row.unit;changed=true;}
-      }
-    });
-
-    // Merge/update recipes
-    if(recs.length){
-      // Group by prodId and replace entire recipe per product
-      var recsByProd={};
-      recs.forEach(function(row){
-        var pid=parseInt(row.prodId);
-        if(!pid)return;
-        if(!recsByProd[pid])recsByProd[pid]=[];
-        recsByProd[pid].push(row);
+      newProducts.push({
+        id:parseInt(row.id)||S.nextId++,
+        name:row.name,
+        code:row.code,
+        price:parseFloat(row.price)||0
       });
-      Object.keys(recsByProd).forEach(function(pid){
-        var lines=recsByProd[pid];
-        var newRecipe=[];
-        lines.forEach(function(row){
-          var iid=parseInt(row.ingId);
-          if(!iid)return;
-          newRecipe.push({ingId:iid,qty:parseFloat(row.qty)||0,unit:row.unit||'g',grams:parseFloat(row.qty)||0});
-        });
-        // Only update if different
-        var existing=JSON.stringify(RECIPES[pid]||[]);
-        var incoming=JSON.stringify(newRecipe);
-        if(existing!==incoming){RECIPES[pid]=newRecipe;changed=true;}
-      });
+    });
+    if(newProducts.length){
+      S.products=newProducts;
+      // Ensure nextId is higher than any product id
+      newProducts.forEach(function(p){if(p.id>=S.nextId)S.nextId=p.id+1;});
     }
 
-    if(changed){save();saveRecipes();}
-    return changed;
+    // REPLACE ingredients entirely from Sheets
+    var newIngredients=[];
+    ings.forEach(function(row){
+      if(!row.name)return;
+      newIngredients.push({
+        id:parseInt(row.id)||S.nextId++,
+        name:row.name,
+        unit:row.unit||'g',
+        stock:parseFloat(row.stock)||0,
+        reorder:parseFloat(row.reorder)||0,
+        cost:parseFloat(row.cost)||0,
+        costPerUnit:parseFloat(row.costPerUnit)||0
+      });
+    });
+    if(newIngredients.length){
+      // Preserve local stock levels — only update prices/costs
+      newIngredients.forEach(function(ni){
+        var existing=S.ingredients.find(function(i){return i.name.toLowerCase()===ni.name.toLowerCase()});
+        if(existing){ni.stock=existing.stock;ni.reorder=existing.reorder;}
+      });
+      S.ingredients=newIngredients;
+    }
+
+    // REPLACE recipes entirely from Sheets
+    if(recs.length){
+      var newRecipes={};
+      recs.forEach(function(row){
+        var pid=parseInt(row.prodId);var iid=parseInt(row.ingId);
+        if(!pid||!iid)return;
+        if(!newRecipes[pid])newRecipes[pid]=[];
+        newRecipes[pid].push({ingId:iid,qty:parseFloat(row.qty)||0,unit:row.unit||'g',grams:parseFloat(row.qty)||0});
+      });
+      RECIPES=newRecipes;
+      saveRecipes();
+    }
+
+    save();
+    return true;
   });
 }
 
