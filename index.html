@@ -359,7 +359,7 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
       <div class="ctitle">Product Recipe & Cost</div>
       <p style="font-size:12px;color:var(--mt);margin-bottom:12px;line-height:1.5">Select a product, add ingredients + grams per set. System calculates cost automatically.</p>
       <label style="margin-top:0">Select Product</label>
-      <select id="recProd" onchange="renderRecipeEditor()"></select>
+      <select id="recProd" style="-webkit-appearance:auto;appearance:auto;width:100%;background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;padding:11px 13px;color:var(--tx);font-family:Inter,sans-serif;font-size:14px;outline:none"></select>
     </div>
     <div id="recipeEditor"></div>
     <div class="card" id="recipeSummary"></div>
@@ -1050,7 +1050,7 @@ function setCostTab(t){
     if(btn){btn.style.background=x===t?'var(--green)':'#fff';btn.style.color=x===t?'#fff':'var(--mt)';btn.style.borderColor=x===t?'var(--green)':'var(--bd)'}
     if(panel)panel.style.display=x===t?'block':'none';
   });
-  if(t==='prod'){renderRecipeEditor();}
+  if(t==='prod'){setTimeout(function(){initRecipeDropdown();},30);}
   if(t==='hist')renderPriceHist();
   if(t==='ing')renderIngCostList();
 }
@@ -1180,15 +1180,42 @@ function calcSetCost(prodId){
   },0);
 }
 
-function renderRecipeEditor(){
+function initRecipeDropdown(){
   var rp=document.getElementById('recProd');
   if(!rp)return;
   if(!S.products.length){
     document.getElementById('recipeEditor').innerHTML='<div class="card"><div class="empty"><div class="empty-icon">📦</div><p>No products yet — go to Setup to add</p></div></div>';
     document.getElementById('recipeSummary').innerHTML='';return;
   }
-  rp.innerHTML=S.products.map(function(p){return'<option value="'+p.id+'">'+p.name+'</option>'}).join('');
-  var prodId=parseInt(rp.value);curRecipeProd=prodId;
+  // Only rebuild dropdown options if products changed
+  var currentOptions=rp.querySelectorAll('option');
+  var needsRebuild=(currentOptions.length!==S.products.length);
+  if(needsRebuild){
+    var savedId=curRecipeProd||parseInt(rp.value)||S.products[0].id;
+    rp.innerHTML=S.products.map(function(p){
+      return'<option value="'+p.id+'"'+(p.id===savedId?' selected':'')+'>'+p.name+'</option>';
+    }).join('');
+    if(savedId)rp.value=savedId;
+  }
+  // Bind change event only once
+  if(!rp._bound){
+    rp._bound=true;
+    rp.addEventListener('change',function(){
+      curRecipeProd=parseInt(this.value);
+      renderRecipeEditor();
+    });
+  }
+  // Render editor for current selection
+  curRecipeProd=parseInt(rp.value)||S.products[0].id;
+  renderRecipeEditor();
+}
+
+function renderRecipeEditor(){
+  var rp=document.getElementById('recProd');
+  if(!rp||!S.products.length)return;
+  // Use curRecipeProd — do NOT touch the dropdown innerHTML here
+  var prodId=curRecipeProd||parseInt(rp.value)||S.products[0].id;
+  curRecipeProd=prodId;
   var product=S.products.find(function(p){return p.id===prodId});
   var recipe=RECIPES[prodId]||[];
   var setCost=calcSetCost(prodId);
@@ -1269,7 +1296,7 @@ function renderRecipeEditor(){
     +'<div class="tile"><div class="tlbl">Margin</div><div class="tval" style="font-size:15px">'+(sellPrice>0?((profit/sellPrice)*100).toFixed(1):0)+'%</div></div>'
     +'</div>';
 
-  // Bind events
+  // Bind other events
   setTimeout(function(){
     var addBtn=document.getElementById('addRLineBtn');
     if(addBtn)addBtn.addEventListener('click',function(){
