@@ -706,11 +706,29 @@ function updatePendingUI(){
   if(n)document.getElementById('pendList').innerHTML=S.pendSync.map(function(p){return'<div class="row"><div class="ri"><div class="rn">'+p.type+'</div><div class="rm">'+p.summary+'</div></div></div>'}).join('');
 }
 
+function getHeaderRow(){
+  // Build header for Daily Production sheet
+  var baseHeaders=['Date','Day','Worker','Time','Total Sets','Produced','Zero Sets',
+                   'Revenue (RM)','Cost (RM)','Gross Profit (RM)','Margin %'];
+  var setProdHeaders=S.products.map(function(p){return p.code+' '+p.name+' (sets)'});
+  var costProdHeaders=S.products.map(function(p){return p.code+' '+p.name+' (cost RM)'});
+  return baseHeaders.concat(setProdHeaders).concat(costProdHeaders);
+}
+
+var headerSynced=false;
 function doSync(type,row,summary){
   if(!isConn()){S.pendSync.push({type:type,row:row,summary:summary,ts:Date.now()});save();updatePendingUI();return Promise.resolve('queued')}
   setSyncUI('sy');
   var tab=type==='production'?'📋 Daily Production':'📦 Stock & Usage';
-  return appendRow(tab,row).then(function(){setSyncUI('ok');setTimeout(function(){setSyncUI('idle')},3000);return'synced'})
+  // Write header row on first production sync of the session
+  var doWrite=Promise.resolve();
+  if(type==='production'&&!headerSynced){
+    headerSynced=true;
+    doWrite=appendRow(tab,getHeaderRow()).catch(function(){});
+  }
+  return doWrite.then(function(){
+    return appendRow(tab,row);
+  }).then(function(){setSyncUI('ok');setTimeout(function(){setSyncUI('idle')},3000);return'synced'})
     .catch(function(){S.pendSync.push({type:type,row:row,summary:summary,ts:Date.now()});save();updatePendingUI();setSyncUI('err');setTimeout(function(){setSyncUI('idle')},4000);return'queued'});
 }
 
@@ -887,17 +905,26 @@ function submitRecord(){
   var entry={id:S.nextId++,worker:worker,date:dateStr,time:timeStr,items:parsedItems,totalSets:totalSets,readyCount:produced.length,ts:Date.now(),synced:false};
   S.prodLog.push(entry);save();
 
-  var prodCols=S.products.map(function(p){var item=parsedItems.find(function(i){return i.id===p.id});return item?item.sets:0});
-  // Calculate cost per product
-  var totalCost=S.products.reduce(function(sum,p){
+  // Build product columns with sets AND cost per product
+  var prodSetCols=[];
+  var prodCostCols=[];
+  var totalCost=0;
+  S.products.forEach(function(p){
     var item=parsedItems.find(function(i){return i.id===p.id});
-    if(!item||!item.sets)return sum;
-    return sum+calcSetCost(p.id)*item.sets;
-  },0);
+    var sets=item?item.sets:0;
+    var costPerSet=calcSetCost(p.id);
+    var prodCost=costPerSet*sets;
+    totalCost+=prodCost;
+    prodSetCols.push(sets);
+    prodCostCols.push(prodCost.toFixed(2));
+  });
   var grossProfit=totalRevenue-totalCost;
   var margin=totalRevenue>0?((grossProfit/totalRevenue)*100).toFixed(1):'0';
+  // Row: Date, Day, Worker, Time, TotalSets, Produced, Zero, Revenue, TotalCost, GrossProfit, Margin,
+  //      then sets per product, then cost per product
   var row=[dateStr,dayStr,worker,timeStr,totalSets,produced.length,zeros.length,
-           totalRevenue.toFixed(2),totalCost.toFixed(2),grossProfit.toFixed(2),margin+'%'].concat(prodCols);
+           totalRevenue.toFixed(2),totalCost.toFixed(2),grossProfit.toFixed(2),margin+'%']
+           .concat(prodSetCols).concat(prodCostCols);
 
   doSync('production',row,worker+' — '+totalSets+' sets').then(function(result){
     entry.synced=(result==='synced');save();
@@ -995,7 +1022,41 @@ function renderSetup(){
   var pl=document.getElementById('productList');
   if(pl)pl.innerHTML=!S.products.length
     ?'<div class="empty"><div class="empty-icon">📦</div><p>No products yet — add one above</p></div>'
-    :S.products.map(function(p){return'<div class="row"><div class="ri"><div class="rn">'+p.name+'</div><div class="rm">'+p.code+' · RM'+p.price.toFixed(2)+'/set</div></div><button onclick="delProduct('+p.id+')" style="padding:6px 10px;background:var(--rl);color:var(--red);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✕</button></div>'}).join('');
+    :S.products.map(function(p){
+      return'<div class="row" style="flex-wrap:wrap;gap:6px">'
+        +'<div class="ri"><div class="rn">'+p.name+'</div><div class="rm">'+p.code+'</div></div>'
+        +'<div style="display:flex;align-items:center;gap:6px;margin-left:auto">'
+        +'<span style="font-size:12px;color:var(--mt);font-weight:500">RM</span>'
+        +'<input type="number" min="0" step="0.01" value="'+p.price.toFixed(2)+'" data-pid="'+p.id+'" class="price-inp"'
+        +' style="width:80px;background:var(--bg);border:1.5px solid var(--bd);border-radius:8px;padding:6px 8px;font-family:monospace;font-size:14px;font-weight:700;text-align:center;outline:none;-moz-appearance:textfield;color:var(--tx)">'
+        +'<span style="font-size:11px;color:var(--mt)">/set</span>'
+        +'<button data-pid="'+p.id+'" class="save-price-btn" style="padding:6px 10px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Save</button>'
+        +'<button onclick="delProduct('+p.id+')" style="padding:6px 10px;background:var(--rl);color:var(--red);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✕</button>'
+        +'</div>'
+        +'</div>';
+    }).join('');
+  // Bind save price buttons
+  if(pl){
+    pl.querySelectorAll('.save-price-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        var pid=parseInt(this.getAttribute('data-pid'));
+        var inp=pl.querySelector('.price-inp[data-pid="'+pid+'"]');
+        var prod=S.products.find(function(p){return p.id===pid});
+        if(!prod||!inp)return;
+        prod.price=parseFloat(inp.value)||0;
+        save();renderSetup();toast('✓ Price saved: RM'+prod.price.toFixed(2)+'/set','g');
+      });
+    });
+    pl.querySelectorAll('.price-inp').forEach(function(inp){
+      inp.addEventListener('keydown',function(e){
+        if(e.key==='Enter'){
+          var pid=parseInt(this.getAttribute('data-pid'));
+          var prod=S.products.find(function(p){return p.id===pid});
+          if(prod){prod.price=parseFloat(this.value)||0;save();renderSetup();toast('✓ Price saved','g');}
+        }
+      });
+    });
+  }
 
   // Ingredients list
   var il=document.getElementById('ingredientList');
@@ -1550,10 +1611,16 @@ function parseWorkbook(wb){
 function confirmImport(){
   var added={products:0,ingredients:0,recipes:0,skipped:0};
 
-  // Import products
+  // Import products — skip if code OR name already exists
   importData.products.forEach(function(p){
-    var exists=S.products.find(function(ep){return ep.code===p.code});
-    if(exists){added.skipped++;return}
+    var existsByCode=S.products.find(function(ep){return ep.code===p.code});
+    var existsByName=S.products.find(function(ep){return ep.name.toLowerCase()===p.name.toLowerCase()});
+    if(existsByCode){
+      // Update price if it was 0
+      if(existsByCode.price===0&&p.price>0){existsByCode.price=p.price;}
+      added.skipped++;return;
+    }
+    if(existsByName){added.skipped++;return}
     S.products.push({id:S.nextId++,name:p.name,code:p.code,price:p.price});
     added.products++;
   });
