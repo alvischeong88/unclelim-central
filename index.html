@@ -444,20 +444,22 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
 
   <!-- Team -->
   <div class="card">
-    <div class="sechdr"><span class="ctitle">Team Accounts</span><button class="btn btn-o btn-sm" onclick="openAddUser()">+ Add User</button></div>
+    <div class="sechdr"><span class="ctitle">Team Accounts</span><button class="btn btn-o btn-sm" onclick="openAddUser()">+ Add Worker</button></div>
     <div id="userList"></div>
-    <div id="addUserPanel" style="display:none;margin-top:14px;background:var(--bg);border-radius:12px;padding:14px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:12px">New Account</div>
-      <input class="ls-inp" type="text" id="nu" placeholder="Username" style="margin-bottom:8px">
-      <input class="ls-inp" type="password" id="np" placeholder="Password" style="margin-bottom:10px">
-      <div style="display:flex;gap:12px;margin-bottom:10px">
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--tx);text-transform:none;letter-spacing:0;margin:0;flex:1;font-weight:500"><input type="radio" name="nr" value="worker" checked> Worker</label>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--tx);text-transform:none;letter-spacing:0;margin:0;flex:1;font-weight:500"><input type="radio" name="nr" value="boss"> Boss</label>
+    <div id="addUserPanel" style="display:none;margin-top:14px;background:var(--bg);border-radius:12px;padding:14px;border:1.5px solid var(--bd)">
+      <div style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:4px">Add New Worker Account</div>
+      <div style="font-size:12px;color:var(--mt);margin-bottom:12px">Workers can only access the Record tab to log production.</div>
+      <label style="margin-top:0">Username</label>
+      <input type="text" id="nu" placeholder="e.g. azman / siti" autocapitalize="none" autocomplete="off">
+      <label>Password</label>
+      <input type="password" id="np" placeholder="Set a password" autocomplete="new-password">
+      <div style="background:var(--gl);border:1.5px solid #A8D8B8;border-radius:10px;padding:10px 12px;margin-top:10px;font-size:12px;color:var(--gd)">
+        👷 <strong>Worker access:</strong> Record tab only<br>
+        Cannot view prices, costs, ingredients or setup
       </div>
-      <div class="notice" style="margin-top:0;margin-bottom:10px">👑 Boss = all tabs &nbsp;·&nbsp; 👷 Worker = Record tab only</div>
-      <div style="display:flex;gap:8px">
-        <button onclick="saveNewUser()" style="flex:1;padding:11px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">Save</button>
-        <button onclick="document.getElementById('addUserPanel').style.display='none'" style="flex:1;padding:11px;background:var(--bg);color:var(--mt);border:1.5px solid var(--bd);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">Cancel</button>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button id="saveUserBtn" onclick="saveNewUser()" style="flex:1;padding:12px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">Create Account</button>
+        <button onclick="cancelAddUser()" style="flex:1;padding:12px;background:var(--bg);color:var(--mt);border:1.5px solid var(--bd);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">Cancel</button>
       </div>
     </div>
   </div>
@@ -717,11 +719,17 @@ function launchApp(){
 function applyRole(){
   var tabs=document.querySelectorAll('.nt');
   if(CU.role==='worker'){
-    // show only Record tab
+    // Worker: Record tab ONLY — no access to Dashboard, Stock, Cost, Setup
     for(var i=0;i<tabs.length;i++) tabs[i].style.display=i===1?'flex':'none';
+    // Hide cfg bar (no need to see connection status)
+    var cfgBar=document.getElementById('cfgBar');
+    if(cfgBar)cfgBar.style.display='none';
     showPage('record');
   } else {
+    // Boss: all tabs visible
     for(var i=0;i<tabs.length;i++) tabs[i].style.display='flex';
+    var cfgBar=document.getElementById('cfgBar');
+    if(cfgBar)cfgBar.style.display='flex';
     showPage('dash');
   }
 }
@@ -756,19 +764,44 @@ function openUserMenu(){
 }
 
 // User management
-function openAddUser(){document.getElementById('addUserPanel').style.display='block';document.getElementById('nu').value='';document.getElementById('np').value=''}
+function openAddUser(){
+  document.getElementById('addUserPanel').style.display='block';
+  document.getElementById('nu').value='';
+  document.getElementById('np').value='';
+  var btn=document.getElementById('saveUserBtn');
+  if(btn){btn.textContent='Create Account';btn.disabled=false;}
+  setTimeout(function(){document.getElementById('nu').focus();},100);
+}
 function saveNewUser(){
   var u=document.getElementById('nu').value.trim().toLowerCase();
   var p=document.getElementById('np').value;
-  var r=document.querySelector('input[name="nr"]:checked').value;
-  if(!u||!p){toast('Fill in username and password','w');return}
-  for(var i=0;i<USERS.length;i++){if(USERS[i].username===u){toast('Username already exists','w');return}}
+  if(!u){toast('Enter a username','w');return}
+  if(!p||p.length<4){toast('Password must be at least 4 characters','w');return}
+  // Check duplicate
+  var exists=false;
+  for(var i=0;i<USERS.length;i++){if(USERS[i].username===u){exists=true;break}}
+  if(exists){toast('Username "'+u+'" already exists — try another','w');return}
+  // Always create as worker (boss accounts managed separately)
+  var btn=document.getElementById('saveUserBtn');
+  if(btn){btn.textContent='Creating...';btn.disabled=true;}
   sha256(p).then(function(hash){
-    USERS.push({username:u,passHash:hash,role:r});
+    USERS.push({username:u,passHash:hash,role:'worker'});
     localStorage.setItem('ulk5u',JSON.stringify(USERS));
-    document.getElementById('addUserPanel').style.display='none';
-    renderSetup();toast('✓ '+u+' added','g');
+    cancelAddUser();
+    renderSetup();
+    toast('✓ Worker account "'+u+'" created','g');
+  }).catch(function(){
+    if(btn){btn.textContent='Create Account';btn.disabled=false;}
+    toast('Error creating account — try again','e');
   });
+}
+
+function cancelAddUser(){
+  document.getElementById('addUserPanel').style.display='none';
+  document.getElementById('nu').value='';
+  document.getElementById('np').value='';
+  var btn=document.getElementById('saveUserBtn');
+  if(btn){btn.textContent='Create Account';btn.disabled=false;}
 }
 function deleteUser(u){
   if(!confirm('Remove "'+u+'"?'))return;
@@ -1205,7 +1238,29 @@ function renderSetup(){
 
   // Users list
   var ul=document.getElementById('userList');
-  if(ul)ul.innerHTML=USERS.map(function(u){return'<div class="row"><div style="width:34px;height:34px;border-radius:10px;background:'+(u.role==='boss'?'var(--gl)':'#E8F1FC')+';display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:'+(u.role==='boss'?'var(--green)':'#1A6BB5')+';flex-shrink:0">'+u.username.charAt(0).toUpperCase()+'</div><div class="ri"><div class="rn">'+u.username+'</div><div class="rm">'+(u.role==='boss'?'👑 Boss':'👷 Worker')+'</div></div>'+(u.username===CU.username?'<span style="font-size:11px;color:var(--mt)">You</span>':'<button onclick="deleteUser(\''+u.username+'\')" style="padding:6px 10px;background:var(--rl);color:var(--red);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✕</button>')+'</div>'}).join('');
+  if(ul){
+    ul.innerHTML=USERS.map(function(u){
+      var isBoss=u.role==='boss';
+      var isMe=u.username===CU.username;
+      var avatarBg=isBoss?'var(--gl)':'#E8F1FC';
+      var avatarColor=isBoss?'var(--green)':'#1A6BB5';
+      var roleLabel=isBoss?'👑 Boss — all tabs':'👷 Worker — Record tab only';
+      return'<div class="row">'
+        +'<div style="width:36px;height:36px;border-radius:10px;background:'+avatarBg+';display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:'+avatarColor+';flex-shrink:0">'+u.username.charAt(0).toUpperCase()+'</div>'
+        +'<div class="ri"><div class="rn">'+u.username+(isMe?' <span style="font-size:11px;background:var(--gl);color:var(--green);padding:2px 7px;border-radius:8px;font-weight:600">You</span>':'')+'</div>'
+        +'<div class="rm">'+roleLabel+'</div></div>'
+        +(!isMe?'<button data-uname="'+u.username+'" class="del-user-btn" style="padding:6px 10px;background:var(--rl);color:var(--red);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Remove</button>':'')
+        +'</div>';
+    }).join('');
+  }
+  // Bind delete buttons
+  if(ul){
+    ul.querySelectorAll('.del-user-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        deleteUser(this.getAttribute('data-uname'));
+      });
+    });
+  }
 }
 
 function resetAll(){if(!confirm('Reset ALL data?'))return;['ulk5','ulk5pc','ulk5rec','ulk5ph'].forEach(function(k){localStorage.removeItem(k)});location.reload()}
@@ -1571,6 +1626,10 @@ function render(){
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
 function showPage(id){
+  // Block workers from accessing restricted pages
+  if(CU&&CU.role==='worker'&&id!=='record'){
+    id='record'; // force back to record
+  }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});
   document.querySelectorAll('.nt').forEach(function(t){t.classList.remove('active')});
   var pe=document.getElementById('page-'+id);if(pe)pe.classList.add('active');
