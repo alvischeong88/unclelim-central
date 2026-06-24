@@ -265,6 +265,7 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
 <div class="nav" id="NAV">
   <div class="nt active" onclick="showPage('dash')"><span class="nt-icon">📊</span>Dashboard</div>
   <div class="nt" onclick="showPage('record')"><span class="nt-icon">📋</span>Record</div>
+  <div class="nt" onclick="showPage('transfer')"><span class="nt-icon">🔄</span>Transfer</div>
   <div class="nt" onclick="showPage('distribute')"><span class="nt-icon">🚚</span>Distribute</div>
   <div class="nt" onclick="showPage('stock')"><span class="nt-icon">📦</span>Stock</div>
   <div class="nt" onclick="showPage('cost')"><span class="nt-icon">💰</span>Cost</div>
@@ -337,6 +338,109 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
   </div>
 </div>
 
+
+
+<!-- TRANSFER -->
+<div class="page" id="page-transfer">
+
+  <!-- Step 1: Select batches -->
+  <div id="tfStep1">
+    <div class="card" style="padding:14px 16px">
+      <div class="steps">
+        <div class="si active"><span class="sn">1</span>Select Batches</div>
+        <span class="ss">›</span>
+        <div class="si"><span class="sn">2</span>Review</div>
+        <span class="ss">›</span>
+        <div class="si"><span class="sn">3</span>Transfer</div>
+      </div>
+      <div style="font-size:12px;color:var(--mt);margin-bottom:12px;line-height:1.5">
+        Select one or more production batches to transfer to a branch.
+        System will total all products across selected batches.
+      </div>
+      <label style="margin-top:0">Branch / Destination</label>
+      <input type="text" id="tfBranch" placeholder="e.g. Branch Klang, Branch PJ">
+      <label>Notes (optional)</label>
+      <input type="text" id="tfNotes" placeholder="e.g. Morning transfer, urgent order">
+    </div>
+
+    <!-- Batch list -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+        <div class="ctitle" style="margin-bottom:0">Production Batches</div>
+        <div style="display:flex;gap:6px">
+          <button onclick="selectAllBatches(true)" style="padding:5px 10px;background:var(--gl);color:var(--green);border:1px solid var(--green);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer">All</button>
+          <button onclick="selectAllBatches(false)" style="padding:5px 10px;background:var(--bg);color:var(--mt);border:1px solid var(--bd);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer">None</button>
+        </div>
+      </div>
+      <div id="tfBatchList"></div>
+    </div>
+
+    <!-- Selected summary -->
+    <div class="card" id="tfSelectedSummary" style="display:none">
+      <div class="ctitle">Selected Products Total</div>
+      <div id="tfSelectedProducts"></div>
+    </div>
+
+    <button class="btn btn-g" onclick="reviewTransfer()">→ Review Transfer</button>
+  </div>
+
+  <!-- Step 2: Review -->
+  <div id="tfStep2" style="display:none">
+    <div class="card" style="padding:14px 16px">
+      <div class="steps">
+        <div class="si done"><span class="sn">1</span>Selected</div>
+        <span class="ss">›</span>
+        <div class="si active"><span class="sn">2</span>Review</div>
+        <span class="ss">›</span>
+        <div class="si"><span class="sn">3</span>Transfer</div>
+      </div>
+      <div style="background:var(--gl);border:1.5px solid #A8D8B8;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <div style="font-size:13px;font-weight:700;color:var(--green)" id="tfReviewId">Transfer ID</div>
+        <div style="font-size:12px;color:var(--mt);margin-top:3px" id="tfReviewMeta"></div>
+      </div>
+      <div class="ctitle">Batches Included</div>
+      <div id="tfReviewBatches"></div>
+      <div class="divider"></div>
+      <div class="ctitle">Total Products to Transfer</div>
+      <div class="rtable" style="margin-top:8px">
+        <div class="rhdr"><div>Product</div><div>Sets</div></div>
+        <div id="tfReviewProducts"></div>
+      </div>
+    </div>
+    <div class="cbox">
+      <div class="ctit">✓ Confirm transfer?</div>
+      <div class="csub" id="tfConfirmSub"></div>
+    </div>
+    <button class="btn btn-g" onclick="submitTransfer()">✓ Confirm & Sync to Sheets</button>
+    <button class="btn btn-o" onclick="backTfStep1()">← Back to Edit</button>
+  </div>
+
+  <!-- Step 3: Done -->
+  <div id="tfStep3" style="display:none">
+    <div class="subbox">
+      <div class="subicon">✅</div>
+      <div class="subtit">Transfer Recorded!</div>
+      <div class="submeta" id="tfSubMeta"></div>
+    </div>
+    <div class="card" id="tfSubSync"></div>
+    <div class="card">
+      <div class="ctitle" id="tfDoneIdLabel">Transfer ID</div>
+      <div class="rtable">
+        <div class="rhdr"><div>Product</div><div>Sets</div></div>
+        <div id="tfDoneProducts"></div>
+      </div>
+    </div>
+    <button class="btn btn-g" style="margin-top:4px" onclick="newTransfer()">+ New Transfer</button>
+  </div>
+
+  <!-- Transfer History -->
+  <div id="tfHistory" style="margin-top:0">
+    <div class="card">
+      <div class="ctitle">Transfer History</div>
+      <div id="tfHistoryList"></div>
+    </div>
+  </div>
+</div>
 
 <!-- DISTRIBUTE -->
 <div class="page" id="page-distribute">
@@ -442,19 +546,53 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
 
 <!-- STOCK -->
 <div class="page" id="page-stock">
-  <div class="card">
-    <div class="sechdr"><span class="ctitle">Ingredient Stock</span><button class="btn btn-o btn-sm" onclick="openM('addIngM')">+ Add</button></div>
-    <div id="stockList"></div>
+  <!-- Sub tabs -->
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <button id="stab-prod" onclick="setStockTab('prod')" style="flex:1;padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--green);background:var(--green);color:#fff">📦 Product Stock</button>
+    <button id="stab-ing" onclick="setStockTab('ing')" style="flex:1;padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--bd);background:#fff;color:var(--mt)">🧂 Ingredient Stock</button>
   </div>
-  <div class="card">
-    <div class="ctitle">Update Stock</div>
-    <label>Ingredient</label><select id="usIng"></select>
-    <div class="r2">
-      <div><label>Used (−)</label><input type="number" id="usAmt" placeholder="0" min="0" step="0.1"></div>
-      <div><label>Restocked (+)</label><input type="number" id="rsAmt" placeholder="0" min="0" step="0.1"></div>
+
+  <!-- PRODUCT STOCK -->
+  <div id="stab-prod-p">
+    <!-- Summary cards -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+        <div class="ctitle" style="margin-bottom:0">Product Stock on Hand</div>
+        <button onclick="syncProductStock()" style="padding:6px 12px;background:var(--gl);color:var(--green);border:1px solid var(--green);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">↑ Sync</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 55px 55px 55px 55px;gap:4px;padding:9px 14px;background:var(--green)">
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.5px">Product</div>
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;text-align:center">In</div>
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;text-align:center">Trans</div>
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;text-align:center">Sold</div>
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;text-align:center">Balance</div>
+      </div>
+      <div id="prodStockList"></div>
     </div>
-    <label>Updated by</label><input type="text" id="stWorker" placeholder="Staff name">
-    <button class="btn btn-g" onclick="updateStock()">↻ Update & Sync</button>
+
+    <!-- Stock movement log -->
+    <div class="card">
+      <div class="ctitle">Stock Movement Log</div>
+      <div id="prodStockLog"></div>
+    </div>
+  </div>
+
+  <!-- INGREDIENT STOCK -->
+  <div id="stab-ing-p" style="display:none">
+    <div class="card">
+      <div class="sechdr"><span class="ctitle">Ingredient Stock</span><button class="btn btn-o btn-sm" onclick="openM('addIngM')">+ Add</button></div>
+      <div id="stockList"></div>
+    </div>
+    <div class="card">
+      <div class="ctitle">Update Stock</div>
+      <label>Ingredient</label><select id="usIng"></select>
+      <div class="r2">
+        <div><label>Used (−)</label><input type="number" id="usAmt" placeholder="0" min="0" step="0.1"></div>
+        <div><label>Restocked (+)</label><input type="number" id="rsAmt" placeholder="0" min="0" step="0.1"></div>
+      </div>
+      <label>Updated by</label><input type="text" id="stWorker" placeholder="Staff name">
+      <button class="btn btn-g" onclick="updateStock()">↻ Update & Sync</button>
+    </div>
   </div>
 </div>
 
@@ -767,6 +905,8 @@ var S = _parsed || {
   pendSync: [],
   distLog: [],
   customers: [],
+  transfers: [],
+  transferCounter: {},
   nextId: 200
 };
 
@@ -933,7 +1073,7 @@ function applyRole(){
   var cfgBar=document.getElementById('cfgBar');
   if(CU.role==='worker'){
     // Worker: Record tab ONLY (index 1 in new 6-tab nav)
-    for(var i=0;i<tabs.length;i++) tabs[i].style.display=i===1?'flex':'none';
+    for(var i=0;i<tabs.length;i++) tabs[i].style.display=i===1?'flex':'none'; // Record tab is index 1
     if(cfgBar)cfgBar.style.display='none';
     showPage('record');
   } else {
@@ -1125,7 +1265,7 @@ function getHeaderRow(){
 function doSync(type,row,summary){
   if(!isConn()){S.pendSync.push({type:type,row:row,summary:summary,ts:Date.now()});save();updatePendingUI();return Promise.resolve('queued')}
   setSyncUI('sy');
-  var tab=type==='production'?'📋 Daily Production':type==='distribution'?'🚚 Distribution':'📦 Stock & Usage';
+  var tab=type==='production'?'📋 Daily Production':type==='distribution'?'🚚 Distribution':type==='transfer'?'🔄 Stock Transfer':'📦 Stock & Usage';
   return appendRow(tab,row)
     .then(function(){setSyncUI('ok');setTimeout(function(){setSyncUI('idle')},3000);return'synced'})
     .catch(function(){S.pendSync.push({type:type,row:row,summary:summary,ts:Date.now()});save();updatePendingUI();setSyncUI('err');setTimeout(function(){setSyncUI('idle')},4000);return'queued'});
@@ -1324,6 +1464,8 @@ function submitRecord(){
 
   var entry={id:S.nextId++,worker:worker,date:dateStr,time:timeStr,items:parsedItems,totalSets:totalSets,readyCount:produced.length,ts:Date.now(),synced:false};
   S.prodLog.push(entry);save();
+  // Auto-sync product stock to Sheets after production recorded
+  if(isConn()){setTimeout(function(){syncProductStock();},2000);}
 
   // Build product columns with sets AND cost per product
   var prodSetCols=[];
@@ -1884,11 +2026,13 @@ function render(){
   var alerts=S.ingredients.filter(function(i){return i.stock<=i.reorder});
   var revenue=logs.reduce(function(s,l){return s+l.items.reduce(function(ss,item){return ss+(item.price||0)*item.sets},0)},0);
 
+  var pStock=calcProductStock();
+  var totalBalance=Object.keys(pStock).reduce(function(s,pid){return s+(pStock[pid].balance||0)},0);
   document.getElementById('dTiles').innerHTML=
     '<div class="tile a"><div class="tlbl">Batches Today</div><div class="tval">'+logs.length+'</div></div>'
     +'<div class="tile g"><div class="tlbl">Total Sets</div><div class="tval">'+totalSets+'</div></div>'
     +'<div class="tile"><div class="tlbl">Est. Revenue</div><div class="tval" style="font-size:16px;padding-top:4px">RM '+revenue.toFixed(0)+'</div></div>'
-    +'<div class="tile '+(alerts.length?'r':'g')+'"><div class="tlbl">Low Stock</div><div class="tval">'+alerts.length+'</div></div>';
+    +'<div class="tile '+(totalBalance===0?'r':totalBalance<10?'a':'g')+'"><div class="tlbl">Product Balance</div><div class="tval">'+totalBalance+'</div></div>';
 
   var ab=document.getElementById('aBadge');
   if(alerts.length){ab.textContent=alerts.length+' item'+(alerts.length>1?'s':'');ab.className='badge badge-r'}
@@ -1914,15 +2058,16 @@ function showPage(id){
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});
   document.querySelectorAll('.nt').forEach(function(t){t.classList.remove('active')});
   var pe=document.getElementById('page-'+id);if(pe)pe.classList.add('active');
-  var tabs=['dash','record','distribute','stock','cost','setup'];
+  var tabs=['dash','record','transfer','distribute','stock','cost','setup'];
   var idx=tabs.indexOf(id);
   var nts=document.querySelectorAll('.nt');if(nts[idx])nts[idx].classList.add('active');
   render();
   if(id==='record'){initProdData();renderProdRows();updateDT();}
   if(id==='setup')renderSetup();
-  if(id==='stock')renderStock();
+  if(id==='stock'){setStockTab('prod');}
   if(id==='cost'){renderIngCostList();}
   if(id==='distribute'){renderDistribute();}
+  if(id==='transfer'){renderTransfer();}
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────
@@ -2472,6 +2617,483 @@ function pullSetupFromSheets(){
   });
 }
 
+
+
+
+// ── PRODUCT STOCK ─────────────────────────────────────────────────────────────
+var PROD_STOCK_TAB = '📊 Product Stock';
+
+// Product stock is calculated from:
+// IN:  production logs (prodLog)
+// OUT: transfers (S.transfers products)
+// OUT: distributions (S.distLog)
+
+function calcProductStock(){
+  var stock = {}; // {prodId: {in, transferred, sold, balance}}
+  S.products.forEach(function(p){
+    stock[p.id] = {in:0, transferred:0, sold:0, balance:0};
+  });
+
+  // Add IN from production logs
+  S.prodLog.forEach(function(log){
+    (log.items||[]).forEach(function(item){
+      if(stock[item.id]) stock[item.id].in += (item.sets||0);
+    });
+  });
+
+  // Deduct OUT from transfers
+  (S.transfers||[]).forEach(function(tf){
+    Object.keys(tf.products||{}).forEach(function(pid){
+      var id = parseInt(pid);
+      if(stock[id]) stock[id].transferred += (tf.products[pid]||0);
+    });
+  });
+
+  // Deduct OUT from distribution (customer sales)
+  (S.distLog||[]).forEach(function(d){
+    if(stock[d.prodId]) stock[d.prodId].sold += (d.sets||0);
+  });
+
+  // Calculate balance
+  Object.keys(stock).forEach(function(pid){
+    var s = stock[pid];
+    s.balance = s.in - s.transferred - s.sold;
+  });
+
+  return stock;
+}
+
+function setStockTab(tab){
+  var tabs=['prod','ing'];
+  tabs.forEach(function(t){
+    var btn=document.getElementById('stab-'+t);
+    var panel=document.getElementById('stab-'+t+'-p');
+    if(btn){btn.style.background=t===tab?'var(--green)':'#fff';btn.style.color=t===tab?'#fff':'var(--mt)';btn.style.borderColor=t===tab?'var(--green)':'var(--bd)';}
+    if(panel)panel.style.display=t===tab?'block':'none';
+  });
+  if(tab==='prod')renderProductStock();
+  if(tab==='ing')renderStock();
+}
+
+function renderProductStock(){
+  var stock = calcProductStock();
+  var el = document.getElementById('prodStockList');
+  if(!el)return;
+
+  if(!S.products.length){
+    el.innerHTML='<div class="empty"><p>No products yet</p></div>';return;
+  }
+
+  el.innerHTML = S.products.map(function(p,i){
+    var s = stock[p.id]||{in:0,transferred:0,sold:0,balance:0};
+    var bg = i%2===0?'#fff':'var(--bg)';
+    var balColor = s.balance<=0?'var(--red)':s.balance<=5?'var(--am)':'var(--green)';
+    return'<div style="display:grid;grid-template-columns:1fr 55px 55px 55px 55px;gap:4px;padding:11px 14px;border-bottom:1px solid var(--bd);align-items:center;background:'+bg+'">'
+      +'<div><div style="font-size:13px;font-weight:500">'+p.name+'</div>'
+      +'<div style="font-size:11px;color:var(--mt)">'+p.code+'</div></div>'
+      +'<div style="font-family:monospace;font-size:14px;font-weight:700;text-align:center;color:var(--green)">'+s.in+'</div>'
+      +'<div style="font-family:monospace;font-size:14px;font-weight:700;text-align:center;color:var(--am)">'+s.transferred+'</div>'
+      +'<div style="font-family:monospace;font-size:14px;font-weight:700;text-align:center;color:var(--red)">'+s.sold+'</div>'
+      +'<div style="font-family:monospace;font-size:16px;font-weight:700;text-align:center;color:'+balColor+'">'+s.balance+'</div>'
+      +'</div>';
+  }).join('');
+
+  // Render movement log
+  renderProdStockLog();
+}
+
+function renderProdStockLog(){
+  var el = document.getElementById('prodStockLog');
+  if(!el)return;
+
+  var movements = [];
+
+  // IN from production
+  S.prodLog.forEach(function(log){
+    var d=new Date(log.ts);
+    (log.items||[]).forEach(function(item){
+      if(item.sets>0){
+        movements.push({
+          ts:log.ts, type:'in', typeLabel:'Production',
+          icon:'🏭', color:'var(--green)',
+          prodId:item.id, sets:item.sets,
+          ref:log.worker||'', date:d.toLocaleDateString('en-MY',{day:'2-digit',month:'short'}),
+          time:d.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'})
+        });
+      }
+    });
+  });
+
+  // OUT from transfers
+  (S.transfers||[]).forEach(function(tf){
+    Object.keys(tf.products||{}).forEach(function(pid){
+      if(tf.products[pid]>0){
+        movements.push({
+          ts:tf.ts, type:'transfer', typeLabel:'Transfer → '+tf.branch,
+          icon:'🔄', color:'var(--am)',
+          prodId:parseInt(pid), sets:tf.products[pid],
+          ref:tf.tfId, date:tf.date, time:tf.time
+        });
+      }
+    });
+  });
+
+  // OUT from distribution
+  (S.distLog||[]).forEach(function(d){
+    if(d.sets>0){
+      var cust=(S.customers||[]).find(function(c){return c.id===d.custId});
+      var dt=new Date(d.ts);
+      movements.push({
+        ts:d.ts, type:'sold', typeLabel:'Sold → '+(cust?cust.name:'Customer'),
+        icon:'🚚', color:'var(--red)',
+        prodId:d.prodId, sets:d.sets,
+        ref:cust?cust.name:'', date:dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short'}),
+        time:dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'})
+      });
+    }
+  });
+
+  // Sort newest first
+  movements.sort(function(a,b){return b.ts-a.ts});
+
+  if(!movements.length){
+    el.innerHTML='<div class="empty"><div class="empty-icon">📊</div><p>No stock movements yet</p></div>';return;
+  }
+
+  el.innerHTML = movements.slice(0,30).map(function(mv){
+    var prod=S.products.find(function(p){return p.id===mv.prodId});
+    var sign=mv.type==='in'?'+':'-';
+    return'<div style="display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid var(--bd)">'
+      +'<div style="width:34px;height:34px;border-radius:10px;background:'+(mv.type==='in'?'var(--gl)':mv.type==='transfer'?'var(--al)':'var(--rl)')+';display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">'+mv.icon+'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:13px;font-weight:600">'+(prod?prod.name:'Unknown')+'</div>'
+      +'<div style="font-size:12px;color:var(--mt);margin-top:2px">'+mv.typeLabel+'</div>'
+      +'<div style="font-size:11px;color:var(--mt)">'+mv.date+' · '+mv.time+(mv.ref?' · '+mv.ref:'')+'</div>'
+      +'</div>'
+      +'<div style="font-family:monospace;font-size:16px;font-weight:700;color:'+mv.color+';flex-shrink:0">'+sign+mv.sets+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function syncProductStock(){
+  if(!isConn()){toast('Not connected to Google Sheets','w');return;}
+  var stock = calcProductStock();
+  var now = new Date();
+  var dateStr = now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+  var timeStr = now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+
+  // Build rows: one per product
+  var rows = [['Last Updated','Time','Code','Product','Total In','Transferred Out','Sold Out','Balance on Hand']];
+  S.products.forEach(function(p){
+    var s = stock[p.id]||{in:0,transferred:0,sold:0,balance:0};
+    rows.push([dateStr,timeStr,p.code,p.name,s.in,s.transferred,s.sold,s.balance]);
+  });
+
+  setSyncUI('sy');
+  clearAndWriteSheet(PROD_STOCK_TAB, rows).then(function(){
+    setSyncUI('ok');
+    toast('✓ Product stock synced to Google Sheets','g');
+    setTimeout(function(){setSyncUI('idle')},3000);
+  }).catch(function(){
+    setSyncUI('err');
+    toast('Sync failed — check connection','e');
+  });
+}
+
+// ── TRANSFER ──────────────────────────────────────────────────────────────────
+var TF_TAB = '🔄 Stock Transfer';
+if(!S.transfers) S.transfers = [];
+if(!S.transferCounter) S.transferCounter = {};
+
+var tfSelectedBatches = {}; // batchId: true/false
+
+// Generate transfer ID: TTFM28062026-B1
+function genTransferId(){
+  var now = new Date();
+  var d = String(now.getDate()).padStart(2,'0');
+  var m = String(now.getMonth()+1).padStart(2,'0');
+  var y = now.getFullYear();
+  var dateKey = d+m+y;
+  if(!S.transferCounter) S.transferCounter = {};
+  S.transferCounter[dateKey] = (S.transferCounter[dateKey]||0) + 1;
+  var batchNum = 'B'+S.transferCounter[dateKey];
+  return 'TTFM'+dateKey+'-'+batchNum;
+}
+
+// Get all production logs grouped as batches
+function getAllBatches(){
+  var batches = [];
+  S.prodLog.forEach(function(log, idx){
+    var d = new Date(log.ts);
+    var dateStr = d.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+    var timeStr = d.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+    // Build batch label: DDMMYYYY-batch N per day
+    var dayKey = String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+d.getFullYear();
+    // Count batches on same day before this
+    var batchNum = S.prodLog.filter(function(l,i){
+      var ld=new Date(l.ts);
+      var lk=String(ld.getDate()).padStart(2,'0')+String(ld.getMonth()+1).padStart(2,'0')+ld.getFullYear();
+      return lk===dayKey&&i<=idx;
+    }).length;
+    var batchId = dayKey+'-batch'+batchNum;
+    var totalSets = (log.items||[]).reduce(function(s,i){return s+i.sets},0);
+    // Check if already transferred
+    var transferred = (S.transfers||[]).some(function(t){
+      return t.batchIds&&t.batchIds.indexOf(log.id)>=0;
+    });
+    batches.push({
+      id: log.id,
+      batchId: batchId,
+      label: dateStr+' · Batch '+batchNum,
+      time: timeStr,
+      worker: log.worker||'',
+      items: log.items||[],
+      totalSets: totalSets,
+      transferred: transferred,
+      ts: log.ts
+    });
+  });
+  return batches.sort(function(a,b){return b.ts-a.ts});
+}
+
+function renderTransfer(){
+  renderTfBatchList();
+  renderTfHistory();
+}
+
+function renderTfBatchList(){
+  var el = document.getElementById('tfBatchList');
+  if(!el) return;
+  var batches = getAllBatches();
+  if(!batches.length){
+    el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><p>No production batches yet.<br>Workers must record production first.</p></div>';
+    return;
+  }
+  el.innerHTML = batches.map(function(b){
+    var checked = tfSelectedBatches[b.id]===true;
+    var tfBadge = b.transferred
+      ?'<span class="badge badge-y" style="font-size:10px">Transferred</span>':
+      '<span class="badge badge-g" style="font-size:10px">Available</span>';
+    return'<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-bottom:1px solid var(--bd);background:'+(checked?'var(--gl)':'#fff')+';cursor:pointer" onclick="toggleBatch('+b.id+')">'
+      +'<div style="width:22px;height:22px;border-radius:6px;border:2px solid '+(checked?'var(--green)':'var(--bd)')+';background:'+(checked?'var(--green)':'#fff')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">'
+      +(checked?'<span style="color:#fff;font-size:13px;font-weight:700">✓</span>':'')
+      +'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+      +'<div style="font-size:13px;font-weight:700;color:var(--tx)">'+b.label+'</div>'
+      +tfBadge
+      +'</div>'
+      +'<div style="font-size:12px;color:var(--mt);margin-top:3px">'+b.time+(b.worker?' · '+b.worker:'')+'</div>'
+      +'<div style="font-size:12px;color:var(--mt);margin-top:2px"><strong style="color:var(--tx)">'+b.totalSets+' sets</strong> total · '
+      +(b.items||[]).filter(function(i){return i.sets>0}).map(function(i){
+        var p=S.products.find(function(p){return p.id===i.id});
+        return(p?p.name:'')+' ×'+i.sets;
+      }).join(', ')
+      +'</div>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+  updateTfSummary();
+}
+
+function toggleBatch(id){
+  tfSelectedBatches[id] = !tfSelectedBatches[id];
+  renderTfBatchList();
+}
+
+function selectAllBatches(val){
+  var batches = getAllBatches();
+  batches.forEach(function(b){ tfSelectedBatches[b.id] = val; });
+  renderTfBatchList();
+}
+
+function updateTfSummary(){
+  var summary = document.getElementById('tfSelectedSummary');
+  var prodEl = document.getElementById('tfSelectedProducts');
+  if(!summary||!prodEl) return;
+  var selected = getAllBatches().filter(function(b){return tfSelectedBatches[b.id]===true});
+  if(!selected.length){ summary.style.display='none'; return; }
+  // Total products
+  var totals = {};
+  selected.forEach(function(b){
+    (b.items||[]).forEach(function(item){
+      if(item.sets>0) totals[item.id]=(totals[item.id]||0)+item.sets;
+    });
+  });
+  var grandTotal = Object.values(totals).reduce(function(s,v){return s+v},0);
+  summary.style.display='block';
+  prodEl.innerHTML='<div style="margin-bottom:8px;font-size:12px;color:var(--mt)">'+selected.length+' batch'+(selected.length>1?'es':'')+' selected · '+grandTotal+' total sets</div>'
+    +Object.keys(totals).map(function(pid){
+      var p=S.products.find(function(p){return p.id===parseInt(pid)});
+      return'<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bd)">'
+        +'<div style="font-size:13px;font-weight:500">'+(p?p.name:pid)+'</div>'
+        +'<div style="font-family:monospace;font-size:15px;font-weight:700;color:var(--green)">'+totals[pid]+' sets</div>'
+        +'</div>';
+    }).join('');
+}
+
+function reviewTransfer(){
+  var branch = document.getElementById('tfBranch').value.trim();
+  var notes = document.getElementById('tfNotes').value.trim();
+  var selected = getAllBatches().filter(function(b){return tfSelectedBatches[b.id]===true});
+  if(!selected.length){ toast('Select at least one batch','w'); return; }
+  if(!branch){ toast('Enter branch / destination','w'); document.getElementById('tfBranch').focus(); return; }
+
+  // Total products
+  var totals = {};
+  selected.forEach(function(b){
+    (b.items||[]).forEach(function(item){
+      if(item.sets>0) totals[item.id]=(totals[item.id]||0)+item.sets;
+    });
+  });
+  var grandTotal = Object.values(totals).reduce(function(s,v){return s+v},0);
+  var tfId = 'TTFM'+String(new Date().getDate()).padStart(2,'0')+String(new Date().getMonth()+1).padStart(2,'0')+new Date().getFullYear()
+    +'-B'+((S.transferCounter&&S.transferCounter[String(new Date().getDate()).padStart(2,'0')+String(new Date().getMonth()+1).padStart(2,'0')+new Date().getFullYear()]||0)+1);
+
+  document.getElementById('tfReviewId').textContent=tfId;
+  document.getElementById('tfReviewMeta').textContent=branch+(notes?' · '+notes:'')
+    +' · '+selected.length+' batch'+(selected.length>1?'es':'')+' · '+grandTotal+' total sets';
+
+  document.getElementById('tfReviewBatches').innerHTML=selected.map(function(b){
+    return'<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)">'
+      +'<span style="font-size:14px">📦</span>'
+      +'<div><div style="font-size:13px;font-weight:600">'+b.label+'</div>'
+      +'<div style="font-size:11px;color:var(--mt)">'+b.time+(b.worker?' · '+b.worker:'')+' · '+b.totalSets+' sets</div>'
+      +'</div></div>';
+  }).join('');
+
+  document.getElementById('tfReviewProducts').innerHTML=Object.keys(totals).map(function(pid,i){
+    var p=S.products.find(function(p){return p.id===parseInt(pid)});
+    var bg=i%2===0?'#fff':'var(--bg)';
+    return'<div style="display:grid;grid-template-columns:1fr 70px;padding:10px 12px;border-bottom:1px solid var(--bd);background:'+bg+';align-items:center">'
+      +'<div style="font-size:13px;font-weight:500">'+(p?p.name:pid)+'</div>'
+      +'<div style="text-align:center;font-family:monospace;font-size:18px;font-weight:700;color:var(--green)">'+totals[pid]+'</div>'
+      +'</div>';
+  }).join('');
+
+  document.getElementById('tfConfirmSub').textContent=tfId+' → '+branch+' · '+grandTotal+' sets';
+
+  document.getElementById('tfStep1').style.display='none';
+  document.getElementById('tfStep2').style.display='block';
+  document.getElementById('tfHistory').style.display='none';
+}
+
+function submitTransfer(){
+  var branch = document.getElementById('tfBranch').value.trim();
+  var notes = document.getElementById('tfNotes').value.trim();
+  var selected = getAllBatches().filter(function(b){return tfSelectedBatches[b.id]===true});
+  var now = new Date();
+  var dateStr = now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+  var dayStr = now.toLocaleDateString('en-MY',{weekday:'short'});
+  var timeStr = now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+
+  // Generate proper ID
+  var d=String(now.getDate()).padStart(2,'0');
+  var m=String(now.getMonth()+1).padStart(2,'0');
+  var y=now.getFullYear();
+  var dateKey=d+m+y;
+  if(!S.transferCounter)S.transferCounter={};
+  S.transferCounter[dateKey]=(S.transferCounter[dateKey]||0)+1;
+  var tfId='TTFM'+dateKey+'-B'+S.transferCounter[dateKey];
+
+  // Total products
+  var totals={};
+  selected.forEach(function(b){
+    (b.items||[]).forEach(function(item){
+      if(item.sets>0)totals[item.id]=(totals[item.id]||0)+item.sets;
+    });
+  });
+  var grandTotal=Object.values(totals).reduce(function(s,v){return s+v},0);
+
+  // Save transfer record
+  var transfer={
+    id:S.nextId++, tfId:tfId, branch:branch, notes:notes,
+    batchIds:selected.map(function(b){return b.id}),
+    products:totals, grandTotal:grandTotal,
+    date:dateStr, time:timeStr, ts:now.getTime(), synced:false
+  };
+  if(!S.transfers)S.transfers=[];
+  S.transfers.push(transfer);
+  save();
+
+  // Sync to Sheets — one row per product
+  var batchLabels=selected.map(function(b){return b.label}).join(' + ');
+  var syncPromises=Object.keys(totals).map(function(pid){
+    var p=S.products.find(function(p){return p.id===parseInt(pid)});
+    var row=[dateStr,dayStr,timeStr,tfId,branch,batchLabels,
+             p?p.code:'',p?p.name:pid,totals[pid],notes||''];
+    return doSync('transfer',row,tfId+' → '+branch);
+  });
+
+  Promise.all(syncPromises).then(function(){
+    transfer.synced=true;save();
+    // Auto sync product stock
+    if(isConn()){setTimeout(function(){syncProductStock();},1500);}
+    // Show done
+    document.getElementById('tfSubMeta').textContent=tfId+' · '+branch+' · '+grandTotal+' sets · '+dateStr;
+    document.getElementById('tfDoneIdLabel').textContent='Transfer '+tfId+' → '+branch;
+    document.getElementById('tfDoneProducts').innerHTML=Object.keys(totals).map(function(pid,i){
+      var p=S.products.find(function(p){return p.id===parseInt(pid)});
+      var bg=i%2===0?'#fff':'var(--bg)';
+      return'<div style="display:grid;grid-template-columns:1fr 70px;padding:10px 12px;border-bottom:1px solid var(--bd);background:'+bg+';align-items:center">'
+        +'<div style="font-size:13px;font-weight:500">'+(p?p.name:pid)+'</div>'
+        +'<div style="text-align:center;font-family:monospace;font-size:18px;font-weight:700;color:var(--green)">'+totals[pid]+'</div>'
+        +'</div>';
+    }).join('');
+    document.getElementById('tfSubSync').innerHTML='<div class="ctitle">Sync Status</div>'
+      +'<div style="display:flex;align-items:center;gap:9px;padding:8px 0">'
+      +'<span style="font-size:20px">✅</span>'
+      +'<span style="font-size:13px;color:var(--green);font-weight:500">Synced to Google Sheets · Transfer ID: '+tfId+'</span>'
+      +'</div>';
+    document.getElementById('tfStep2').style.display='none';
+    document.getElementById('tfStep3').style.display='block';
+    // Reset selections
+    tfSelectedBatches={};
+  }).catch(function(){
+    toast('Synced locally — will push when reconnected','w');
+  });
+}
+
+function backTfStep1(){
+  document.getElementById('tfStep2').style.display='none';
+  document.getElementById('tfStep1').style.display='block';
+  document.getElementById('tfHistory').style.display='block';
+  renderTfBatchList();
+}
+
+function newTransfer(){
+  tfSelectedBatches={};
+  document.getElementById('tfBranch').value='';
+  document.getElementById('tfNotes').value='';
+  document.getElementById('tfStep3').style.display='none';
+  document.getElementById('tfStep1').style.display='block';
+  document.getElementById('tfHistory').style.display='block';
+  renderTransfer();
+}
+
+function renderTfHistory(){
+  var el=document.getElementById('tfHistoryList');
+  if(!el)return;
+  if(!(S.transfers&&S.transfers.length)){
+    el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><p>No transfers recorded yet</p></div>';return;
+  }
+  el.innerHTML=[...S.transfers].reverse().map(function(t){
+    var prods=Object.keys(t.products||{}).map(function(pid){
+      var p=S.products.find(function(p){return p.id===parseInt(pid)});
+      return(p?p.name:pid)+' ×'+(t.products[pid]);
+    }).join(' · ');
+    return'<div style="padding:12px 0;border-bottom:1px solid var(--bd)">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">'
+      +'<div style="font-family:monospace;font-size:13px;font-weight:700;color:var(--green)">'+t.tfId+'</div>'
+      +'<span class="badge '+(t.synced?'badge-g':'badge-y')+'">'+(t.synced?'Synced':'Pending')+'</span>'
+      +'</div>'
+      +'<div style="font-size:13px;font-weight:500">→ '+t.branch+'</div>'
+      +'<div style="font-size:12px;color:var(--mt);margin-top:2px">'+t.date+' · '+t.time+' · '+t.grandTotal+' sets</div>'
+      +'<div style="font-size:12px;color:var(--mt);margin-top:3px">'+prods+'</div>'
+      +(t.notes?'<div style="font-size:11px;color:var(--mt);margin-top:2px">'+t.notes+'</div>':'')
+      +'</div>';
+  }).join('');
+}
 
 // ── DISTRIBUTION ──────────────────────────────────────────────────────────────
 var DIST_TAB = '🚚 Distribution';
