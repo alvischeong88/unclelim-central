@@ -18,6 +18,22 @@
 body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;font-size:15px;min-height:100vh;padding-bottom:80px;max-width:430px;margin:0 auto}
 
 
+
+/* DISTRIBUTION */
+.avail-row{display:grid;grid-template-columns:1fr 60px 60px 60px;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);align-items:center}
+.avail-row:last-child{border-bottom:none}
+.avail-row:nth-child(even){background:var(--bg)}
+.avail-name{font-size:13px;font-weight:500;color:var(--tx)}
+.avail-code{font-size:11px;color:var(--mt);margin-top:1px}
+.avail-num{font-family:monospace;font-size:15px;font-weight:700;text-align:center}
+.avail-produced{color:var(--green)}
+.avail-distributed{color:var(--am)}
+.avail-remaining{color:var(--tx)}
+.avail-remaining.low{color:var(--red)}
+.dist-log-row{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid var(--bd)}
+.dist-log-row:last-child{border-bottom:none}
+.dist-dot{width:8px;height:8px;border-radius:50%;background:var(--green);margin-top:5px;flex-shrink:0}
+
 /* UPLOAD */
 .upload-zone{border:2px dashed var(--bd2);border-radius:14px;padding:28px 20px;text-align:center;background:#fff;cursor:pointer;transition:all .2s;margin-bottom:12px}
 .upload-zone:hover,.upload-zone.drag{border-color:var(--green);background:var(--gl)}
@@ -249,6 +265,7 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
 <div class="nav" id="NAV">
   <div class="nt active" onclick="showPage('dash')"><span class="nt-icon">📊</span>Dashboard</div>
   <div class="nt" onclick="showPage('record')"><span class="nt-icon">📋</span>Record</div>
+  <div class="nt" onclick="showPage('distribute')"><span class="nt-icon">🚚</span>Distribute</div>
   <div class="nt" onclick="showPage('stock')"><span class="nt-icon">📦</span>Stock</div>
   <div class="nt" onclick="showPage('cost')"><span class="nt-icon">💰</span>Cost</div>
   <div class="nt" onclick="showPage('setup')"><span class="nt-icon">⚙️</span>Setup</div>
@@ -317,6 +334,109 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
     <div class="card" id="subSync"></div>
     <div class="rtable"><div class="rhdr"><div>Product</div><div>Sets</div></div><div id="subRows"></div></div>
     <button class="btn btn-g" style="margin-top:12px" onclick="newRecord()">+ Record Another Batch</button>
+  </div>
+</div>
+
+
+<!-- DISTRIBUTE -->
+<div class="page" id="page-distribute">
+
+  <!-- Step 1: Select customer -->
+  <div id="distStep1">
+    <div class="card" style="padding:14px 16px">
+      <div class="steps">
+        <div class="si active"><span class="sn">1</span>Customer</div>
+        <span class="ss">›</span>
+        <div class="si"><span class="sn">2</span>Fill Sets</div>
+        <span class="ss">›</span>
+        <div class="si"><span class="sn">3</span>Submit</div>
+      </div>
+      <label style="margin-top:0">Select Customer</label>
+      <select id="distCustomer" style="-webkit-appearance:auto;appearance:auto"></select>
+      <label>Delivery Notes (optional)</label>
+      <input type="text" id="distNotes" placeholder="e.g. AM delivery, special order">
+      <button class="btn btn-g" onclick="goDistStep2()">→ Next: Fill Sets</button>
+    </div>
+    <!-- Today's stock summary -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="display:grid;grid-template-columns:1fr 55px 55px 55px;gap:6px;padding:9px 14px;background:var(--green)">
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.5px">Product</div>
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;text-align:center">Made</div>
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;text-align:center">Out</div>
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;text-align:center">Left</div>
+      </div>
+      <div id="availableStock"></div>
+    </div>
+    <!-- Today's log -->
+    <div class="card">
+      <div class="ctitle">Today's Distribution Log</div>
+      <div id="distLog"></div>
+    </div>
+  </div>
+
+  <!-- Step 2: Fill sets per product -->
+  <div id="distStep2" style="display:none">
+    <div class="card" style="padding:14px 16px">
+      <div class="steps">
+        <div class="si done"><span class="sn">1</span>Customer</div>
+        <span class="ss">›</span>
+        <div class="si active"><span class="sn">2</span>Fill Sets</div>
+        <span class="ss">›</span>
+        <div class="si"><span class="sn">3</span>Submit</div>
+      </div>
+      <div style="background:var(--gl);border:1.5px solid #A8D8B8;border-radius:10px;padding:10px 12px;margin-bottom:0">
+        <div style="font-size:12px;font-weight:700;color:var(--green)" id="distCustomerLabel">Customer</div>
+        <div style="font-size:11px;color:var(--mt)" id="distNotesLabel"></div>
+      </div>
+    </div>
+    <div class="ptable" id="distTable">
+      <div class="phdr">
+        <div>Product</div>
+        <div style="text-align:center">Sets</div>
+      </div>
+      <div id="distRows"></div>
+      <div class="pnotice">Enter 0 for products not delivered to this customer today</div>
+    </div>
+    <button class="btn btn-g" onclick="reviewDist()">→ Review & Submit</button>
+    <button class="btn btn-o" onclick="backDistStep1()">← Back</button>
+  </div>
+
+  <!-- Step 3: Review & submit -->
+  <div id="distStep3" style="display:none">
+    <div class="card" style="padding:14px 16px">
+      <div class="steps">
+        <div class="si done"><span class="sn">1</span>Customer</div>
+        <span class="ss">›</span>
+        <div class="si done"><span class="sn">2</span>Filled</div>
+        <span class="ss">›</span>
+        <div class="si active"><span class="sn">3</span>Submit</div>
+      </div>
+      <div class="tiles" id="distReviewTiles" style="margin-bottom:12px"></div>
+      <div class="rtable">
+        <div class="rhdr">
+          <div>Product</div>
+          <div style="text-align:center">Sets</div>
+        </div>
+        <div id="distReviewRows"></div>
+      </div>
+    </div>
+    <div class="cbox">
+      <div class="ctit">✓ Confirm distribution?</div>
+      <div class="csub" id="distConfirmSub"></div>
+    </div>
+    <button class="btn btn-g" onclick="submitDist()">✓ Confirm & Sync to Sheets</button>
+    <button class="btn btn-o" onclick="backDistStep2()">← Back to Edit</button>
+  </div>
+
+  <!-- Step 4: Submitted -->
+  <div id="distStep4" style="display:none">
+    <div class="subbox">
+      <div class="subicon">✅</div>
+      <div class="subtit">Distribution Recorded!</div>
+      <div class="submeta" id="distSubMeta"></div>
+    </div>
+    <div class="card" id="distSubSync"></div>
+    <button class="btn btn-g" style="margin-top:4px" onclick="newDist()">+ New Distribution</button>
   </div>
 </div>
 
@@ -443,6 +563,34 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
   </div>
 
   <!-- Team -->
+  <!-- Customers -->
+  <div class="card">
+    <div class="ctitle">Customers</div>
+    <div id="customerList"></div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <input type="text" id="newCustomerName" placeholder="e.g. Restoran Ali" style="flex:1">
+      <button onclick="addCustomer()" style="padding:11px 16px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">+ Add</button>
+    </div>
+  </div>
+
+  <!-- Customer Pricing -->
+  <div class="card">
+    <div class="ctitle">Customer Prices (per product)</div>
+    <p style="font-size:12px;color:var(--mt);margin-bottom:12px;line-height:1.5">Set the selling price per set for each customer. Green = custom price set. Leave as default to use the standard product price.</p>
+    <div id="custPriceEditor">
+      <label style="margin-top:0">Select Customer</label>
+      <select id="custPriceSelect" onchange="renderCustPriceTable()" style="-webkit-appearance:auto;appearance:auto"></select>
+      <div style="margin-top:12px;border-radius:12px;overflow:hidden;border:1.5px solid var(--bd)">
+        <div style="display:grid;grid-template-columns:1fr 90px auto;gap:8px;padding:9px 14px;background:var(--green)">
+          <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.9);text-transform:uppercase;letter-spacing:.5px">Product</div>
+          <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.9);text-transform:uppercase;letter-spacing:.5px;text-align:center">Price/set</div>
+          <div></div>
+        </div>
+        <div id="custPriceTable"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="card">
     <div class="sechdr"><span class="ctitle">Team Accounts</span><button class="btn btn-o btn-sm" onclick="openAddUser()">+ Add Worker</button></div>
     <div id="userList"></div>
@@ -485,7 +633,7 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
     All devices always show the same product list
   </div>
 </div>
-<button class="btn btn-r" onclick="resetAll()">⚠️ Reset All Data</button>
+<button class="btn btn-r" onclick="resetAll()" style="margin-top:8px">⚠️ Reset This Device Only</button>
 </div>
 
 </div><!-- end APP -->
@@ -617,6 +765,8 @@ var S = _parsed || {
   ingredients: DEFAULT_INGREDIENTS.map(function(i){return Object.assign({},i)}),
   prodLog: [],
   pendSync: [],
+  distLog: [],
+  customers: [],
   nextId: 200
 };
 
@@ -759,7 +909,8 @@ function launchApp(){
     // Pull users and products in parallel
     Promise.all([
       pullUsersFromSheets(),
-      pullSetupFromSheets()
+      pullSetupFromSheets(),
+      pullCustPricesFromSheets()
     ]).then(function(results){
       setSyncUI('idle');
       render();renderProdRows();
@@ -781,12 +932,12 @@ function applyRole(){
   var tabs=document.querySelectorAll('.nt');
   var cfgBar=document.getElementById('cfgBar');
   if(CU.role==='worker'){
-    // Worker: Record tab ONLY
+    // Worker: Record tab ONLY (index 1 in new 6-tab nav)
     for(var i=0;i<tabs.length;i++) tabs[i].style.display=i===1?'flex':'none';
     if(cfgBar)cfgBar.style.display='none';
     showPage('record');
   } else {
-    // Boss: all tabs, can access cfg
+    // Boss: all tabs
     for(var i=0;i<tabs.length;i++) tabs[i].style.display='flex';
     if(cfgBar)cfgBar.style.display='flex';
     showPage('dash');
@@ -974,7 +1125,7 @@ function getHeaderRow(){
 function doSync(type,row,summary){
   if(!isConn()){S.pendSync.push({type:type,row:row,summary:summary,ts:Date.now()});save();updatePendingUI();return Promise.resolve('queued')}
   setSyncUI('sy');
-  var tab=type==='production'?'📋 Daily Production':'📦 Stock & Usage';
+  var tab=type==='production'?'📋 Daily Production':type==='distribution'?'🚚 Distribution':'📦 Stock & Usage';
   return appendRow(tab,row)
     .then(function(){setSyncUI('ok');setTimeout(function(){setSyncUI('idle')},3000);return'synced'})
     .catch(function(){S.pendSync.push({type:type,row:row,summary:summary,ts:Date.now()});save();updatePendingUI();setSyncUI('err');setTimeout(function(){setSyncUI('idle')},4000);return'queued'});
@@ -1366,9 +1517,34 @@ function renderSetup(){
       });
     });
   }
+  // Render customer pricing selector
+  renderCustomerPricing();
+  // Render customer list
+  var cl=document.getElementById('customerList');
+  if(cl){
+    if(!(S.customers&&S.customers.length)){
+      cl.innerHTML='<div class="empty"><div class="empty-icon">🏪</div><p>No customers yet — add below</p></div>';
+    } else {
+      cl.innerHTML=(S.customers||[]).map(function(c){
+        return'<div class="row"><div class="ri"><div class="rn">'+c.name+'</div></div>'
+          +'<button data-cid="'+c.id+'" class="del-cust-btn" style="padding:6px 10px;background:var(--rl);color:var(--red);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✕</button>'
+          +'</div>';
+      }).join('');
+      cl.querySelectorAll('.del-cust-btn').forEach(function(btn){
+        btn.addEventListener('click',function(){deleteCustomer(parseInt(this.getAttribute('data-cid')))});
+      });
+    }
+  }
 }
 
-function resetAll(){if(!confirm('Reset ALL data?'))return;['ulk5','ulk5pc','ulk5rec','ulk5ph'].forEach(function(k){localStorage.removeItem(k)});location.reload()}
+function resetAll(){
+  // Two-step confirmation
+  if(!confirm('⚠️ WARNING: This will delete all local data on THIS device only.\n\nProducts, ingredients, recipes and logs will be removed.\n\nYour data in Google Sheets will NOT be deleted.\n\nContinue?'))return;
+  if(!confirm('Are you absolutely sure? Type OK to confirm.\n\nPress Cancel to go back.'))return;
+  ['ulk5','ulk5pc','ulk5rec','ulk5ph'].forEach(function(k){localStorage.removeItem(k)});
+  sessionStorage.clear();
+  location.reload();
+}
 
 // ── STOCK ─────────────────────────────────────────────────────────────────────
 function renderStock(){
@@ -1733,12 +1909,12 @@ function render(){
 function showPage(id){
   // Block workers from accessing restricted pages
   if(CU&&CU.role==='worker'&&id!=='record'){
-    id='record'; // force back to record
+    id='record';
   }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});
   document.querySelectorAll('.nt').forEach(function(t){t.classList.remove('active')});
   var pe=document.getElementById('page-'+id);if(pe)pe.classList.add('active');
-  var tabs=['dash','record','stock','cost','setup'];
+  var tabs=['dash','record','distribute','stock','cost','setup'];
   var idx=tabs.indexOf(id);
   var nts=document.querySelectorAll('.nt');if(nts[idx])nts[idx].classList.add('active');
   render();
@@ -1746,6 +1922,7 @@ function showPage(id){
   if(id==='setup')renderSetup();
   if(id==='stock')renderStock();
   if(id==='cost'){renderIngCostList();}
+  if(id==='distribute'){renderDistribute();}
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────
@@ -2169,10 +2346,14 @@ function pushSetupToSheets(){
       recRows.push([prodId,line.ingId,line.qty||line.grams||0,line.unit||'g']);
     });
   });
+  // Customers
+  var custRows=[['id','name']].concat((S.customers||[]).map(function(c){return[c.id,c.name]}));
   return clearAndWriteSheet(SETUP_PRODUCTS_TAB, prodRows)
     .then(function(){return clearAndWriteSheet(SETUP_ING_TAB, ingRows)})
     .then(function(){return clearAndWriteSheet(SETUP_RECIPES_TAB, recRows)})
+    .then(function(){return clearAndWriteSheet('⚙️ Customers',custRows)})
     .then(function(){return pushUsersToSheets()})
+    .then(function(){return pushCustPricesToSheets()})
     .catch(function(e){console.log('Setup sync error:',e)});
 }
 
@@ -2277,9 +2458,382 @@ function pullSetupFromSheets(){
       saveRecipes();
     }
 
-    save();
-    return true;
+    // Pull customers
+    return readSheet('⚙️ Customers').then(function(custs){
+      if(custs&&custs.length){
+        S.customers=custs.map(function(row){
+          return{id:parseInt(row.id)||S.nextId++,name:row.name};
+        }).filter(function(c){return c.name});
+        custs.forEach(function(row){if(parseInt(row.id)>=S.nextId)S.nextId=parseInt(row.id)+1;});
+      }
+      save();
+      return true;
+    });
   });
+}
+
+
+// ── DISTRIBUTION ──────────────────────────────────────────────────────────────
+var DIST_TAB = '🚚 Distribution';
+var CUST_PRICE_TAB = '⚙️ Customer Prices';
+
+// Customer prices: {custId_prodId: price}
+var CUST_PRICES = JSON.parse(localStorage.getItem('ulk5cp')||'{}');
+if(!S.distLog)S.distLog=[];
+if(!S.customers)S.customers=[];
+function saveCustPrices(){localStorage.setItem('ulk5cp',JSON.stringify(CUST_PRICES));}
+
+// distData: {prodId: sets} for current distribution session
+var distData = {};
+var distCurrentCust = null;
+
+function getCustPrice(custId, prodId){
+  var key = custId+'_'+prodId;
+  if(CUST_PRICES[key]!==undefined) return CUST_PRICES[key];
+  // fallback to default product price
+  var prod = S.products.find(function(p){return p.id===prodId});
+  return prod ? (prod.price||0) : 0;
+}
+
+function getTodayProduced(){
+  var today=new Date().toDateString();
+  var logs=S.prodLog.filter(function(l){return new Date(l.ts).toDateString()===today});
+  var produced={};
+  logs.forEach(function(log){
+    log.items&&log.items.forEach(function(item){
+      produced[item.id]=(produced[item.id]||0)+item.sets;
+    });
+  });
+  return produced;
+}
+
+function getTodayDistributed(){
+  var today=new Date().toDateString();
+  var dist={};
+  (S.distLog||[]).filter(function(d){return new Date(d.ts).toDateString()===today}).forEach(function(d){
+    dist[d.prodId]=(dist[d.prodId]||0)+(d.sets||0);
+  });
+  return dist;
+}
+
+function getTodayDistByCustomer(custId){
+  var today=new Date().toDateString();
+  var dist={};
+  (S.distLog||[]).filter(function(d){return new Date(d.ts).toDateString()===today&&d.custId===custId}).forEach(function(d){
+    dist[d.prodId]=(dist[d.prodId]||0)+(d.sets||0);
+  });
+  return dist;
+}
+
+function renderDistribute(){
+  // Customer dropdown
+  var dc=document.getElementById('distCustomer');
+  if(dc){
+    dc.innerHTML='<option value="">-- Select Customer --</option>'
+      +(S.customers||[]).map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>'}).join('');
+  }
+  renderAvailableStock();
+  renderDistLog();
+}
+
+function renderAvailableStock(){
+  var as=document.getElementById('availableStock');
+  if(!as)return;
+  if(!S.products.length){as.innerHTML='<div class="empty"><p>No products yet</p></div>';return;}
+  var produced=getTodayProduced();
+  var distributed=getTodayDistributed();
+  as.innerHTML=S.products.map(function(p,i){
+    var made=produced[p.id]||0;
+    var out=distributed[p.id]||0;
+    var left=Math.max(0,made-out);
+    var bg=i%2===0?'#fff':'var(--bg)';
+    return'<div style="display:grid;grid-template-columns:1fr 55px 55px 55px;gap:6px;padding:10px 14px;border-bottom:1px solid var(--bd);background:'+bg+';align-items:center">'
+      +'<div><div style="font-size:13px;font-weight:500">'+p.name+'</div><div style="font-size:11px;color:var(--mt)">'+p.code+'</div></div>'
+      +'<div style="font-family:monospace;font-size:15px;font-weight:700;text-align:center;color:var(--green)">'+made+'</div>'
+      +'<div style="font-family:monospace;font-size:15px;font-weight:700;text-align:center;color:var(--am)">'+out+'</div>'
+      +'<div style="font-family:monospace;font-size:15px;font-weight:700;text-align:center;color:'+(left===0&&made>0?'var(--red)':'var(--tx)')+'">'+left+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function renderDistLog(){
+  var dl=document.getElementById('distLog');
+  if(!dl)return;
+  var today=new Date().toDateString();
+  var logs=(S.distLog||[]).filter(function(d){return new Date(d.ts).toDateString()===today}).slice().reverse();
+  if(!logs.length){dl.innerHTML='<div class="empty"><div class="empty-icon">🚚</div><p>No distributions logged today</p></div>';return;}
+  dl.innerHTML=logs.map(function(d){
+    var prod=S.products.find(function(p){return p.id===d.prodId});
+    var cust=(S.customers||[]).find(function(c){return c.id===d.custId});
+    var t=new Date(d.ts).toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+    var price=getCustPrice(d.custId,d.prodId);
+    var rev=(price*(d.sets||0)).toFixed(2);
+    return'<div class="row"><div class="ri">'
+      +'<div class="rn">'+(cust?cust.name:'?')+'</div>'
+      +'<div class="rm">'+(prod?prod.name:'')+' · '+d.sets+' sets · RM'+rev+' · '+t+'</div>'
+      +(d.notes?'<div style="font-size:11px;color:var(--mt)">'+d.notes+'</div>':'')
+      +'</div>'
+      +'<span class="badge '+(d.synced?'badge-g':'badge-y')+'">'+(d.synced?'Synced':'Pending')+'</span>'
+      +'</div>';
+  }).join('');
+}
+
+function goDistStep2(){
+  var custId=parseInt(document.getElementById('distCustomer').value);
+  if(!custId){toast('Select a customer first','w');return}
+  var cust=(S.customers||[]).find(function(c){return c.id===custId});
+  if(!cust){toast('Customer not found','w');return}
+  distCurrentCust=cust;
+  distData={};
+  S.products.forEach(function(p){distData[p.id]='';});
+
+  // Fill label
+  document.getElementById('distCustomerLabel').textContent='Customer: '+cust.name;
+  var notes=document.getElementById('distNotes').value.trim();
+  document.getElementById('distNotesLabel').textContent=notes||'';
+
+  // Build product rows with per-customer price shown
+  var produced=getTodayProduced();
+  var distributed=getTodayDistributed();
+  var rows='';
+  for(var i=0;i<S.products.length;i++){
+    var p=S.products[i];
+    var left=Math.max(0,(produced[p.id]||0)-(distributed[p.id]||0));
+    var custPrice=getCustPrice(custId,p.id);
+    var bg=i%2===0?'#ffffff':'#f7f9f6';
+    rows+='<div style="display:grid;grid-template-columns:1fr 110px;padding:11px 14px;gap:8px;align-items:center;background:'+bg+';border-bottom:1px solid var(--bd)">'
+      +'<div>'
+      +'<div style="font-size:13px;font-weight:500">'+p.name+'</div>'
+      +'<div style="font-size:11px;color:var(--mt)">'+p.code+' · Available: '+left+' sets · RM'+custPrice.toFixed(2)+'/set</div>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;gap:5px;justify-content:center">'
+      +'<input type="number" min="0" max="'+left+'" inputmode="numeric" placeholder="0" value="" data-pid="'+p.id+'" data-max="'+left+'"'
+      +' class="pinp" style="width:60px">'
+      +'<span style="font-size:11px;color:var(--mt);font-weight:500">set</span>'
+      +'</div></div>';
+  }
+  document.getElementById('distRows').innerHTML=rows;
+
+  // Bind inputs
+  document.querySelectorAll('#distRows input[data-pid]').forEach(function(inp){
+    inp.addEventListener('input',function(){
+      var pid=parseInt(this.getAttribute('data-pid'));
+      var max=parseInt(this.getAttribute('data-max'));
+      var val=parseInt(this.value)||0;
+      if(val>max){this.value=max;val=max;toast('Only '+max+' sets available','w');}
+      distData[pid]=this.value;
+      this.className='pinp'+(this.value!==''?(val>0?' ok':' zero'):'');
+    });
+  });
+
+  document.getElementById('distStep1').style.display='none';
+  document.getElementById('distStep2').style.display='block';
+}
+
+function reviewDist(){
+  var hasAny=false;
+  S.products.forEach(function(p){if(parseInt(distData[p.id])>0)hasAny=true;});
+  if(!hasAny){toast('Enter at least 1 set for any product','w');return;}
+  // Fill unfilled with 0
+  S.products.forEach(function(p){if(distData[p.id]===''||distData[p.id]===undefined)distData[p.id]='0';});
+
+  var custId=distCurrentCust.id;
+  var items=S.products.map(function(p){
+    return{id:p.id,name:p.name,code:p.code,sets:parseInt(distData[p.id])||0,
+           price:getCustPrice(custId,p.id)};
+  }).filter(function(i){return i.sets>0;});
+
+  var totalSets=items.reduce(function(s,i){return s+i.sets},0);
+  var totalRev=items.reduce(function(s,i){return s+i.price*i.sets},0);
+
+  document.getElementById('distReviewTiles').innerHTML=
+    '<div class="tile a"><div class="tlbl">Customer</div><div class="tval" style="font-size:14px;padding-top:3px">'+distCurrentCust.name+'</div></div>'
+    +'<div class="tile g"><div class="tlbl">Total Sets</div><div class="tval">'+totalSets+'</div></div>'
+    +'<div class="tile"><div class="tlbl">Total Revenue</div><div class="tval" style="font-size:16px">RM '+totalRev.toFixed(2)+'</div></div>'
+    +'<div class="tile"><div class="tlbl">Products</div><div class="tval">'+items.length+'</div></div>';
+
+  document.getElementById('distReviewRows').innerHTML=items.map(function(item,i){
+    var bg=i%2===0?'#fff':'var(--bg)';
+    return'<div style="display:grid;grid-template-columns:1fr 70px;padding:10px 12px;border-bottom:1px solid var(--bd);background:'+bg+';align-items:center">'
+      +'<div><div style="font-size:13px;font-weight:500">'+item.name+'</div>'
+      +'<div style="font-size:11px;color:var(--mt)">RM '+item.price.toFixed(2)+'/set · Revenue: RM '+(item.price*item.sets).toFixed(2)+'</div></div>'
+      +'<div style="text-align:center;font-family:monospace;font-size:18px;font-weight:700;color:var(--green)">'+item.sets+'</div>'
+      +'</div>';
+  }).join('');
+
+  document.getElementById('distConfirmSub').textContent=
+    distCurrentCust.name+' · '+totalSets+' sets · RM '+totalRev.toFixed(2)+' revenue';
+
+  document.getElementById('distStep2').style.display='none';
+  document.getElementById('distStep3').style.display='block';
+}
+
+function submitDist(){
+  var custId=distCurrentCust.id;
+  var notes=document.getElementById('distNotes').value.trim();
+  var now=new Date();
+  var dateStr=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+  var dayStr=now.toLocaleDateString('en-MY',{weekday:'short'});
+  var timeStr=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  if(!S.distLog)S.distLog=[];
+
+  var items=S.products.map(function(p){
+    return{id:p.id,name:p.name,code:p.code,sets:parseInt(distData[p.id])||0,price:getCustPrice(custId,p.id)};
+  }).filter(function(i){return i.sets>0;});
+
+  var totalSets=items.reduce(function(s,i){return s+i.sets},0);
+  var totalRev=items.reduce(function(s,i){return s+i.price*i.sets},0);
+
+  // Save each product line as separate log entry
+  var syncPromises=[];
+  items.forEach(function(item){
+    var entry={id:S.nextId++,custId:custId,prodId:item.id,sets:item.sets,
+               price:item.price,notes:notes,ts:Date.now(),synced:false};
+    S.distLog.push(entry);
+    // Sync row: Date, Day, Time, Customer, Product Code, Product Name, Sets, Price/set, Revenue, Notes
+    var row=[dateStr,dayStr,timeStr,distCurrentCust.name,item.code,item.name,
+             item.sets,item.price.toFixed(2),(item.price*item.sets).toFixed(2),notes||''];
+    syncPromises.push(
+      doSync('distribution',row,distCurrentCust.name+' — '+item.name+' x'+item.sets).then(function(r){
+        entry.synced=(r==='synced');
+      })
+    );
+  });
+
+  save();
+  Promise.all(syncPromises).then(function(){
+    save();
+    document.getElementById('distSubMeta').textContent=
+      dateStr+' · '+timeStr+' · '+distCurrentCust.name+' · '+totalSets+' sets · RM '+totalRev.toFixed(2);
+    var allSynced=items.every(function(i){
+      return S.distLog.find(function(d){return d.prodId===i.id&&d.custId===custId});
+    });
+    document.getElementById('distSubSync').innerHTML=
+      '<div class="ctitle">Sync Status</div>'
+      +'<div style="display:flex;align-items:center;gap:9px;padding:8px 0">'
+      +'<span style="font-size:20px">✅</span>'
+      +'<span style="font-size:13px;color:var(--green);font-weight:500">Distribution synced to Google Sheets</span>'
+      +'</div>';
+    document.getElementById('distStep3').style.display='none';
+    document.getElementById('distStep4').style.display='block';
+    renderAvailableStock();
+  });
+}
+
+function backDistStep1(){
+  document.getElementById('distStep2').style.display='none';
+  document.getElementById('distStep1').style.display='block';
+  renderDistribute();
+}
+function backDistStep2(){
+  document.getElementById('distStep3').style.display='none';
+  document.getElementById('distStep2').style.display='block';
+}
+function newDist(){
+  distData={};distCurrentCust=null;
+  document.getElementById('distNotes').value='';
+  document.getElementById('distStep4').style.display='none';
+  document.getElementById('distStep1').style.display='block';
+  renderDistribute();
+}
+
+function addCustomer(){
+  var name=document.getElementById('newCustomerName').value.trim();
+  if(!name){toast('Enter customer name','w');return}
+  if(!S.customers)S.customers=[];
+  if(S.customers.find(function(c){return c.name.toLowerCase()===name.toLowerCase()})){
+    toast('Customer already exists','w');return;
+  }
+  S.customers.push({id:S.nextId++,name:name});
+  document.getElementById('newCustomerName').value='';
+  save();pushSetupToSheets();
+  renderSetup();renderDistribute();
+  toast('✓ '+name+' added','g');
+}
+
+function deleteCustomer(id){
+  if(!confirm('Remove this customer?'))return;
+  S.customers=S.customers.filter(function(c){return c.id!==id});
+  save();pushSetupToSheets();renderSetup();renderDistribute();
+  toast('Customer removed','g');
+}
+
+// ── CUSTOMER PRICING ──────────────────────────────────────────────────────────
+function renderCustomerPricing(){
+  var cp=document.getElementById('custPriceEditor');
+  if(!cp)return;
+  if(!(S.customers&&S.customers.length)){
+    cp.innerHTML='<div class="empty"><p>No customers yet — add in Setup tab</p></div>';return;
+  }
+  // Customer selector
+  var sel=document.getElementById('custPriceSelect');
+  if(sel){
+    sel.innerHTML=(S.customers||[]).map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>'}).join('');
+  }
+  renderCustPriceTable();
+}
+
+function renderCustPriceTable(){
+  var sel=document.getElementById('custPriceSelect');
+  if(!sel)return;
+  var custId=parseInt(sel.value);
+  var tbl=document.getElementById('custPriceTable');
+  if(!tbl||!custId)return;
+  tbl.innerHTML=S.products.map(function(p,i){
+    var price=getCustPrice(custId,p.id);
+    var defPrice=p.price||0;
+    var isCustom=CUST_PRICES[custId+'_'+p.id]!==undefined;
+    var bg=i%2===0?'#fff':'var(--bg)';
+    return'<div style="display:grid;grid-template-columns:1fr 90px auto;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);background:'+bg+';align-items:center">'
+      +'<div><div style="font-size:13px;font-weight:500">'+p.name+'</div>'
+      +'<div style="font-size:11px;color:var(--mt)">Default: RM '+defPrice.toFixed(2)+'/set</div></div>'
+      +'<input type="number" min="0" step="0.01" value="'+price.toFixed(2)+'" data-pid="'+p.id+'" data-cid="'+custId+'" class="cp-inp"'
+      +' style="background:'+(isCustom?'var(--gl)':'var(--bg)')+';border:1.5px solid '+(isCustom?'var(--green)':'var(--bd)')+';border-radius:8px;padding:7px 8px;font-family:monospace;font-size:13px;font-weight:700;text-align:center;outline:none;-moz-appearance:textfield;color:var(--tx)">'
+      +'<span style="font-size:11px;color:var(--mt);white-space:nowrap">RM/set</span>'
+      +'</div>';
+  }).join('');
+
+  // Bind inputs
+  tbl.querySelectorAll('.cp-inp').forEach(function(inp){
+    inp.addEventListener('change',function(){
+      var pid=parseInt(this.getAttribute('data-pid'));
+      var cid=parseInt(this.getAttribute('data-cid'));
+      var val=parseFloat(this.value)||0;
+      var key=cid+'_'+pid;
+      CUST_PRICES[key]=val;
+      saveCustPrices();
+      this.style.background='var(--gl)';this.style.borderColor='var(--green)';
+      toast('✓ Price saved','g');
+      pushCustPricesToSheets();
+    });
+  });
+}
+
+function pushCustPricesToSheets(){
+  if(!isConn())return;
+  var rows=[['custId','custName','prodId','prodName','prodCode','price']];
+  (S.customers||[]).forEach(function(c){
+    S.products.forEach(function(p){
+      var key=c.id+'_'+p.id;
+      var price=CUST_PRICES[key];
+      if(price!==undefined){
+        rows.push([c.id,c.name,p.id,p.name,p.code,price]);
+      }
+    });
+  });
+  clearAndWriteSheet(CUST_PRICE_TAB,rows).catch(function(){});
+}
+
+function pullCustPricesFromSheets(){
+  if(!isConn())return Promise.resolve();
+  return readSheet(CUST_PRICE_TAB).then(function(rows){
+    rows.forEach(function(row){
+      if(!row.custId||!row.prodId)return;
+      var key=row.custId+'_'+row.prodId;
+      CUST_PRICES[key]=parseFloat(row.price)||0;
+    });
+    saveCustPrices();
+  }).catch(function(){});
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
