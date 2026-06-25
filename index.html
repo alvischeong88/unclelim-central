@@ -1265,7 +1265,7 @@ function getHeaderRow(){
 function doSync(type,row,summary){
   if(!isConn()){S.pendSync.push({type:type,row:row,summary:summary,ts:Date.now()});save();updatePendingUI();return Promise.resolve('queued')}
   setSyncUI('sy');
-  var tab=type==='production'?'📋 Daily Production':type==='distribution'?'🚚 Distribution':type==='transfer'?'🔄 Stock Transfer':'📦 Stock & Usage';
+  var tab=type==='production'?'📋 Daily Production':type==='distribution'?'📦 Distribution':type==='transfer'?'🔄 Stock Transfer':'📦 Stock & Usage';
   return appendRow(tab,row)
     .then(function(){setSyncUI('ok');setTimeout(function(){setSyncUI('idle')},3000);return'synced'})
     .catch(function(){S.pendSync.push({type:type,row:row,summary:summary,ts:Date.now()});save();updatePendingUI();setSyncUI('err');setTimeout(function(){setSyncUI('idle')},4000);return'queued'});
@@ -1273,14 +1273,36 @@ function doSync(type,row,summary){
 
 // Write header row once when sheet is first set up
 function writeSheetHeaders(){
-  if(!isConn())return;
-  var stockHeaders=['Date','Ingredient','Unit','Opening','Purchased','Used','Wasted',
+  if(!isConn()){toast('Not connected','w');return;}
+  setSyncUI('sy');
+
+  var prodHeaders = getHeaderRow();
+  var stockHeaders = ['Date','Ingredient','Unit','Opening','Purchased','Used','Wasted',
     'Closing','Reorder Level','Status','Cost/unit','Usage Cost','Stock Value','Notes'];
-  appendRow('📋 Daily Production', getHeaderRow()).catch(function(){});
-  appendRow('📦 Stock & Usage', stockHeaders).catch(function(){});
-  // Also init users tab
-  pushUsersToSheets();
-  toast('✓ Headers & users written to Google Sheets','g');
+  var distHeaders = ['Date','Day','Time','Customer','Product Code','Product Name',
+    'Sets','Price/Set (RM)','Revenue (RM)','Notes'];
+  var tfHeaders = ['Date','Day','Time','Transfer ID','Branch','Batch Labels',
+    'Product Code','Product Name','Sets','Notes'];
+  var psHeaders = ['Last Updated','Time','Code','Product','Total In',
+    'Transferred Out','Sold Out','Balance on Hand'];
+
+  // Write headers to all report tabs
+  Promise.all([
+    appendRow('📋 Daily Production', prodHeaders),
+    appendRow('📦 Stock & Usage', stockHeaders),
+    appendRow('📦 Distribution', distHeaders),
+    appendRow('🔄 Stock Transfer', tfHeaders),
+    appendRow('📊 Product Stock', psHeaders),
+  ]).then(function(){
+    return pushUsersToSheets();
+  }).then(function(){
+    setSyncUI('ok');
+    toast('✓ Headers written to all 5 sheet tabs','g');
+    setTimeout(function(){setSyncUI('idle')},3000);
+  }).catch(function(e){
+    setSyncUI('err');
+    toast('Some headers failed — check connection','w');
+  });
 }
 
 function syncQ(){
@@ -3096,7 +3118,7 @@ function renderTfHistory(){
 }
 
 // ── DISTRIBUTION ──────────────────────────────────────────────────────────────
-var DIST_TAB = '🚚 Distribution';
+var DIST_TAB = '📦 Distribution';
 var CUST_PRICE_TAB = '⚙️ Customer Prices';
 
 // Customer prices: {custId_prodId: price}
