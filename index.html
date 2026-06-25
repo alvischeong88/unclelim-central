@@ -1284,8 +1284,7 @@ function writeSheetHeaders(){
     'Sets','Price/Set (RM)','Revenue (RM)','Notes'];
   var tfHeaders = ['Date','Day','Time','Transfer ID','Branch','Batch Labels',
     'Product Code','Product Name','Sets','Notes'];
-  var psHeaders = ['Last Updated','Time','Code','Product','Total In',
-    'Transferred Out','Sold Out','Balance on Hand'];
+  var psHeaders = ['Date','Time','Reference ID','Type','Product Code','Product Name','Qty (Sets)','In / Out','Customer / Branch','Notes'];
 
   // Write headers to all report tabs
   Promise.all([
@@ -1293,7 +1292,7 @@ function writeSheetHeaders(){
     appendRow('📦 Stock & Usage', stockHeaders),
     appendRow('📦 Distribution', distHeaders),
     appendRow('🔄 Stock Transfer', tfHeaders),
-    appendRow('📊 Product Stock', psHeaders),
+    appendRow('📊 Product Stock', ['Date','Time','Reference ID','Type','Product Code','Product Name','Qty (Sets)','In / Out','Customer / Branch','Notes']),
   ]).then(function(){
     return pushUsersToSheets();
   }).then(function(){
@@ -2808,22 +2807,137 @@ function renderProdStockLog(){
 
 function syncProductStock(){
   if(!isConn()){toast('Not connected to Google Sheets','w');return;}
-  var stock = calcProductStock();
-  var now = new Date();
-  var dateStr = now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-  var timeStr = now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
 
-  // Build rows: one per product
-  var rows = [['Last Updated','Time','Code','Product','Total In','Transferred Out','Sold Out','Balance on Hand']];
+  // Build movement rows — one row per transaction line
+  // Headers: Date | Time | Ref ID | Type | Code | Product | Qty | Direction | Customer/Branch | Running Balance
+  var header=['Date','Time','Reference ID','Type','Product Code','Product Name',
+              'Qty (Sets)','In / Out','Customer / Branch','Notes'];
+
+  // Build all movements sorted by time ascending
+  var movements=[];
+
+  // 1. STOCK IN — from production batches
+  S.prodLog.forEach(function(log){
+    var d=new Date(log.ts);
+    var dateStr=d.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+    var timeStr=d.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+    var bid=log.batchId||'PROD?';
+    (log.items||[]).forEach(function(item){
+      if(!item.sets||item.sets<=0)return;
+      var p=S.products.find(function(p){return p.id===item.id});
+      movements.push({
+        ts:log.ts,
+        date:dateStr,
+        time:timeStr,
+        refId:bid,
+        type:'Stock In — Production',
+        code:p?p.code:'',
+        name:p?p.name:'',
+        qty:item.sets,
+        direction:'IN',
+        ref:log.worker||'',
+        notes:'Batch: '+bid+' | Worker: '+(log.worker||'')
+      });
+    });
+  });
+
+  // 2. STOCK OUT — from transfers to branch
+  (S.transfers||[]).forEach(function(tf){
+    var d=new Date(tf.ts);
+    var dateStr=d.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+    var timeStr=d.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+    Object.keys(tf.products||{}).forEach(function(pid){
+      var qty=tf.products[pid];
+      if(!qty||qty<=0)return;
+      var p=S.products.find(function(p){return p.id===parseInt(pid)});
+      movements.push({
+        ts:tf.ts,
+        date:dateStr,
+        time:timeStr,
+        refId:tf.tfId,
+        type:'Stock Out — Transfer',
+        code:p?p.code:'',
+        name:p?p.name:'',
+        qty:qty,
+        direction:'OUT',
+        ref:tf.branch||'',
+        notes:'Transfer ID: '+tf.tfId+' | Branch: '+(tf.branch||'')+(tf.notes?' | '+tf.notes:'')
+      });
+    });
+  });
+
+  // 3. SOLD OUT — from distribution to customers
+  (S.distLog||[]).forEach(function(d){
+    if(!d.sets||d.sets<=0)return;
+    var dt=new Date(d.ts);
+    var dateStr=dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+    var timeStr=dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+    var p=S.products.find(function(p){return p.id===d.prodId});
+    var cust=(S.customers||[]).find(function(c){return c.id===d.custId});
+    var custName=cust?cust.name:'Customer';
+    var price=getCustPrice(d.custId,d.prodId);
+    var revenue=(price*d.sets).toFixed(2);
+    movements.push({
+      ts:d.ts,
+      date:dateStr,
+      time:timeStr,
+      refId:'DIST-'+dateStr.replace(/ /g,''),
+      type:'Sold Out — Distribution',
+      code:p?p.code:'',
+      name:p?p.name:'',
+      qty:d.sets,
+      direction:'OUT',
+      ref:custName,
+      notes:'Customer: '+custName+' | RM '+price.toFixed(2)+'/set | Revenue: RM '+revenue+(d.notes?' | '+d.notes:'')
+    });
+  });
+
+  // Sort by timestamp ascending
+  movements.sort(function(a,b){return a.ts-b.ts});
+
+  // Calculate running balance per product
+  var runningBal={};
+  S.products.forEach(function(p){runningBal[p.id]=0;});
+
+  var rows=[header];
+  movements.forEach(function(mv){
+    // Find product id
+    var p=S.products.find(function(p){return p.code===mv.code});
+    if(p){
+      if(mv.direction==='IN') runningBal[p.id]=(runningBal[p.id]||0)+mv.qty;
+      else runningBal[p.id]=Math.max(0,(runningBal[p.id]||0)-mv.qty);
+    }
+    rows.push([
+      mv.date,
+      mv.time,
+      mv.refId,
+      mv.type,
+      mv.code,
+      mv.name,
+      mv.qty,
+      mv.direction,
+      mv.ref,
+      mv.notes
+    ]);
+  });
+
+  // Add a blank separator then current summary
+  rows.push(['','','','','','','','','','']);
+  rows.push(['=== CURRENT STOCK SUMMARY ===','','','','','','','','','']);
+  rows.push(['Last Updated','Time','','','Code','Product','Total In','Transferred Out','Sold Out','Balance on Hand']);
+  var now=new Date();
+  var nowDate=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+  var nowTime=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  var stock=calcProductStock();
   S.products.forEach(function(p){
-    var s = stock[p.id]||{in:0,transferred:0,sold:0,balance:0};
-    rows.push([dateStr,timeStr,p.code,p.name,s.in,s.transferred,s.sold,s.balance]);
+    var s=stock[p.id]||{in:0,transferred:0,sold:0,balance:0};
+    rows.push([nowDate,nowTime,'','',p.code,p.name,s.in,s.transferred,s.sold,s.balance]);
   });
 
   setSyncUI('sy');
   clearAndWriteSheet(PROD_STOCK_TAB, rows).then(function(){
     setSyncUI('ok');
-    toast('✓ Product stock synced to Google Sheets','g');
+    toast('✓ Product stock ledger synced','g');
     setTimeout(function(){setSyncUI('idle')},3000);
   }).catch(function(){
     setSyncUI('err');
