@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Uncle Lim's Kitchen</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
@@ -328,6 +331,18 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
   <div class="card" id="pendCard" style="display:none">
     <div class="sechdr"><span class="ctitle">Pending Sync</span><button class="btn btn-o btn-sm" onclick="syncQ()">Sync Now</button></div>
     <div id="pendList"></div>
+  </div>
+
+  <!-- Data tools (boss only) -->
+  <div class="card" style="border:1px dashed var(--bd)">
+    <div class="ctitle">Data Tools</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button onclick="clearTestData()" style="padding:9px;background:var(--rl);color:var(--red);border:1px solid var(--red);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">🗑 Clear Test Logs</button>
+      <button onclick="syncProductStock()" style="padding:9px;background:var(--gl);color:var(--green);border:1px solid var(--green);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">↑ Sync Stock</button>
+    </div>
+    <div style="font-size:11px;color:var(--mt);margin-top:8px;line-height:1.5">
+      "Clear Test Logs" removes all production/transfer/distribution logs but keeps your products, ingredients and settings.
+    </div>
   </div>
 </div>
 
@@ -4094,6 +4109,22 @@ function submitWastage(){
 function skipWastage(){
   // No wastage — go straight to new record
   newRecord();
+}
+
+
+function clearTestData(){
+  if(!confirm('Remove all production logs, transfers and distribution records?\n\nProducts, ingredients, recipes, customers and settings will be kept.'))return;
+  if(!confirm('Are you sure? This cannot be undone.'))return;
+  S.prodLog=[];
+  S.distLog=[];
+  S.transfers=[];
+  S.wastageLog=[];
+  S.pendSync=[];
+  S.transferCounter={};
+  S.batchCounter={};
+  save();
+  render();
+  toast('✓ Test data cleared — fresh start','g');
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
