@@ -907,6 +907,7 @@ var S = _parsed || {
   customers: [],
   transfers: [],
   transferCounter: {},
+  batchCounter: {},
   nextId: 200
 };
 
@@ -1255,7 +1256,7 @@ function updatePendingUI(){
 
 function getHeaderRow(){
   // Build header for Daily Production sheet
-  var baseHeaders=['Date','Day','Worker','Time','Total Sets','Produced','Zero Sets',
+  var baseHeaders=['Batch ID','Date','Day','Worker','Time','Total Sets','Produced','Zero Sets',
                    'Revenue (RM)','Cost (RM)','Gross Profit (RM)','Margin %'];
   var setProdHeaders=S.products.map(function(p){return p.code+' '+p.name+' (sets)'});
   var costProdHeaders=S.products.map(function(p){return p.code+' '+p.name+' (cost RM)'});
@@ -1484,7 +1485,8 @@ function submitRecord(){
   var zeros=parsedItems.filter(function(i){return i.sets===0});
   var totalRevenue=parsedItems.reduce(function(s,i){return s+(i.price*i.sets)},0);
 
-  var entry={id:S.nextId++,worker:worker,date:dateStr,time:timeStr,items:parsedItems,totalSets:totalSets,readyCount:produced.length,ts:Date.now(),synced:false};
+  var batchId=genBatchId();
+  var entry={id:S.nextId++,batchId:batchId,worker:worker,date:dateStr,time:timeStr,items:parsedItems,totalSets:totalSets,readyCount:produced.length,ts:Date.now(),synced:false};
   S.prodLog.push(entry);save();
   // Auto-sync product stock to Sheets after production recorded
   if(isConn()){setTimeout(function(){syncProductStock();},2000);}
@@ -1506,12 +1508,14 @@ function submitRecord(){
   var margin=totalRevenue>0?((grossProfit/totalRevenue)*100).toFixed(1):'0';
   // Row: Date, Day, Worker, Time, TotalSets, Produced, Zero, Revenue, TotalCost, GrossProfit, Margin,
   //      then sets per product, then cost per product
-  var row=[dateStr,dayStr,worker,timeStr,totalSets,produced.length,zeros.length,
+  var row=[batchId,dateStr,dayStr,worker,timeStr,totalSets,produced.length,zeros.length,
            totalRevenue.toFixed(2),totalCost.toFixed(2),grossProfit.toFixed(2),margin+'%']
            .concat(prodSetCols).concat(prodCostCols);
 
   doSync('production',row,worker+' — '+totalSets+' sets').then(function(result){
     entry.synced=(result==='synced');save();
+    var subBid=document.getElementById('subBatchId');
+    if(subBid)subBid.textContent=batchId;
     document.getElementById('subMeta').textContent=dateStr+' · '+timeStr+' · '+worker+' · '+totalSets+' sets';
     var subCost=S.products.reduce(function(sum,p){
     var item=parsedItems.find(function(i){return i.id===p.id});
@@ -2065,7 +2069,12 @@ function render(){
 
   document.getElementById('tProd').innerHTML=!logs.length
     ?'<div class="empty"><div class="empty-icon">📋</div><p>No production recorded today</p></div>'
-    :logs.slice().reverse().map(function(l){return'<div class="row"><div class="ri"><div class="rn">'+l.worker+'</div><div class="rm">'+l.totalSets+' sets · '+l.readyCount+' products · '+l.time+'</div></div><span class="badge '+(l.synced?'badge-g':'badge-y')+'">'+(l.synced?'Synced':'Pending')+'</span></div>'}).join('');
+    :logs.slice().reverse().map(function(l){
+      return'<div class="row"><div class="ri">'
+        +'<div class="rn" style="font-family:monospace;font-size:12px;font-weight:700;color:var(--green)">'+(l.batchId||'—')+'</div>'
+        +'<div class="rm">'+l.worker+' · '+l.totalSets+' sets · '+l.time+'</div>'
+        +'</div><span class="badge '+(l.synced?'badge-g':'badge-y')+'">'+(l.synced?'Synced':'Pending')+'</span></div>';
+    }).join('');
 
   updatePendingUI();
   renderStock();
@@ -2829,6 +2838,19 @@ if(!S.transferCounter) S.transferCounter = {};
 
 var tfSelectedBatches = {}; // batchId: true/false
 
+// Generate production batch ID: PROD28062026-B1
+function genBatchId(){
+  var now=new Date();
+  var d=String(now.getDate()).padStart(2,'0');
+  var m=String(now.getMonth()+1).padStart(2,'0');
+  var y=now.getFullYear();
+  var dateKey=d+m+y;
+  if(!S.batchCounter)S.batchCounter={};
+  S.batchCounter[dateKey]=(S.batchCounter[dateKey]||0)+1;
+  save();
+  return 'PROD'+dateKey+'-B'+S.batchCounter[dateKey];
+}
+
 // Generate transfer ID: TTFM28062026-B1
 function genTransferId(){
   var now = new Date();
@@ -2849,30 +2871,31 @@ function getAllBatches(){
     var d = new Date(log.ts);
     var dateStr = d.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
     var timeStr = d.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
-    // Build batch label: DDMMYYYY-batch N per day
-    var dayKey = String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+d.getFullYear();
-    // Count batches on same day before this
-    var batchNum = S.prodLog.filter(function(l,i){
-      var ld=new Date(l.ts);
-      var lk=String(ld.getDate()).padStart(2,'0')+String(ld.getMonth()+1).padStart(2,'0')+ld.getFullYear();
-      return lk===dayKey&&i<=idx;
-    }).length;
-    var batchId = dayKey+'-batch'+batchNum;
-    var totalSets = (log.items||[]).reduce(function(s,i){return s+i.sets},0);
-    // Check if already transferred
-    var transferred = (S.transfers||[]).some(function(t){
+    // Use stored batchId if available, else generate from date+count
+    var bid = log.batchId;
+    if(!bid){
+      var dayKey=String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+d.getFullYear();
+      var batchNum=S.prodLog.filter(function(l,i){
+        var ld=new Date(l.ts);
+        var lk=String(ld.getDate()).padStart(2,'0')+String(ld.getMonth()+1).padStart(2,'0')+ld.getFullYear();
+        return lk===dayKey&&i<=idx;
+      }).length;
+      bid='PROD'+dayKey+'-B'+batchNum;
+    }
+    var totalSets=(log.items||[]).reduce(function(s,i){return s+i.sets},0);
+    var transferred=(S.transfers||[]).some(function(t){
       return t.batchIds&&t.batchIds.indexOf(log.id)>=0;
     });
     batches.push({
-      id: log.id,
-      batchId: batchId,
-      label: dateStr+' · Batch '+batchNum,
-      time: timeStr,
-      worker: log.worker||'',
-      items: log.items||[],
-      totalSets: totalSets,
-      transferred: transferred,
-      ts: log.ts
+      id:log.id,
+      batchId:bid,
+      label:bid,
+      time:timeStr,
+      worker:log.worker||'',
+      items:log.items||[],
+      totalSets:totalSets,
+      transferred:transferred,
+      ts:log.ts
     });
   });
   return batches.sort(function(a,b){return b.ts-a.ts});
@@ -2891,41 +2914,101 @@ function renderTfBatchList(){
     el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><p>No production batches yet.<br>Workers must record production first.</p></div>';
     return;
   }
-  el.innerHTML = batches.map(function(b){
-    var checked = tfSelectedBatches[b.id]===true;
-    var tfBadge = b.transferred
-      ?'<span class="badge badge-y" style="font-size:10px">Transferred</span>':
-      '<span class="badge badge-g" style="font-size:10px">Available</span>';
-    return'<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-bottom:1px solid var(--bd);background:'+(checked?'var(--gl)':'#fff')+';cursor:pointer" onclick="toggleBatch('+b.id+')">'
-      +'<div style="width:22px;height:22px;border-radius:6px;border:2px solid '+(checked?'var(--green)':'var(--bd)')+';background:'+(checked?'var(--green)':'#fff')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">'
-      +(checked?'<span style="color:#fff;font-size:13px;font-weight:700">✓</span>':'')
-      +'</div>'
-      +'<div style="flex:1;min-width:0">'
-      +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
-      +'<div style="font-size:13px;font-weight:700;color:var(--tx)">'+b.label+'</div>'
-      +tfBadge
-      +'</div>'
-      +'<div style="font-size:12px;color:var(--mt);margin-top:3px">'+b.time+(b.worker?' · '+b.worker:'')+'</div>'
-      +'<div style="font-size:12px;color:var(--mt);margin-top:2px"><strong style="color:var(--tx)">'+b.totalSets+' sets</strong> total · '
-      +(b.items||[]).filter(function(i){return i.sets>0}).map(function(i){
-        var p=S.products.find(function(p){return p.id===i.id});
-        return(p?p.name:'')+' ×'+i.sets;
-      }).join(', ')
-      +'</div>'
-      +'</div>'
+
+  // Split into available and transferred
+  var available = batches.filter(function(b){return !b.transferred});
+  var transferred = batches.filter(function(b){return b.transferred});
+
+  var html = '';
+
+  // Available batches (selectable)
+  if(!available.length){
+    html += '<div style="padding:16px 14px;text-align:center;color:var(--mt);font-size:13px;border-bottom:1px solid var(--bd)">✅ All batches have been transferred</div>';
+  } else {
+    html += '<div style="padding:8px 14px;background:var(--gl);font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--bd)">Available for Transfer ('+available.length+')</div>';
+    available.forEach(function(b){
+      var checked = tfSelectedBatches[b.id]===true;
+      html += '<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-bottom:1px solid var(--bd);background:'+(checked?'var(--gl)':'#fff')+';cursor:pointer" onclick="toggleBatch('+b.id+')">'
+        +'<div style="width:22px;height:22px;border-radius:6px;border:2px solid '+(checked?'var(--green)':'var(--bd)')+';background:'+(checked?'var(--green)':'#fff')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">'
+        +(checked?'<span style="color:#fff;font-size:13px;font-weight:700">✓</span>':'')
+        +'</div>'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+        +'<div style="font-size:13px;font-weight:700;color:var(--tx)">'+b.label+'</div>'
+        +'<span class="badge badge-g" style="font-size:10px">Available</span>'
+        +'</div>'
+        +'<div style="font-size:12px;color:var(--mt);margin-top:3px">'+b.time+(b.worker?' · '+b.worker:'')+'</div>'
+        +'<div style="font-size:12px;color:var(--mt);margin-top:2px"><strong style="color:var(--tx)">'+b.totalSets+' sets</strong> · '
+        +(b.items||[]).filter(function(i){return i.sets>0}).map(function(i){
+          var p=S.products.find(function(p){return p.id===i.id});
+          return(p?p.name:'')+' ×'+i.sets;
+        }).join(', ')+'</div>'
+        +'</div></div>';
+    });
+  }
+
+  // Transferred batches (locked — view only, in collapsible section)
+  if(transferred.length){
+    html += '<div style="padding:8px 14px;background:var(--al);font-size:11px;font-weight:700;color:var(--am);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleTfDone()">'
+      +'<span>Already Transferred ('+transferred.length+')</span>'
+      +'<span id="tfDoneToggle" style="font-size:14px">▼</span>'
       +'</div>';
-  }).join('');
+    html += '<div id="tfDoneList" style="display:none">';
+    transferred.forEach(function(b){
+      // Find which transfer this batch belongs to
+      var tfRecord = (S.transfers||[]).find(function(t){return t.batchIds&&t.batchIds.indexOf(b.id)>=0});
+      var tfInfo = tfRecord ? tfRecord.tfId+' → '+(tfRecord.branch||'') : 'Transferred';
+      html += '<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-bottom:1px solid var(--bd);background:#FAFAFA;opacity:0.7">'
+        +'<div style="width:22px;height:22px;border-radius:6px;background:var(--bd);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">'
+        +'<span style="font-size:12px">🔒</span>'
+        +'</div>'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+        +'<div style="font-size:13px;font-weight:600;color:var(--mt)">'+b.label+'</div>'
+        +'<span class="badge badge-y" style="font-size:10px">Transferred</span>'
+        +'</div>'
+        +'<div style="font-size:12px;color:var(--mt);margin-top:3px">'+b.time+(b.worker?' · '+b.worker:'')+'</div>'
+        +'<div style="font-size:11px;color:var(--am);margin-top:3px;font-weight:600">'+tfInfo+'</div>'
+        +'<div style="font-size:11px;color:var(--mt);margin-top:2px">'+b.totalSets+' sets · '
+        +(b.items||[]).filter(function(i){return i.sets>0}).map(function(i){
+          var p=S.products.find(function(p){return p.id===i.id});
+          return(p?p.name:'')+' ×'+i.sets;
+        }).join(', ')+'</div>'
+        +'</div></div>';
+    });
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
   updateTfSummary();
 }
 
+function toggleTfDone(){
+  var el=document.getElementById('tfDoneList');
+  var arrow=document.getElementById('tfDoneToggle');
+  if(!el)return;
+  var open=el.style.display!=='none';
+  el.style.display=open?'none':'block';
+  if(arrow)arrow.textContent=open?'▼':'▲';
+}
+
 function toggleBatch(id){
+  // Block if already transferred
+  var batch = getAllBatches().find(function(b){return b.id===id});
+  if(batch&&batch.transferred){
+    toast('This batch has already been transferred — locked 🔒','w');
+    return;
+  }
   tfSelectedBatches[id] = !tfSelectedBatches[id];
   renderTfBatchList();
 }
 
 function selectAllBatches(val){
   var batches = getAllBatches();
-  batches.forEach(function(b){ tfSelectedBatches[b.id] = val; });
+  batches.forEach(function(b){
+    // Only select/deselect available batches — never touch transferred ones
+    if(!b.transferred) tfSelectedBatches[b.id] = val;
+  });
   renderTfBatchList();
 }
 
@@ -2958,7 +3041,9 @@ function reviewTransfer(){
   var branch = document.getElementById('tfBranch').value.trim();
   var notes = document.getElementById('tfNotes').value.trim();
   var selected = getAllBatches().filter(function(b){return tfSelectedBatches[b.id]===true});
-  if(!selected.length){ toast('Select at least one batch','w'); return; }
+  // Final safety check — remove any transferred batches that slipped in
+  selected = selected.filter(function(b){return !b.transferred});
+  if(!selected.length){ toast('Select at least one available batch','w'); return; }
   if(!branch){ toast('Enter branch / destination','w'); document.getElementById('tfBranch').focus(); return; }
 
   // Total products
@@ -3099,22 +3184,46 @@ function renderTfHistory(){
   if(!(S.transfers&&S.transfers.length)){
     el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><p>No transfers recorded yet</p></div>';return;
   }
-  el.innerHTML=[...S.transfers].reverse().map(function(t){
-    var prods=Object.keys(t.products||{}).map(function(pid){
-      var p=S.products.find(function(p){return p.id===parseInt(pid)});
-      return(p?p.name:pid)+' ×'+(t.products[pid]);
-    }).join(' · ');
-    return'<div style="padding:12px 0;border-bottom:1px solid var(--bd)">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">'
-      +'<div style="font-family:monospace;font-size:13px;font-weight:700;color:var(--green)">'+t.tfId+'</div>'
-      +'<span class="badge '+(t.synced?'badge-g':'badge-y')+'">'+(t.synced?'Synced':'Pending')+'</span>'
-      +'</div>'
-      +'<div style="font-size:13px;font-weight:500">→ '+t.branch+'</div>'
-      +'<div style="font-size:12px;color:var(--mt);margin-top:2px">'+t.date+' · '+t.time+' · '+t.grandTotal+' sets</div>'
-      +'<div style="font-size:12px;color:var(--mt);margin-top:3px">'+prods+'</div>'
-      +(t.notes?'<div style="font-size:11px;color:var(--mt);margin-top:2px">'+t.notes+'</div>':'')
-      +'</div>';
-  }).join('');
+
+  // Group by date
+  var byDate={};
+  var sorted=[].concat(S.transfers).reverse();
+  sorted.forEach(function(t){
+    var dk=t.date||'Unknown';
+    if(!byDate[dk])byDate[dk]=[];
+    byDate[dk].push(t);
+  });
+
+  var html='';
+  Object.keys(byDate).forEach(function(date){
+    var dayTransfers=byDate[date];
+    html+='<div style="padding:8px 0 4px;font-size:11px;font-weight:700;color:var(--mt);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--bd)">'+date+'</div>';
+    dayTransfers.forEach(function(t){
+      var prods=Object.keys(t.products||{}).map(function(pid){
+        var p=S.products.find(function(p){return p.id===parseInt(pid)});
+        return(p?p.name:pid)+' ×'+(t.products[pid]);
+      }).join(' · ');
+      html+='<div style="padding:11px 0;border-bottom:1px solid var(--bd)">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">'
+        +'<div style="font-family:monospace;font-size:13px;font-weight:700;color:var(--green)">'+t.tfId+'</div>'
+        +'<span class="badge '+(t.synced?'badge-g':'badge-y')+'">'+(t.synced?'✓ Synced':'⏳ Pending')+'</span>'
+        +'</div>'
+        +'<div style="font-size:14px;font-weight:600">→ '+t.branch+'</div>'
+        +'<div style="font-size:12px;color:var(--mt);margin-top:3px">'+t.time+' · <strong>'+t.grandTotal+' sets total</strong></div>'
+        +'<div style="margin-top:6px;background:var(--bg);border-radius:8px;padding:8px 10px">'
+        +Object.keys(t.products||{}).map(function(pid){
+          var p=S.products.find(function(p){return p.id===parseInt(pid)});
+          return'<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px">'
+            +'<span style="color:var(--tx)">'+(p?p.name:pid)+'</span>'
+            +'<span style="font-family:monospace;font-weight:700;color:var(--green)">×'+(t.products[pid])+' sets</span>'
+            +'</div>';
+        }).join('')
+        +'</div>'
+        +(t.notes?'<div style="font-size:11px;color:var(--mt);margin-top:5px">📝 '+t.notes+'</div>':'')
+        +'</div>';
+    });
+  });
+  el.innerHTML=html;
 }
 
 // ── DISTRIBUTION ──────────────────────────────────────────────────────────────
@@ -3347,6 +3456,8 @@ function submitDist(){
   save();
   Promise.all(syncPromises).then(function(){
     save();
+    // Auto-sync product stock after distribution
+    if(isConn()){setTimeout(function(){syncProductStock();},1500);}
     document.getElementById('distSubMeta').textContent=
       dateStr+' · '+timeStr+' · '+distCurrentCust.name+' · '+totalSets+' sets · RM '+totalRev.toFixed(2);
     var allSynced=items.every(function(i){
