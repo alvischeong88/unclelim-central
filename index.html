@@ -1165,11 +1165,16 @@ function launchApp(){
     setSyncUI('sy');
     document.getElementById('slbl').textContent='Loading...';
     // Pull users and products in parallel
+    setSyncUI('sy');
+    document.getElementById('slbl').textContent='Syncing all data...';
     Promise.all([
       pullUsersFromSheets(),
       pullSetupFromSheets(),
       pullCustPricesFromSheets()
-    ]).then(function(results){
+    ]).then(function(){
+      // Also pull all logs for dashboard
+      return pullAllLogsFromSheets();
+    }).then(function(){
       setSyncUI('idle');
       render();renderProdRows();
       if(CU.role==='boss')renderSetup();
@@ -1416,8 +1421,16 @@ function writeSheetHeaders(){
   ]).then(function(){
     return pushUsersToSheets();
   }).then(function(){
+    // Also init log tabs
+    return Promise.all([
+      appendRow(LOGS_PROD_TAB,['id','batchId','worker','date','time','totalSets','readyCount','ts','synced','items']),
+      appendRow(LOGS_TRANS_TAB,['id','tfId','branch','notes','batchIds','products','grandTotal','date','time','ts','synced']),
+      appendRow(LOGS_DIST_TAB,['id','custId','prodId','sets','price','notes','ts','synced']),
+      appendRow(LOGS_WAST_TAB,['ts','batchId','ingId','name','unit','qty','costPerUnit','totalCost','reason'])
+    ]);
+  }).then(function(){
     setSyncUI('ok');
-    toast('✓ Headers written to all 6 sheet tabs','g');
+    toast('✓ Headers written to all 10 sheet tabs','g');
     setTimeout(function(){setSyncUI('idle')},3000);
   }).catch(function(e){
     setSyncUI('err');
@@ -1607,8 +1620,11 @@ function submitRecord(){
   var batchId=genBatchId();
   var entry={id:S.nextId++,batchId:batchId,worker:worker,date:dateStr,time:timeStr,items:parsedItems,totalSets:totalSets,readyCount:produced.length,ts:Date.now(),synced:false};
   S.prodLog.push(entry);save();
-  // Auto-sync product stock to Sheets after production recorded
-  if(isConn()){setTimeout(function(){syncProductStock();},2000);}
+  // Auto-sync product stock + push logs to Sheets
+  if(isConn()){
+    setTimeout(function(){syncProductStock();},2000);
+    setTimeout(function(){pushAllLogsToSheets();},3500);
+  }
 
   // Build product columns with sets AND cost per product
   var prodSetCols=[];
@@ -2893,6 +2909,149 @@ function pullSetupFromSheets(){
 
 
 
+
+// ── LOGS SYNC (production logs, transfers, distributions, wastage) ────────────
+var LOGS_PROD_TAB   = '⚙️ Logs Production';
+var LOGS_TRANS_TAB  = '⚙️ Logs Transfer';
+var LOGS_DIST_TAB   = '⚙️ Logs Distribution';
+var LOGS_WAST_TAB   = '⚙️ Logs Wastage';
+
+function pushAllLogsToSheets(){
+  if(!isConn()) return Promise.resolve();
+
+  // Production logs
+  var prodRows=[['id','batchId','worker','date','time','totalSets','readyCount','ts','synced','items']];
+  S.prodLog.forEach(function(l){
+    prodRows.push([l.id,l.batchId||'',l.worker||'',l.date||'',l.time||'',
+      l.totalSets||0,l.readyCount||0,l.ts||0,l.synced?1:0,
+      JSON.stringify(l.items||[])]);
+  });
+
+  // Transfers
+  var transRows=[['id','tfId','branch','notes','batchIds','products','grandTotal','date','time','ts','synced']];
+  (S.transfers||[]).forEach(function(t){
+    transRows.push([t.id,t.tfId||'',t.branch||'',t.notes||'',
+      JSON.stringify(t.batchIds||[]),JSON.stringify(t.products||{}),
+      t.grandTotal||0,t.date||'',t.time||'',t.ts||0,t.synced?1:0]);
+  });
+
+  // Distribution
+  var distRows=[['id','custId','prodId','sets','price','notes','ts','synced']];
+  (S.distLog||[]).forEach(function(d){
+    distRows.push([d.id,d.custId||0,d.prodId||0,d.sets||0,
+      d.price||0,d.notes||'',d.ts||0,d.synced?1:0]);
+  });
+
+  // Wastage
+  var wastRows=[['ts','batchId','ingId','name','unit','qty','costPerUnit','totalCost','reason']];
+  (S.wastageLog||[]).forEach(function(w){
+    wastRows.push([w.ts||0,w.batchId||'',w.ingId||0,w.name||'',
+      w.unit||'',w.qty||0,w.costPerUnit||0,w.totalCost||0,w.reason||'']);
+  });
+
+  return Promise.all([
+    clearAndWriteSheet(LOGS_PROD_TAB, prodRows),
+    clearAndWriteSheet(LOGS_TRANS_TAB, transRows),
+    clearAndWriteSheet(LOGS_DIST_TAB, distRows),
+    clearAndWriteSheet(LOGS_WAST_TAB, wastRows)
+  ]).catch(function(e){console.log('Logs push error:',e);});
+}
+
+function pullAllLogsFromSheets(){
+  if(!isConn()) return Promise.resolve(false);
+  return Promise.all([
+    readSheet(LOGS_PROD_TAB),
+    readSheet(LOGS_TRANS_TAB),
+    readSheet(LOGS_DIST_TAB),
+    readSheet(LOGS_WAST_TAB)
+  ]).then(function(results){
+    var prodRows=results[0], transRows=results[1],
+        distRows=results[2], wastRows=results[3];
+    var changed=false;
+
+    // Merge production logs
+    prodRows.forEach(function(row){
+      if(!row.id||!row.ts)return;
+      var exists=S.prodLog.find(function(l){return String(l.id)===String(row.id)});
+      if(!exists){
+        var items=[];
+        try{items=JSON.parse(row.items||'[]');}catch(e){}
+        S.prodLog.push({
+          id:parseInt(row.id),batchId:row.batchId||'',
+          worker:row.worker||'',date:row.date||'',time:row.time||'',
+          totalSets:parseInt(row.totalSets)||0,readyCount:parseInt(row.readyCount)||0,
+          ts:parseInt(row.ts)||0,synced:row.synced==='1'||row.synced===1,
+          items:items
+        });
+        changed=true;
+      }
+    });
+
+    // Merge transfers
+    transRows.forEach(function(row){
+      if(!row.id||!row.ts)return;
+      var exists=(S.transfers||[]).find(function(t){return String(t.id)===String(row.id)});
+      if(!exists){
+        var batchIds=[],products={};
+        try{batchIds=JSON.parse(row.batchIds||'[]');}catch(e){}
+        try{products=JSON.parse(row.products||'{}');}catch(e){}
+        if(!S.transfers)S.transfers=[];
+        S.transfers.push({
+          id:parseInt(row.id),tfId:row.tfId||'',branch:row.branch||'',
+          notes:row.notes||'',batchIds:batchIds,products:products,
+          grandTotal:parseInt(row.grandTotal)||0,date:row.date||'',
+          time:row.time||'',ts:parseInt(row.ts)||0,
+          synced:row.synced==='1'||row.synced===1
+        });
+        changed=true;
+      }
+    });
+
+    // Merge distribution
+    distRows.forEach(function(row){
+      if(!row.id||!row.ts)return;
+      var exists=(S.distLog||[]).find(function(d){return String(d.id)===String(row.id)});
+      if(!exists){
+        if(!S.distLog)S.distLog=[];
+        S.distLog.push({
+          id:parseInt(row.id),custId:parseInt(row.custId)||0,
+          prodId:parseInt(row.prodId)||0,sets:parseInt(row.sets)||0,
+          price:parseFloat(row.price)||0,notes:row.notes||'',
+          ts:parseInt(row.ts)||0,synced:row.synced==='1'||row.synced===1
+        });
+        changed=true;
+      }
+    });
+
+    // Merge wastage
+    wastRows.forEach(function(row){
+      if(!row.ts)return;
+      var exists=(S.wastageLog||[]).find(function(w){
+        return String(w.ts)===String(row.ts)&&w.name===row.name;
+      });
+      if(!exists){
+        if(!S.wastageLog)S.wastageLog=[];
+        S.wastageLog.push({
+          ts:parseInt(row.ts)||0,batchId:row.batchId||'',
+          ingId:parseInt(row.ingId)||0,name:row.name||'',
+          unit:row.unit||'',qty:parseFloat(row.qty)||0,
+          costPerUnit:parseFloat(row.costPerUnit)||0,
+          totalCost:parseFloat(row.totalCost)||0,reason:row.reason||''
+        });
+        changed=true;
+      }
+    });
+
+    if(changed)save();
+    return changed;
+  }).catch(function(e){console.log('Logs pull error:',e);return false;});
+}
+
+// Push logs after each event
+function pushLogsAfterProd(){
+  if(isConn())setTimeout(function(){pushAllLogsToSheets();},3000);
+}
+
 // ── PRODUCT STOCK ─────────────────────────────────────────────────────────────
 var PROD_STOCK_TAB = '📊 Product Stock';
 
@@ -3491,8 +3650,11 @@ function submitTransfer(){
 
   Promise.all(syncPromises).then(function(){
     transfer.synced=true;save();
-    // Auto sync product stock
-    if(isConn()){setTimeout(function(){syncProductStock();},1500);}
+    // Auto sync product stock + push logs
+    if(isConn()){
+      setTimeout(function(){syncProductStock();},1500);
+      setTimeout(function(){pushAllLogsToSheets();},3000);
+    }
     // Show done
     document.getElementById('tfSubMeta').textContent=tfId+' · '+branch+' · '+grandTotal+' sets · '+dateStr;
     document.getElementById('tfDoneIdLabel').textContent='Transfer '+tfId+' → '+branch;
@@ -3813,8 +3975,11 @@ function submitDist(){
   save();
   Promise.all(syncPromises).then(function(){
     save();
-    // Auto-sync product stock after distribution
-    if(isConn()){setTimeout(function(){syncProductStock();},1500);}
+    // Auto-sync product stock + push logs after distribution
+    if(isConn()){
+      setTimeout(function(){syncProductStock();},1500);
+      setTimeout(function(){pushAllLogsToSheets();},3000);
+    }
     document.getElementById('distSubMeta').textContent=
       dateStr+' · '+timeStr+' · '+distCurrentCust.name+' · '+totalSets+' sets · RM '+totalRev.toFixed(2);
     var allSynced=items.every(function(i){
@@ -4111,6 +4276,25 @@ function skipWastage(){
   newRecord();
 }
 
+
+
+function pullAllData(){
+  if(!isConn()){toast('Not connected to Google Sheets','w');return;}
+  toast('Pulling all data...','g');
+  setSyncUI('sy');
+  Promise.all([
+    pullSetupFromSheets(),
+    pullCustPricesFromSheets(),
+    pullAllLogsFromSheets()
+  ]).then(function(){
+    setSyncUI('idle');
+    render();renderProdRows();renderSetup();
+    toast('✓ All data synced from Google Sheets','g');
+  }).catch(function(){
+    setSyncUI('err');
+    toast('Some data failed to sync','w');
+  });
+}
 
 function clearTestData(){
   if(!confirm('Remove all production logs, transfers and distribution records?\n\nProducts, ingredients, recipes, customers and settings will be kept.'))return;
