@@ -1173,14 +1173,15 @@ function launchApp(){
     Promise.all([
       pullUsersFromSheets(),
       pullSetupFromSheets(),
-      pullCustPricesFromSheets()
+      pullCustPricesFromSheets(),
+      pullIngStockFromSheets()   // always get latest stock levels
     ]).then(function(){
-      // Also pull all logs for dashboard
       return pullAllLogsFromSheets();
     }).then(function(){
       setSyncUI('idle');
       render();renderProdRows();
       if(CU.role==='boss')renderSetup();
+      renderStock(); // refresh stock display with latest levels
     }).catch(function(){
       setSyncUI('err');
       render();renderProdRows();
@@ -1433,7 +1434,7 @@ function writeSheetHeaders(){
     ]);
   }).then(function(){
     setSyncUI('ok');
-    toast('✓ Headers written to all 10 sheet tabs','g');
+    toast('✓ Headers written to all 11 sheet tabs','g');
     setTimeout(function(){setSyncUI('idle')},3000);
   }).catch(function(e){
     setSyncUI('err');
@@ -1890,7 +1891,11 @@ function updateStock(){
   var dateStr=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
   var status=ing.stock<0?'DEFICIT':ing.stock===0?'OUT':ing.stock<=ing.reorder&&ing.reorder>0?'LOW':'OK';
   var row=[dateStr,ing.name,ing.unit,old,added,used,0,ing.stock,ing.reorder,status,(ing.cost||0),used*(ing.cost||0),ing.stock*(ing.cost||0),'By '+worker];
-  doSync('stock',row,ing.name+' — used '+used+', added '+added).then(function(r){toast(r==='synced'?'✓ '+ing.name+' synced':ing.name+' updated: '+ing.stock.toFixed(1)+' '+ing.unit,'g')});
+  doSync('stock',row,ing.name+' — used '+used+', added '+added).then(function(r){
+    toast(r==='synced'?'✓ '+ing.name+' synced to all devices':ing.name+' updated: '+ing.stock.toFixed(1)+' '+ing.unit,'g');
+    // Push live stock to dedicated sheet so all devices get latest levels
+    pushIngStockToSheets();
+  });
 }
 
 // ── COST ──────────────────────────────────────────────────────────────────────
@@ -1985,7 +1990,8 @@ function saveOneIngCost(ingId){
   save();savePHist();
   renderIngCostList();
   toast('✓ '+ing.name+' price saved — syncing...','g');
-  pushSetupToSheets().then(function(){toast('✓ '+ing.name+' synced to all devices','g')});
+  Promise.all([pushSetupToSheets(),pushIngStockToSheets()])
+    .then(function(){toast('✓ '+ing.name+' synced to all devices','g')});
 }
 
 function renderPriceHist(){
@@ -2728,12 +2734,69 @@ function tryPublicPull(){
   });
 }
 
+
+// ── INGREDIENT STOCK SYNC ─────────────────────────────────────────────────────
+// Separate from Ingredients Setup (which has prices/units)
+// This tab only tracks live stock levels — updates on every change
+
+function pushIngStockToSheets(){
+  if(!isConn())return Promise.resolve();
+  var now=new Date();
+  var ts=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'})
+    +' '+now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  var rows=[['id','name','unit','stock','reorder','cost','costPerUnit','lastUpdated']];
+  S.ingredients.forEach(function(i){
+    rows.push([i.id,i.name,i.unit||'g',
+      parseFloat((i.stock||0).toFixed(4)),
+      parseFloat((i.reorder||0).toFixed(4)),
+      parseFloat((i.cost||0).toFixed(6)),
+      parseFloat((i.costPerUnit||0).toFixed(6)),
+      ts
+    ]);
+  });
+  return clearAndWriteSheet(SETUP_STOCK_TAB,rows)
+    .catch(function(e){console.log('Ing stock push error:',e);});
+}
+
+function pullIngStockFromSheets(){
+  if(!isConn())return Promise.resolve(false);
+  return readSheet(SETUP_STOCK_TAB).then(function(rows){
+    if(!rows||!rows.length)return false;
+    var changed=false;
+    rows.forEach(function(row){
+      if(!row.name)return;
+      var ing=S.ingredients.find(function(i){
+        return i.id===parseInt(row.id)||i.name.toLowerCase()===row.name.toLowerCase();
+      });
+      if(ing){
+        var newStock=parseFloat(row.stock);
+        if(!isNaN(newStock)&&newStock!==ing.stock){
+          ing.stock=newStock;
+          changed=true;
+        }
+        // Also update cost if changed
+        var newCost=parseFloat(row.cost);
+        if(!isNaN(newCost)&&newCost>0&&newCost!==ing.cost){
+          ing.cost=newCost;changed=true;
+        }
+        var newCostPU=parseFloat(row.costPerUnit);
+        if(!isNaN(newCostPU)&&newCostPU>0&&newCostPU!==ing.costPerUnit){
+          ing.costPerUnit=newCostPU;changed=true;
+        }
+      }
+    });
+    if(changed)save();
+    return changed;
+  }).catch(function(){return false;});
+}
+
 // ── SETUP DATA SYNC ───────────────────────────────────────────────────────────
 // Sheets tabs for setup data
 var SETUP_PRODUCTS_TAB  = '⚙️ Products Setup';
 var SETUP_ING_TAB       = '⚙️ Ingredients Setup';
 var SETUP_RECIPES_TAB   = '⚙️ Recipes Setup';
 var SETUP_USERS_TAB     = '⚙️ Users';
+var SETUP_STOCK_TAB     = '⚙️ Ingredient Stock';  // live stock levels
 
 function readSheet(tab){
   return getToken().then(function(tok){
@@ -2797,6 +2860,7 @@ function pushSetupToSheets(){
     .then(function(){return clearAndWriteSheet('⚙️ Customers',custRows)})
     .then(function(){return pushUsersToSheets()})
     .then(function(){return pushCustPricesToSheets()})
+    .then(function(){return pushIngStockToSheets()})  // always sync live stock too
     .catch(function(e){console.log('Setup sync error:',e)});
 }
 
@@ -4320,12 +4384,17 @@ function showCurrentStock(){
 
 function pullAndRenderStock(){
   if(!isConn()){toast('Not connected','w');return;}
-  toast('Pulling latest data...','g');
-  pullAllLogsFromSheets().then(function(changed){
+  toast('Pulling latest stock...','g');
+  Promise.all([
+    pullIngStockFromSheets(),
+    pullAllLogsFromSheets()
+  ]).then(function(results){
+    var ingChanged=results[0],logChanged=results[1];
     renderProductStock();
+    renderStock();
     renderTfHistory();
     render();
-    toast(changed?'✓ Stock data updated':'Already up to date','g');
+    toast((ingChanged||logChanged)?'✓ Stock levels updated':'Already up to date','g');
   });
 }
 
@@ -4336,11 +4405,12 @@ function pullAllData(){
   Promise.all([
     pullSetupFromSheets(),
     pullCustPricesFromSheets(),
+    pullIngStockFromSheets(),
     pullAllLogsFromSheets()
   ]).then(function(){
     setSyncUI('idle');
-    render();renderProdRows();renderSetup();
-    toast('✓ All data synced from Google Sheets','g');
+    render();renderProdRows();renderSetup();renderStock();
+    toast('✓ All data synced — including latest stock levels','g');
   }).catch(function(){
     setSyncUI('err');
     toast('Some data failed to sync','w');
