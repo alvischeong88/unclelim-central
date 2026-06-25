@@ -274,12 +274,57 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
 
 <!-- DASHBOARD -->
 <div class="page active" id="page-dash">
+
+  <!-- Month selector -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <button onclick="changeMonth(-1)" style="padding:7px 14px;background:#fff;border:1.5px solid var(--bd);border-radius:9px;font-size:16px;cursor:pointer">‹</button>
+    <div id="dashMonthLabel" style="font-size:14px;font-weight:700;color:var(--tx)"></div>
+    <button onclick="changeMonth(1)" style="padding:7px 14px;background:#fff;border:1.5px solid var(--bd);border-radius:9px;font-size:16px;cursor:pointer">›</button>
+  </div>
+
+  <!-- TODAY tiles (always current day) -->
+  <div style="font-size:10px;font-weight:700;color:var(--mt);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Today</div>
   <div class="tiles" id="dTiles"></div>
+
+  <!-- MONTHLY summary -->
+  <div style="font-size:10px;font-weight:700;color:var(--mt);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px" id="dashMonthTitle"></div>
+  <div class="tiles" id="mTiles" style="grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px"></div>
+
+  <!-- Monthly detail cards -->
+  <div class="card" id="monthlyProdCard">
+    <div class="sechdr">
+      <span class="ctitle">Monthly Production</span>
+      <span id="mProdBadge" class="badge badge-g"></span>
+    </div>
+    <div id="mProdList"></div>
+  </div>
+
+  <div class="card" id="monthlyTransCard">
+    <div class="sechdr">
+      <span class="ctitle">Monthly Transfers</span>
+      <span id="mTransBadge" class="badge badge-y"></span>
+    </div>
+    <div id="mTransList"></div>
+  </div>
+
+  <div class="card" id="monthlyWastCard">
+    <div class="sechdr">
+      <span class="ctitle">Monthly Wastage</span>
+      <span id="mWastBadge" class="badge badge-r"></span>
+    </div>
+    <div id="mWastList"></div>
+  </div>
+
+  <!-- Low stock alerts -->
   <div class="card">
     <div class="sechdr"><span class="ctitle">Low Stock Alerts</span><span id="aBadge" class="badge"></span></div>
     <div id="aList"></div>
   </div>
-  <div class="card"><div class="ctitle">Today's Submissions</div><div id="tProd"></div></div>
+
+  <!-- Today's submissions -->
+  <div class="card"><div class="ctitle">Today's Batches</div><div id="tProd"></div></div>
+
+  <!-- Pending sync -->
   <div class="card" id="pendCard" style="display:none">
     <div class="sechdr"><span class="ctitle">Pending Sync</span><button class="btn btn-o btn-sm" onclick="syncQ()">Sync Now</button></div>
     <div id="pendList"></div>
@@ -331,9 +376,65 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
   </div>
 
   <div id="recStep3" style="display:none">
-    <div class="subbox"><div class="subicon">✅</div><div class="subtit">Recorded!</div><div class="submeta" id="subMeta"></div></div>
+    <div class="subbox">
+      <div style="font-family:monospace;font-size:13px;font-weight:700;color:var(--green);margin-bottom:4px" id="subBatchId"></div>
+      <div class="subicon">✅</div>
+      <div class="subtit">Recorded!</div>
+      <div class="submeta" id="subMeta"></div>
+    </div>
     <div class="card" id="subSync"></div>
     <div class="rtable"><div class="rhdr"><div>Product</div><div>Sets</div></div><div id="subRows"></div></div>
+
+    <!-- Wastage prompt -->
+    <div class="card" style="border:1.5px solid var(--am);background:var(--al)">
+      <div style="font-size:14px;font-weight:700;color:var(--am);margin-bottom:6px">⚠️ Any ingredient wastage?</div>
+      <div style="font-size:12px;color:var(--mt);margin-bottom:14px;line-height:1.5">Log wasted ingredients from this batch. This will be recorded and synced to Google Sheets.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <button onclick="showWastage()" style="padding:12px;background:var(--am);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">Yes — Log Wastage</button>
+        <button onclick="newRecord()" style="padding:12px;background:#fff;color:var(--mt);border:1.5px solid var(--bd);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">No Wastage</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Wastage Step -->
+  <div id="recStep4" style="display:none">
+    <div class="card" style="padding:14px 16px">
+      <div style="font-size:15px;font-weight:700;color:var(--am);margin-bottom:4px">⚠️ Log Ingredient Wastage</div>
+      <div style="font-size:12px;color:var(--mt);margin-bottom:12px" id="wastBatchRef"></div>
+
+      <!-- Quick add wastage row -->
+      <div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px">
+        <label style="margin-top:0">Ingredient</label>
+        <select id="wastIng" style="-webkit-appearance:auto;appearance:auto;width:100%;background:#fff;border:1.5px solid var(--bd);border-radius:10px;padding:11px 13px;font-size:14px;outline:none;color:var(--tx)"></select>
+        <div class="r2">
+          <div><label>Quantity Wasted</label><input type="number" id="wastQty" placeholder="0" min="0" step="0.1" inputmode="decimal"></div>
+          <div><label>Unit</label><div id="wastUnit" style="background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;padding:11px 13px;font-size:14px;color:var(--mt);margin-top:0">—</div></div>
+        </div>
+        <label>Reason (optional)</label>
+        <input type="text" id="wastReason" placeholder="e.g. Spillage, Expired, Overcooked">
+        <button onclick="addWastageItem()" class="btn btn-o" style="margin-top:10px;border-color:var(--am);color:var(--am)">+ Add to Wastage List</button>
+      </div>
+
+      <!-- Wastage list -->
+      <div id="wastList" style="display:none">
+        <div class="ctitle">Wastage Items</div>
+        <div id="wastItems"></div>
+      </div>
+    </div>
+
+    <button class="btn btn-g" onclick="submitWastage()" style="background:var(--am)">✓ Submit Wastage & Sync</button>
+    <button class="btn btn-o" onclick="skipWastage()" style="margin-top:8px">Skip — No Wastage</button>
+  </div>
+
+  <!-- Wastage Done -->
+  <div id="recStep5" style="display:none">
+    <div class="subbox" style="background:var(--al);border:1.5px solid #F5D9A0">
+      <div class="subicon" style="color:var(--am)">⚠️</div>
+      <div class="subtit" style="color:var(--am)">Wastage Recorded!</div>
+      <div class="submeta" id="wastSubMeta"></div>
+    </div>
+    <div class="card" id="wastSubSync"></div>
+    <div class="card"><div class="ctitle">Wastage Items</div><div id="wastSubItems"></div></div>
     <button class="btn btn-g" style="margin-top:12px" onclick="newRecord()">+ Record Another Batch</button>
   </div>
 </div>
@@ -908,6 +1009,7 @@ var S = _parsed || {
   transfers: [],
   transferCounter: {},
   batchCounter: {},
+  wastageLog: [],
   nextId: 200
 };
 
@@ -1266,7 +1368,7 @@ function getHeaderRow(){
 function doSync(type,row,summary){
   if(!isConn()){S.pendSync.push({type:type,row:row,summary:summary,ts:Date.now()});save();updatePendingUI();return Promise.resolve('queued')}
   setSyncUI('sy');
-  var tab=type==='production'?'📋 Daily Production':type==='distribution'?'📦 Distribution':type==='transfer'?'🔄 Stock Transfer':'📦 Stock & Usage';
+  var tab=type==='production'?'📋 Daily Production':type==='distribution'?'📦 Distribution':type==='transfer'?'🔄 Stock Transfer':type==='wastage'?'🗑️ Wastage Log':'📦 Stock & Usage';
   return appendRow(tab,row)
     .then(function(){setSyncUI('ok');setTimeout(function(){setSyncUI('idle')},3000);return'synced'})
     .catch(function(){S.pendSync.push({type:type,row:row,summary:summary,ts:Date.now()});save();updatePendingUI();setSyncUI('err');setTimeout(function(){setSyncUI('idle')},4000);return'queued'});
@@ -1287,17 +1389,20 @@ function writeSheetHeaders(){
   var psHeaders = ['Date','Time','Reference ID','Type','Product Code','Product Name','Qty (Sets)','In / Out','Customer / Branch','Notes'];
 
   // Write headers to all report tabs
+  var wastHeaders=['Date','Day','Time','Batch ID','Ingredient','Unit','Qty Wasted',
+    'Cost/Unit (RM)','Total Cost (RM)','Reason'];
   Promise.all([
     appendRow('📋 Daily Production', prodHeaders),
     appendRow('📦 Stock & Usage', stockHeaders),
     appendRow('📦 Distribution', distHeaders),
     appendRow('🔄 Stock Transfer', tfHeaders),
     appendRow('📊 Product Stock', ['Date','Time','Reference ID','Type','Product Code','Product Name','Qty (Sets)','In / Out','Customer / Branch','Notes']),
+    appendRow('🗑️ Wastage Log', wastHeaders),
   ]).then(function(){
     return pushUsersToSheets();
   }).then(function(){
     setSyncUI('ok');
-    toast('✓ Headers written to all 5 sheet tabs','g');
+    toast('✓ Headers written to all 6 sheet tabs','g');
     setTimeout(function(){setSyncUI('idle')},3000);
   }).catch(function(e){
     setSyncUI('err');
@@ -1553,8 +1658,12 @@ function submitRecord(){
 function backToStep1(){document.getElementById('recStep2').style.display='none';document.getElementById('recStep1').style.display='block'}
 function newRecord(){
   parsedItems=[];prodData={};initProdData();
+  wastageItems=[];currentWastBatchId='';
   document.getElementById('wName').value=CU&&CU.role==='worker'?CU.username:'';
-  document.getElementById('recStep3').style.display='none';document.getElementById('recStep1').style.display='block';
+  document.getElementById('recStep3').style.display='none';
+  document.getElementById('recStep4').style.display='none';
+  document.getElementById('recStep5').style.display='none';
+  document.getElementById('recStep1').style.display='block';
   renderProdRows();updateDT();
 }
 
@@ -2044,31 +2153,150 @@ function renderRecipeEditor(){
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
+// Dashboard month state
+var dashYear  = new Date().getFullYear();
+var dashMonth = new Date().getMonth(); // 0-based
+
+function changeMonth(dir){
+  dashMonth += dir;
+  if(dashMonth > 11){dashMonth=0;dashYear++;}
+  if(dashMonth < 0){dashMonth=11;dashYear--;}
+  render();
+}
+
+function isInDashMonth(ts){
+  var d=new Date(ts);
+  return d.getFullYear()===dashYear && d.getMonth()===dashMonth;
+}
+
 function render(){
-  var today=new Date().toDateString();
-  var logs=S.prodLog.filter(function(l){return new Date(l.ts).toDateString()===today});
-  var totalSets=logs.reduce(function(s,l){return s+l.totalSets},0);
-  var alerts=S.ingredients.filter(function(i){return i.stock<=i.reorder});
-  var revenue=logs.reduce(function(s,l){return s+l.items.reduce(function(ss,item){return ss+(item.price||0)*item.sets},0)},0);
+  var today = new Date().toDateString();
+  var now   = new Date();
 
-  var pStock=calcProductStock();
-  var totalBalance=Object.keys(pStock).reduce(function(s,pid){return s+(pStock[pid].balance||0)},0);
-  document.getElementById('dTiles').innerHTML=
-    '<div class="tile a"><div class="tlbl">Batches Today</div><div class="tval">'+logs.length+'</div></div>'
-    +'<div class="tile g"><div class="tlbl">Total Sets</div><div class="tval">'+totalSets+'</div></div>'
-    +'<div class="tile"><div class="tlbl">Est. Revenue</div><div class="tval" style="font-size:16px;padding-top:4px">RM '+revenue.toFixed(0)+'</div></div>'
-    +'<div class="tile '+(totalBalance===0?'r':totalBalance<10?'a':'g')+'"><div class="tlbl">Product Balance</div><div class="tval">'+totalBalance+'</div></div>';
+  // Month label
+  var monthNames=['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  var isCurrentMonth = (dashYear===now.getFullYear()&&dashMonth===now.getMonth());
+  var monthLabel = monthNames[dashMonth]+' '+dashYear;
+  var el=document.getElementById('dashMonthLabel');
+  if(el) el.textContent = monthLabel;
+  var mt=document.getElementById('dashMonthTitle');
+  if(mt) mt.textContent = monthLabel+' Summary';
 
+  // ── TODAY ────────────────────────────────────────────────────────────────────
+  var todayLogs = S.prodLog.filter(function(l){return new Date(l.ts).toDateString()===today});
+  var todaySets = todayLogs.reduce(function(s,l){return s+l.totalSets},0);
+  var todayRev  = todayLogs.reduce(function(s,l){
+    return s+l.items.reduce(function(ss,i){return ss+(i.price||0)*i.sets},0);},0);
+  var pStock    = calcProductStock();
+  var balance   = Object.keys(pStock).reduce(function(s,pid){return s+(pStock[pid].balance||0)},0);
+
+  var dtEl = document.getElementById('dTiles');
+  if(dtEl) dtEl.innerHTML=
+    '<div class="tile a"><div class="tlbl">Batches Today</div><div class="tval">'+todayLogs.length+'</div></div>'
+    +'<div class="tile g"><div class="tlbl">Sets Today</div><div class="tval">'+todaySets+'</div></div>'
+    +'<div class="tile"><div class="tlbl">Today Revenue</div><div class="tval" style="font-size:15px;padding-top:3px">RM '+todayRev.toFixed(0)+'</div></div>'
+    +'<div class="tile '+(balance===0?'r':balance<10?'a':'g')+'"><div class="tlbl">On Hand</div><div class="tval">'+balance+'</div></div>';
+
+  // ── MONTHLY ──────────────────────────────────────────────────────────────────
+  // Production this month
+  var mLogs = S.prodLog.filter(function(l){return isInDashMonth(l.ts)});
+  var mBatches   = mLogs.length;
+  var mProdSets  = mLogs.reduce(function(s,l){return s+l.totalSets},0);
+  var mRevenue   = mLogs.reduce(function(s,l){
+    return s+l.items.reduce(function(ss,i){return ss+(i.price||0)*i.sets},0);},0);
+  var mCost      = mLogs.reduce(function(s,l){
+    return s+S.products.reduce(function(ps,p){
+      var item=l.items&&l.items.find(function(i){return i.id===p.id});
+      return ps+(item?calcSetCost(p.id)*item.sets:0);},0);},0);
+  var mProfit    = mRevenue-mCost;
+
+  // Transfers this month
+  var mTrans = (S.transfers||[]).filter(function(t){return isInDashMonth(t.ts)});
+  var mTransSets = mTrans.reduce(function(s,t){return s+(t.grandTotal||0)},0);
+
+  // Wastage this month — calculate from distLog wastage
+  // Wastage stored in prodLog with type='wastage' or in separate array
+  // For now calculate from ingredient deductions logged as wastage
+  var mWastCost = 0;
+  // We'll track wastage in S.wastageLog
+  if(S.wastageLog){
+    S.wastageLog.filter(function(w){return isInDashMonth(w.ts)}).forEach(function(w){
+      mWastCost += (w.totalCost||0);
+    });
+  }
+
+  var mtEl=document.getElementById('mTiles');
+  if(mtEl) mtEl.innerHTML=
+    '<div class="tile g"><div class="tlbl">Production Batches</div><div class="tval">'+mBatches+'</div></div>'
+    +'<div class="tile g"><div class="tlbl">Total Sets Made</div><div class="tval">'+mProdSets+'</div></div>'
+    +'<div class="tile a"><div class="tlbl">Transferred Sets</div><div class="tval">'+mTransSets+'</div></div>'
+    +'<div class="tile"><div class="tlbl">Revenue (RM)</div><div class="tval" style="font-size:14px;padding-top:4px">'+mRevenue.toFixed(0)+'</div></div>'
+    +'<div class="tile '+(mProfit>=0?'g':'r')+'"><div class="tlbl">Gross Profit (RM)</div><div class="tval" style="font-size:14px;padding-top:4px">'+mProfit.toFixed(0)+'</div></div>'
+    +'<div class="tile r"><div class="tlbl">Wastage Cost (RM)</div><div class="tval" style="font-size:14px;padding-top:4px">'+mWastCost.toFixed(2)+'</div></div>';
+
+  // Monthly production list
+  var mpEl=document.getElementById('mProdList');
+  var mpBadge=document.getElementById('mProdBadge');
+  if(mpBadge){mpBadge.textContent=mBatches+' batch'+(mBatches!==1?'es':'');mpBadge.className='badge badge-g';}
+  if(mpEl){
+    mpEl.innerHTML = !mLogs.length
+      ?'<div class="empty"><p>No production this month</p></div>'
+      :mLogs.slice().reverse().slice(0,10).map(function(l){
+        return'<div class="row"><div class="ri">'
+          +'<div class="rn" style="font-family:monospace;font-size:12px;font-weight:700;color:var(--green)">'+(l.batchId||'—')+'</div>'
+          +'<div class="rm">'+l.date+' · '+l.worker+' · '+l.totalSets+' sets</div>'
+          +'</div><span class="badge badge-g">'+l.totalSets+'</span></div>';
+      }).join('')+(mLogs.length>10?'<div style="text-align:center;padding:8px;font-size:12px;color:var(--mt)">+ '+(mLogs.length-10)+' more batches</div>':'');
+  }
+
+  // Monthly transfers list
+  var mtlEl=document.getElementById('mTransList');
+  var mtBadge=document.getElementById('mTransBadge');
+  if(mtBadge){mtBadge.textContent=mTrans.length+' transfer'+(mTrans.length!==1?'s':'')+' · '+mTransSets+' sets';mtBadge.className='badge badge-y';}
+  if(mtlEl){
+    mtlEl.innerHTML = !mTrans.length
+      ?'<div class="empty"><p>No transfers this month</p></div>'
+      :mTrans.slice().reverse().map(function(t){
+        return'<div class="row"><div class="ri">'
+          +'<div class="rn" style="font-family:monospace;font-size:12px;font-weight:700;color:var(--am)">'+t.tfId+'</div>'
+          +'<div class="rm">'+t.date+' · → '+(t.branch||'')+'</div>'
+          +'</div><span class="badge badge-y">'+t.grandTotal+' sets</span></div>';
+      }).join('');
+  }
+
+  // Monthly wastage list
+  var mwEl=document.getElementById('mWastList');
+  var mwBadge=document.getElementById('mWastBadge');
+  if(mwBadge){mwBadge.textContent='RM '+mWastCost.toFixed(2);mwBadge.className='badge badge-r';}
+  if(mwEl){
+    var mWastItems = S.wastageLog
+      ? S.wastageLog.filter(function(w){return isInDashMonth(w.ts)}).slice().reverse()
+      : [];
+    mwEl.innerHTML = !mWastItems.length
+      ?'<div class="empty"><p>No wastage recorded this month</p></div>'
+      :mWastItems.map(function(w){
+        return'<div class="row"><div class="ri">'
+          +'<div class="rn">'+w.name+' — '+w.qty+' '+w.unit+'</div>'
+          +'<div class="rm">'+(w.batchId||'')+(w.reason?' · '+w.reason:'')+'</div>'
+          +'</div><span style="font-family:monospace;font-size:12px;font-weight:700;color:var(--red)">RM '+(w.totalCost||0).toFixed(3)+'</span></div>';
+      }).join('');
+  }
+
+  // Low stock alerts
+  var alerts=S.ingredients.filter(function(i){return i.stock<=i.reorder&&i.reorder>0});
   var ab=document.getElementById('aBadge');
-  if(alerts.length){ab.textContent=alerts.length+' item'+(alerts.length>1?'s':'');ab.className='badge badge-r'}
-  else{ab.textContent='';ab.className='badge'}
-  document.getElementById('aList').innerHTML=alerts.length
+  if(ab){if(alerts.length){ab.textContent=alerts.length+' item'+(alerts.length>1?'s':'');ab.className='badge badge-r';}else{ab.textContent='';ab.className='badge';}}
+  var alEl=document.getElementById('aList');
+  if(alEl) alEl.innerHTML=alerts.length
     ?alerts.map(function(i){return'<div class="row"><div class="ri"><div class="rn">'+i.name+'</div><div class="rm">Reorder at '+i.reorder+' '+i.unit+'</div></div><span class="badge '+(i.stock<=0?'badge-r':'badge-y')+'">'+i.stock+' '+i.unit+'</span></div>'}).join('')
     :'<div class="empty"><div class="empty-icon">✅</div><p>All stock levels are good</p></div>';
 
-  document.getElementById('tProd').innerHTML=!logs.length
+  // Today's batches
+  var tpEl=document.getElementById('tProd');
+  if(tpEl) tpEl.innerHTML=!todayLogs.length
     ?'<div class="empty"><div class="empty-icon">📋</div><p>No production recorded today</p></div>'
-    :logs.slice().reverse().map(function(l){
+    :todayLogs.slice().reverse().map(function(l){
       return'<div class="row"><div class="ri">'
         +'<div class="rn" style="font-family:monospace;font-size:12px;font-weight:700;color:var(--green)">'+(l.batchId||'—')+'</div>'
         +'<div class="rm">'+l.worker+' · '+l.totalSets+' sets · '+l.time+'</div>'
@@ -3703,6 +3931,169 @@ function pullCustPricesFromSheets(){
     });
     saveCustPrices();
   }).catch(function(){});
+}
+
+
+// ── WASTAGE ───────────────────────────────────────────────────────────────────
+var WAST_TAB = '🗑️ Wastage Log';
+var wastageItems = []; // [{ingId, name, unit, qty, reason}]
+var currentWastBatchId = '';
+
+function showWastage(){
+  // Get current batch info
+  var subBid = document.getElementById('subBatchId');
+  currentWastBatchId = subBid ? subBid.textContent : '';
+  wastageItems = [];
+
+  // Fill ingredient dropdown
+  var sel = document.getElementById('wastIng');
+  if(sel){
+    sel.innerHTML = S.ingredients.length
+      ? S.ingredients.map(function(i){return'<option value="'+i.id+'">'+i.name+' ('+i.unit+')</option>'}).join('')
+      : '<option value="">No ingredients — add in Setup</option>';
+    // Auto-set unit on change
+    sel.onchange = function(){
+      var ingId = parseInt(this.value);
+      var ing = S.ingredients.find(function(i){return i.id===ingId});
+      var unitEl = document.getElementById('wastUnit');
+      if(unitEl) unitEl.textContent = ing ? ing.unit : '—';
+    };
+    sel.dispatchEvent(new Event('change'));
+  }
+
+  // Set batch reference label
+  var ref = document.getElementById('wastBatchRef');
+  if(ref) ref.textContent = 'Batch: '+currentWastBatchId;
+
+  // Reset wastage list
+  wastageItems = [];
+  renderWastList();
+
+  document.getElementById('recStep3').style.display='none';
+  document.getElementById('recStep4').style.display='block';
+}
+
+function addWastageItem(){
+  var sel = document.getElementById('wastIng');
+  var ingId = parseInt(sel.value);
+  var qty = parseFloat(document.getElementById('wastQty').value)||0;
+  var reason = document.getElementById('wastReason').value.trim();
+
+  if(!ingId){toast('Select an ingredient','w');return;}
+  if(!qty||qty<=0){toast('Enter quantity wasted','w');return;}
+
+  var ing = S.ingredients.find(function(i){return i.id===ingId});
+  if(!ing){toast('Ingredient not found','w');return;}
+
+  // Check if already in list — add qty
+  var existing = wastageItems.find(function(w){return w.ingId===ingId;});
+  if(existing){
+    existing.qty = parseFloat((existing.qty+qty).toFixed(3));
+    if(reason) existing.reason = (existing.reason?existing.reason+', ':'')+reason;
+  } else {
+    wastageItems.push({ingId:ingId, name:ing.name, unit:ing.unit, qty:qty, reason:reason});
+  }
+
+  // Clear inputs
+  document.getElementById('wastQty').value='';
+  document.getElementById('wastReason').value='';
+  renderWastList();
+  toast('✓ '+ing.name+' added to wastage list','g');
+}
+
+function removeWastageItem(idx){
+  wastageItems.splice(idx,1);
+  renderWastList();
+}
+
+function renderWastList(){
+  var el = document.getElementById('wastItems');
+  var wl = document.getElementById('wastList');
+  if(!el||!wl)return;
+  if(!wastageItems.length){wl.style.display='none';return;}
+  wl.style.display='block';
+  el.innerHTML = wastageItems.map(function(w,i){
+    var cost = (function(){
+      var ing=S.ingredients.find(function(i){return i.id===w.ingId});
+      if(!ing)return 0;
+      var isPcs=w.unit==='pcs'||w.unit==='pack';
+      return isPcs?(ing.costPerUnit||ing.cost||0)*w.qty:(ing.cost||0)*w.qty;
+    })();
+    return'<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--bd)">'
+      +'<div style="flex:1">'
+      +'<div style="font-size:13px;font-weight:600">'+w.name+'</div>'
+      +'<div style="font-size:12px;color:var(--mt);margin-top:2px">'+w.qty+' '+w.unit
+      +(w.reason?' · Reason: '+w.reason:'')
+      +' · Est. cost: RM '+cost.toFixed(4)+'</div>'
+      +'</div>'
+      +'<button onclick="removeWastageItem('+i+')" style="padding:5px 9px;background:var(--rl);color:var(--red);border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">✕</button>'
+      +'</div>';
+  }).join('');
+}
+
+function submitWastage(){
+  if(!wastageItems.length){toast('Add at least one wastage item','w');return;}
+  var now = new Date();
+  var dateStr = now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+  var dayStr = now.toLocaleDateString('en-MY',{weekday:'short'});
+  var timeStr = now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+
+  // Deduct from ingredient stock and log for dashboard
+  if(!S.wastageLog) S.wastageLog=[];
+  wastageItems.forEach(function(w){
+    var ing = S.ingredients.find(function(i){return i.id===w.ingId});
+    if(ing) ing.stock = Math.max(0,(ing.stock||0)-w.qty);
+    // Calculate cost
+    var isPcs = w.unit==='pcs'||w.unit==='pack';
+    var costPerU = ing?(isPcs?(ing.costPerUnit||ing.cost||0):(ing.cost||0)):0;
+    var totalCost = costPerU*w.qty;
+    S.wastageLog.push({
+      ts:Date.now(), batchId:currentWastBatchId,
+      ingId:w.ingId, name:w.name, unit:w.unit,
+      qty:w.qty, costPerUnit:costPerU, totalCost:totalCost,
+      reason:w.reason||''
+    });
+  });
+  save();
+
+  // Sync to Sheets — one row per ingredient
+  var syncPromises = wastageItems.map(function(w){
+    var ing = S.ingredients.find(function(i){return i.id===w.ingId});
+    var isPcs = w.unit==='pcs'||w.unit==='pack';
+    var costPerUnit = ing?(isPcs?(ing.costPerUnit||ing.cost||0):(ing.cost||0)):0;
+    var totalCost = isPcs ? costPerUnit*w.qty : costPerUnit*w.qty;
+    var row=[dateStr,dayStr,timeStr,currentWastBatchId,w.name,w.unit,w.qty,
+             costPerUnit.toFixed(6),totalCost.toFixed(4),w.reason||''];
+    return doSync('wastage',row,currentWastBatchId+' — '+w.name+' '+w.qty+w.unit);
+  });
+
+  Promise.all(syncPromises).then(function(){
+    // Show done
+    document.getElementById('wastSubMeta').textContent=
+      currentWastBatchId+' · '+dateStr+' · '+timeStr+' · '+wastageItems.length+' items';
+    document.getElementById('wastSubSync').innerHTML=
+      '<div class="ctitle">Sync Status</div>'
+      +'<div style="display:flex;align-items:center;gap:9px;padding:8px 0">'
+      +'<span style="font-size:20px">✅</span>'
+      +'<span style="font-size:13px;color:var(--green);font-weight:500">Wastage synced to Google Sheets</span>'
+      +'</div>';
+    document.getElementById('wastSubItems').innerHTML=wastageItems.map(function(w){
+      return'<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bd)">'
+        +'<div><div style="font-size:13px;font-weight:500">'+w.name+'</div>'
+        +(w.reason?'<div style="font-size:11px;color:var(--mt)">'+w.reason+'</div>':'')
+        +'</div>'
+        +'<div style="font-family:monospace;font-size:14px;font-weight:700;color:var(--am)">'+w.qty+' '+w.unit+'</div>'
+        +'</div>';
+    }).join('');
+    document.getElementById('recStep4').style.display='none';
+    document.getElementById('recStep5').style.display='block';
+    renderStock(); // update ingredient stock display
+  });
+}
+
+function skipWastage(){
+  // No wastage — go straight to new record
+  newRecord();
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
