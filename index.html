@@ -1868,7 +1868,13 @@ function renderStock(){
     return'<div class="row"><div class="ri"><div class="rn">'+i.name+'</div><div class="rm">Reorder at '+i.reorder+' '+i.unit+' · RM'+(i.cost||0).toFixed(6)+'/g</div><div class="bar"><div class="bfill" style="width:'+pct+'%;background:'+fc+'"></div></div></div><div class="rv '+cls+'">'+i.stock+'<br><span style="font-size:10px;color:var(--mt);font-weight:400">'+i.unit+'</span></div></div>';
   }).join('');
   var io=document.getElementById('usIng');
-  if(io)io.innerHTML=S.ingredients.map(function(i){return'<option value="'+i.id+'">'+i.name+' ('+i.stock+' '+i.unit+')</option>'}).join('');
+  if(io){
+    io.innerHTML=S.ingredients.map(function(i){
+      var neg=i.stock<0?' ⚠️':'';
+      return'<option value="'+i.id+'">'+i.name+' ('+i.stock.toFixed(1)+' '+i.unit+neg+')</option>';
+    }).join('');
+    showCurrentStock();
+  }
 }
 
 function updateStock(){
@@ -1877,12 +1883,12 @@ function updateStock(){
   var added=parseFloat(document.getElementById('rsAmt').value)||0;
   var worker=document.getElementById('stWorker').value.trim()||'Staff';
   var ing=S.ingredients.find(function(i){return i.id===ingId});if(!ing)return;
-  var old=ing.stock;ing.stock=Math.max(0,ing.stock-used+added);
+  var old=ing.stock;ing.stock=parseFloat((ing.stock-used+added).toFixed(4)); // allow negative for stock-take
   document.getElementById('usAmt').value='';document.getElementById('rsAmt').value='';document.getElementById('stWorker').value='';
   save();renderStock();
   var now=new Date();
   var dateStr=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-  var status=ing.stock<=0?'OUT':ing.stock<=ing.reorder?'LOW':'OK';
+  var status=ing.stock<0?'DEFICIT':ing.stock===0?'OUT':ing.stock<=ing.reorder&&ing.reorder>0?'LOW':'OK';
   var row=[dateStr,ing.name,ing.unit,old,added,used,0,ing.stock,ing.reorder,status,(ing.cost||0),used*(ing.cost||0),ing.stock*(ing.cost||0),'By '+worker];
   doSync('stock',row,ing.name+' — used '+used+', added '+added).then(function(r){toast(r==='synced'?'✓ '+ing.name+' synced':ing.name+' updated: '+ing.stock.toFixed(1)+' '+ing.unit,'g')});
 }
@@ -4239,7 +4245,7 @@ function submitWastage(){
   if(!S.wastageLog) S.wastageLog=[];
   wastageItems.forEach(function(w){
     var ing = S.ingredients.find(function(i){return i.id===w.ingId});
-    if(ing) ing.stock = Math.max(0,(ing.stock||0)-w.qty);
+    if(ing) ing.stock = parseFloat(((ing.stock||0)-w.qty).toFixed(4)); // allow negative
     // Calculate cost
     var isPcs = w.unit==='pcs'||w.unit==='pack';
     var costPerU = ing?(isPcs?(ing.costPerUnit||ing.cost||0):(ing.cost||0)):0;
@@ -4295,6 +4301,22 @@ function skipWastage(){
 
 
 
+
+
+function showCurrentStock(){
+  var sel=document.getElementById('usIng');
+  if(!sel)return;
+  var ingId=parseInt(sel.value);
+  var ing=S.ingredients.find(function(i){return i.id===ingId});
+  var disp=document.getElementById('currentStockDisplay');
+  var val=document.getElementById('currentStockVal');
+  if(!ing||!disp||!val)return;
+  disp.style.display='block';
+  var isNeg=ing.stock<0;
+  val.textContent=ing.stock.toFixed(2)+' '+ing.unit;
+  val.style.color=isNeg?'var(--red)':ing.stock===0?'var(--red)':ing.stock<=ing.reorder&&ing.reorder>0?'var(--am)':'var(--green)';
+  disp.style.borderColor=isNeg?'var(--red)':ing.stock<=ing.reorder&&ing.reorder>0?'var(--am)':'var(--bd)';
+}
 
 function pullAndRenderStock(){
   if(!isConn()){toast('Not connected','w');return;}
