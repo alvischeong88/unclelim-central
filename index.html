@@ -336,12 +336,18 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
   <!-- Data tools (boss only) -->
   <div class="card" style="border:1px dashed var(--bd)">
     <div class="ctitle">Data Tools</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <button onclick="fullSyncFromSheets()" style="padding:9px;background:var(--green);color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">↓ Full Sync</button>
+      <button onclick="fullPushToSheets()" style="padding:9px;background:var(--gl);color:var(--green);border:1px solid var(--green);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">↑ Push All</button>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button onclick="clearTestData()" style="padding:9px;background:var(--rl);color:var(--red);border:1px solid var(--red);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">🗑 Clear Test Logs</button>
+      <button onclick="clearTestData()" style="padding:9px;background:var(--rl);color:var(--red);border:1px solid var(--red);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">🗑 Clear Logs</button>
       <button onclick="syncProductStock()" style="padding:9px;background:var(--gl);color:var(--green);border:1px solid var(--green);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">↑ Sync Stock</button>
     </div>
-    <div style="font-size:11px;color:var(--mt);margin-top:8px;line-height:1.5">
-      "Clear Test Logs" removes all production/transfer/distribution logs but keeps your products, ingredients and settings.
+    <div style="font-size:11px;color:var(--mt);margin-top:8px;line-height:1.6">
+      <strong>↓ Full Sync</strong> — pulls ALL data from Google Sheets (Sheets is master)<br>
+      <strong>↑ Push All</strong> — pushes all local data to Google Sheets<br>
+      <strong>🗑 Clear Logs</strong> — removes local logs (re-pull from Sheets after)
     </div>
   </div>
 </div>
@@ -1199,6 +1205,21 @@ function launchApp(){
   render();
   updateDT();
   setInterval(updateDT,30000);
+  // Auto-pull all data from Sheets every 5 minutes (keeps all devices in sync)
+  setInterval(function(){
+    if(isConn()){
+      pullAllLogsFromSheets().then(function(changed){
+        if(changed){
+          render();
+          renderProductStock();
+          renderStock();
+        }
+      });
+      pullIngStockFromSheets().then(function(changed){
+        if(changed)renderStock();
+      });
+    }
+  },5*60*1000); // every 5 minutes
   // Worker: pre-fill name
   if(CU.role==='worker'){
     var wn=document.getElementById('wName');
@@ -3269,82 +3290,87 @@ function pullAllLogsFromSheets(){
   ]).then(function(results){
     var prodRows=results[0], transRows=results[1],
         distRows=results[2], wastRows=results[3];
-    var changed=false;
 
-    // Merge production logs
+    // ── REPLACE ALL LOCAL LOGS WITH SHEETS DATA ──────────────────────────────
+    // Sheets is the master — manual edits in Sheets override local data
+
+    // Production logs — full replace from Sheets
+    var newProdLog=[];
     prodRows.forEach(function(row){
       if(!row.id||!row.ts)return;
-      var exists=S.prodLog.find(function(l){return String(l.id)===String(row.id)});
-      if(!exists){
-        var items=[];
-        try{items=JSON.parse(row.items||'[]');}catch(e){}
-        S.prodLog.push({
-          id:parseInt(row.id),batchId:row.batchId||'',
-          worker:row.worker||'',date:row.date||'',time:row.time||'',
-          totalSets:parseInt(row.totalSets)||0,readyCount:parseInt(row.readyCount)||0,
-          ts:parseInt(row.ts)||0,synced:row.synced==='1'||row.synced===1,
-          items:items
-        });
-        changed=true;
-      }
+      var items=[];
+      try{items=JSON.parse(row.items||'[]');}catch(e){}
+      newProdLog.push({
+        id:parseInt(row.id),batchId:row.batchId||'',
+        worker:row.worker||'',date:row.date||'',time:row.time||'',
+        totalSets:parseInt(row.totalSets)||0,readyCount:parseInt(row.readyCount)||0,
+        ts:parseInt(row.ts)||0,synced:true,items:items
+      });
     });
 
-    // Merge transfers
+    // Transfers — full replace
+    var newTransfers=[];
     transRows.forEach(function(row){
       if(!row.id||!row.ts)return;
-      var exists=(S.transfers||[]).find(function(t){return String(t.id)===String(row.id)});
-      if(!exists){
-        var batchIds=[],products={};
-        try{batchIds=JSON.parse(row.batchIds||'[]');}catch(e){}
-        try{products=JSON.parse(row.products||'{}');}catch(e){}
-        if(!S.transfers)S.transfers=[];
-        var batchLabels=[];
-        try{batchLabels=JSON.parse(row.batchLabels||'[]');}catch(e){}
-        S.transfers.push({
-          id:parseInt(row.id),tfId:row.tfId||'',branch:row.branch||'',
-          notes:row.notes||'',batchIds:batchIds,batchLabels:batchLabels,
-          products:products,grandTotal:parseInt(row.grandTotal)||0,
-          date:row.date||'',time:row.time||'',ts:parseInt(row.ts)||0,
-          synced:row.synced==='1'||row.synced===1
-        });
-        changed=true;
-      }
+      var batchIds=[],products={},batchLabels=[];
+      try{batchIds=JSON.parse(row.batchIds||'[]');}catch(e){}
+      try{products=JSON.parse(row.products||'{}');}catch(e){}
+      try{batchLabels=JSON.parse(row.batchLabels||'[]');}catch(e){}
+      newTransfers.push({
+        id:parseInt(row.id),tfId:row.tfId||'',branch:row.branch||'',
+        notes:row.notes||'',batchIds:batchIds,batchLabels:batchLabels,
+        products:products,grandTotal:parseInt(row.grandTotal)||0,
+        date:row.date||'',time:row.time||'',ts:parseInt(row.ts)||0,synced:true
+      });
     });
 
-    // Merge distribution
+    // Distribution — full replace
+    var newDistLog=[];
     distRows.forEach(function(row){
       if(!row.id||!row.ts)return;
-      var exists=(S.distLog||[]).find(function(d){return String(d.id)===String(row.id)});
-      if(!exists){
-        if(!S.distLog)S.distLog=[];
-        S.distLog.push({
-          id:parseInt(row.id),custId:parseInt(row.custId)||0,
-          prodId:parseInt(row.prodId)||0,sets:parseInt(row.sets)||0,
-          price:parseFloat(row.price)||0,notes:row.notes||'',
-          ts:parseInt(row.ts)||0,synced:row.synced==='1'||row.synced===1
-        });
-        changed=true;
-      }
+      newDistLog.push({
+        id:parseInt(row.id),custId:parseInt(row.custId)||0,
+        prodId:parseInt(row.prodId)||0,sets:parseInt(row.sets)||0,
+        price:parseFloat(row.price)||0,notes:row.notes||'',
+        ts:parseInt(row.ts)||0,synced:true
+      });
     });
 
-    // Merge wastage
+    // Wastage — full replace
+    var newWastageLog=[];
     wastRows.forEach(function(row){
       if(!row.ts)return;
-      var exists=(S.wastageLog||[]).find(function(w){
-        return String(w.ts)===String(row.ts)&&w.name===row.name;
+      newWastageLog.push({
+        ts:parseInt(row.ts)||0,batchId:row.batchId||'',
+        ingId:parseInt(row.ingId)||0,name:row.name||'',
+        unit:row.unit||'',qty:parseFloat(row.qty)||0,
+        costPerUnit:parseFloat(row.costPerUnit)||0,
+        totalCost:parseFloat(row.totalCost)||0,reason:row.reason||''
       });
-      if(!exists){
-        if(!S.wastageLog)S.wastageLog=[];
-        S.wastageLog.push({
-          ts:parseInt(row.ts)||0,batchId:row.batchId||'',
-          ingId:parseInt(row.ingId)||0,name:row.name||'',
-          unit:row.unit||'',qty:parseFloat(row.qty)||0,
-          costPerUnit:parseFloat(row.costPerUnit)||0,
-          totalCost:parseFloat(row.totalCost)||0,reason:row.reason||''
-        });
-        changed=true;
-      }
     });
+
+    // Only update if Sheets has data (avoid wiping on empty sheet)
+    var changed=false;
+    if(newProdLog.length>0||prodRows.length===0&&S.prodLog.length>0){
+      if(JSON.stringify(S.prodLog)!==JSON.stringify(newProdLog)){
+        S.prodLog=newProdLog;changed=true;
+      }
+    }
+    if(newTransfers.length>0||transRows.length===0&&(S.transfers||[]).length>0){
+      if(JSON.stringify(S.transfers||[])!==JSON.stringify(newTransfers)){
+        S.transfers=newTransfers;changed=true;
+      }
+    }
+    if(newDistLog.length>0||distRows.length===0&&(S.distLog||[]).length>0){
+      if(JSON.stringify(S.distLog||[])!==JSON.stringify(newDistLog)){
+        S.distLog=newDistLog;changed=true;
+      }
+    }
+    if(newWastageLog.length>0||wastRows.length===0&&(S.wastageLog||[]).length>0){
+      if(JSON.stringify(S.wastageLog||[])!==JSON.stringify(newWastageLog)){
+        S.wastageLog=newWastageLog;changed=true;
+      }
+    }
 
     if(changed)save();
     return changed;
@@ -4801,6 +4827,52 @@ function pullAllData(){
   }).catch(function(){
     setSyncUI('err');
     toast('Some data failed to sync','w');
+  });
+}
+
+
+function fullSyncFromSheets(){
+  if(!isConn()){toast('Not connected to Google Sheets','w');return;}
+  toast('Full sync — pulling everything from Sheets...','g');
+  setSyncUI('sy');
+  Promise.all([
+    pullSetupFromSheets(),        // products, ingredients, recipes
+    pullCustPricesFromSheets(),   // customer prices
+    pullUsersFromSheets(),        // user accounts
+    pullIngStockFromSheets(),     // ingredient stock levels
+    pullAllLogsFromSheets()       // production, transfers, distribution, wastage
+  ]).then(function(){
+    setSyncUI('idle');
+    // Re-render everything
+    render();
+    renderProdRows();
+    renderSetup();
+    renderStock();
+    renderProductStock();
+    if(typeof renderRecipeEditor==='function'&&curRecipeProd)renderRecipeEditor();
+    toast('✓ Full sync complete — all data updated from Google Sheets','g');
+  }).catch(function(){
+    setSyncUI('err');
+    toast('Some data failed to sync — try again','w');
+  });
+}
+
+function fullPushToSheets(){
+  if(!isConn()){toast('Not connected to Google Sheets','w');return;}
+  toast('Pushing all data to Google Sheets...','g');
+  setSyncUI('sy');
+  Promise.all([
+    pushSetupToSheets(),
+    pushIngStockToSheets(),
+    pushAllLogsToSheets(),
+    pushCustPricesToSheets(),
+    pushUsersToSheets()
+  ]).then(function(){
+    setSyncUI('idle');
+    toast('✓ All data pushed to Google Sheets','g');
+  }).catch(function(){
+    setSyncUI('err');
+    toast('Some data failed to push','w');
   });
 }
 
