@@ -911,6 +911,24 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
 
 </div><!-- end APP -->
 
+
+<!-- EDIT BATCH MODAL -->
+<div class="mov" id="editBatchModal" onclick="closeOv(event,'editBatchModal')">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <div class="mtitle">✏️ Edit Production Batch</div>
+    <div style="background:var(--gl);border:1.5px solid #A8D8B8;border-radius:10px;padding:10px 12px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--green)" id="editBatchIdLabel">Batch ID</div>
+      <div style="font-size:11px;color:var(--mt);margin-top:2px">Edit quantities then tap Save. Changes sync to all devices.</div>
+    </div>
+    <div id="editBatchRows"></div>
+    <label>Worker Name</label>
+    <input type="text" id="editBatchWorker" placeholder="Worker name">
+    <button class="btn btn-g" style="margin-top:14px" onclick="saveEditBatch()">✓ Save Changes & Sync</button>
+    <button class="btn btn-r" style="margin-top:8px" onclick="confirmDeleteFromModal()">🗑 Delete This Batch</button>
+  </div>
+</div>
+
 <!-- CFG MODAL -->
 <div class="mov" id="cfgModal" onclick="closeOv(event,'cfgModal')">
   <div class="modal">
@@ -1078,7 +1096,14 @@ var curRecipeProd = '';
 
 function save(){localStorage.setItem('ulk5',JSON.stringify(S))}
 function savePcost(){localStorage.setItem('ulk5pc',JSON.stringify(PCOST))}
-function saveRecipes(){localStorage.setItem('ulk5rec',JSON.stringify(RECIPES))}
+function saveRecipes(){
+  localStorage.setItem('ulk5rec',JSON.stringify(RECIPES));
+  // Debounced push to Sheets — 2 seconds after last change
+  if(saveRecipes._t)clearTimeout(saveRecipes._t);
+  saveRecipes._t=setTimeout(function(){
+    if(isConn())pushSetupToSheets();
+  },2000);
+}
 function savePHist(){localStorage.setItem('ulk5ph',JSON.stringify(PHIST))}
 function saveCfgStore(){
   // Merge with baked credentials — baked values take priority
@@ -1186,18 +1211,27 @@ function launchApp(){
     // Pull users and products in parallel
     setSyncUI('sy');
     document.getElementById('slbl').textContent='Syncing all data...';
+    var needPull=sessionStorage.getItem('ulk5_needpull');
+    if(needPull) sessionStorage.removeItem('ulk5_needpull');
+    // Always pull setup; pull logs if needPull or no local logs
+    var shouldPullLogs=needPull||!S.prodLog||S.prodLog.length===0;
     Promise.all([
       pullUsersFromSheets(),
       pullSetupFromSheets(),
       pullCustPricesFromSheets(),
-      pullIngStockFromSheets()   // always get latest stock levels
+      pullIngStockFromSheets()
     ]).then(function(){
-      return pullAllLogsFromSheets();
+      if(shouldPullLogs){
+        document.getElementById('slbl').textContent='Loading stock data...';
+        return pullAllLogsFromSheets();
+      }
+      return Promise.resolve(false);
     }).then(function(){
       setSyncUI('idle');
       render();renderProdRows();
       if(CU.role==='boss')renderSetup();
-      renderStock(); // refresh stock display with latest levels
+      renderStock();
+      if(shouldPullLogs) toast('✓ All data synced from Google Sheets','g');
     }).catch(function(){
       setSyncUI('err');
       render();renderProdRows();
@@ -1229,6 +1263,14 @@ function applyRole(){
 
 function checkSession(){
   initUsers();
+
+  // Check if reset was done — auto-pull flag
+  var autoPull=localStorage.getItem('ulk5_autopull');
+  if(autoPull){
+    localStorage.removeItem('ulk5_autopull');
+    // Will auto-pull after login
+    sessionStorage.setItem('ulk5_needpull','1');
+  }
 
   // Check existing session first
   var sess=sessionStorage.getItem('ulk5s');
@@ -1950,11 +1992,12 @@ function renderSetup(){
 }
 
 function resetAll(){
-  // Two-step confirmation
-  if(!confirm('⚠️ WARNING: This will delete all local data on THIS device only.\n\nProducts, ingredients, recipes and logs will be removed.\n\nYour data in Google Sheets will NOT be deleted.\n\nContinue?'))return;
-  if(!confirm('Are you absolutely sure? Type OK to confirm.\n\nPress Cancel to go back.'))return;
-  ['ulk5','ulk5pc','ulk5rec','ulk5ph'].forEach(function(k){localStorage.removeItem(k)});
+  if(!confirm('⚠️ WARNING: This will delete all local data on THIS device only.\n\nProducts, ingredients, recipes and logs will be removed.\n\nYour data in Google Sheets will NOT be deleted.\n\nAfter reset, the app will reload and pull all data from Google Sheets automatically.\n\nContinue?'))return;
+  if(!confirm('Are you absolutely sure?\n\nPress Cancel to go back.'))return;
+  ['ulk5','ulk5pc','ulk5rec','ulk5ph','ulk5cp'].forEach(function(k){localStorage.removeItem(k)});
   sessionStorage.clear();
+  // Set a flag to auto-pull on next load
+  localStorage.setItem('ulk5_autopull','1');
   location.reload();
 }
 
@@ -2171,6 +2214,43 @@ function initRecipeDropdown(){
   renderRecipeEditor();
 }
 
+
+// Update recipe cost display without full re-render (avoids losing focus)
+function updateRecipeCostDisplay(){
+  var prodId=curRecipeProd;
+  if(!prodId)return;
+  var recipe=RECIPES[prodId]||[];
+  var setCost=calcSetCost(prodId);
+  var prod=S.products.find(function(p){return p.id===prodId});
+  var sellPrice=prod?prod.price||0:0;
+  var profit=sellPrice-setCost;
+
+  // Update header cost/set
+  var hdr=document.querySelector('[data-cost-header]');
+  if(hdr)hdr.textContent='RM '+setCost.toFixed(3);
+
+  // Update each line cost
+  recipe.forEach(function(line,idx){
+    var ing=S.ingredients.find(function(i){return i.id===line.ingId});
+    if(!ing)return;
+    var qty=line.qty||line.grams||0;
+    var unit=line.unit||'g';
+    var lineCost=0;
+    if(unit==='pcs'||unit==='pack') lineCost=(ing.costPerUnit||ing.cost||0)*qty;
+    else{var qInG=unit==='kg'?qty*1000:unit==='L'?qty*1000:qty;lineCost=(ing.cost||0)*qInG;}
+    var costEl=document.querySelector('[data-line-cost="'+idx+'"]');
+    if(costEl)costEl.textContent='RM '+lineCost.toFixed(3);
+  });
+
+  // Update summary tiles
+  var costTile=document.querySelector('[data-summary-cost]');
+  var profitTile=document.querySelector('[data-summary-profit]');
+  var marginTile=document.querySelector('[data-summary-margin]');
+  if(costTile)costTile.textContent='RM '+setCost.toFixed(3);
+  if(profitTile){profitTile.textContent='RM '+profit.toFixed(3);profitTile.style.color=profit>=0?'var(--green)':'var(--red)';}
+  if(marginTile)marginTile.textContent=(sellPrice>0?((profit/sellPrice)*100).toFixed(1):0)+'%';
+}
+
 function renderRecipeEditor(){
   var rp=document.getElementById('recProd');
   if(!rp||!S.products.length)return;
@@ -2207,7 +2287,7 @@ function renderRecipeEditor(){
       +'<select data-ridx="'+idx+'" class="runit" style="background:var(--bg);border:1.5px solid var(--bd);border-radius:7px;padding:7px 4px;font-size:12px;outline:none;-webkit-appearance:none;text-align:center">'
       +['g','kg','ml','L','pcs','pack'].map(function(u){return'<option value="'+u+'"'+(u===unit?' selected':'')+'>'+u+'</option>'}).join('')
       +'</select>'
-      +'<div style="font-family:monospace;font-size:11px;font-weight:600;color:var(--green);text-align:right">RM '+lineCost.toFixed(3)+'</div>'
+      +'<div data-line-cost="'+idx+'" style="font-family:monospace;font-size:11px;font-weight:600;color:var(--green);text-align:right">RM '+lineCost.toFixed(3)+'</div>'
       +'<button data-ridx="'+idx+'" class="rm-recipe" style="width:30px;height:30px;border-radius:8px;background:var(--rl);border:none;cursor:pointer;color:var(--red);font-size:16px;font-weight:700">×</button>'
       +'</div>';
   }
@@ -2219,7 +2299,7 @@ function renderRecipeEditor(){
     +'<div style="padding:12px 16px;background:var(--green);display:flex;align-items:center;justify-content:space-between">'
     +'<div style="font-size:13px;font-weight:700;color:#fff">'+(product?product.name:'')+' </div>'
     +'<div style="text-align:right"><div style="font-size:10px;color:rgba(255,255,255,.7)">Cost/set</div>'
-    +'<div style="font-family:monospace;font-size:16px;font-weight:700;color:#fff">RM '+setCost.toFixed(3)+'</div></div>'
+    +'<div data-cost-header style="font-family:monospace;font-size:16px;font-weight:700;color:#fff">RM '+setCost.toFixed(3)+'</div></div>'
     +'</div>'
     // Table header
     +'<div style="padding:8px 14px;border-bottom:1px solid var(--bd);background:var(--bg)">'
@@ -2251,10 +2331,10 @@ function renderRecipeEditor(){
   document.getElementById('recipeSummary').innerHTML=
     '<div class="ctitle">Cost Summary — '+(product?product.name:'')+'</div>'
     +'<div class="tiles" style="margin-bottom:0">'
-    +'<div class="tile g"><div class="tlbl">Cost/set</div><div class="tval" style="font-size:15px">RM '+setCost.toFixed(3)+'</div></div>'
+    +'<div class="tile g"><div class="tlbl">Cost/set</div><div class="tval" style="font-size:15px" data-summary-cost>RM '+setCost.toFixed(3)+'</div></div>'
     +'<div class="tile a"><div class="tlbl">Price/set</div><div class="tval" style="font-size:15px">RM '+sellPrice.toFixed(2)+'</div></div>'
-    +'<div class="tile '+(profit>=0?'g':'r')+'"><div class="tlbl">Profit/set</div><div class="tval" style="font-size:15px">RM '+profit.toFixed(3)+'</div></div>'
-    +'<div class="tile"><div class="tlbl">Margin</div><div class="tval" style="font-size:15px">'+(sellPrice>0?((profit/sellPrice)*100).toFixed(1):0)+'%</div></div>'
+    +'<div class="tile '+(profit>=0?'g':'r')+'"><div class="tlbl">Profit/set</div><div class="tval" style="font-size:15px" data-summary-profit style="color:'+(profit>=0?'var(--green)':'var(--red)')+'">RM '+profit.toFixed(3)+'</div></div>'
+    +'<div class="tile"><div class="tlbl">Margin</div><div class="tval" style="font-size:15px" data-summary-margin>'+(sellPrice>0?((profit/sellPrice)*100).toFixed(1):0)+'%</div></div>'
     +'</div>';
 
   // Bind other events
@@ -2282,18 +2362,42 @@ function renderRecipeEditor(){
         pushSetupToSheets();
       });
     });
+    // Qty inputs — save on every change AND blur (covers all edit scenarios)
     document.querySelectorAll('.rgrams').forEach(function(inp){
-      inp.addEventListener('change',function(){
-        var idx=parseInt(this.getAttribute('data-ridx'));
-        if(RECIPES[curRecipeProd]){RECIPES[curRecipeProd][idx].qty=parseFloat(this.value)||0;RECIPES[curRecipeProd][idx].grams=parseFloat(this.value)||0;}
-        saveRecipes();renderRecipeEditor();
+      function saveQty(){
+        var ridx=parseInt(this.getAttribute('data-ridx'));
+        var val=parseFloat(this.value)||0;
+        if(RECIPES[curRecipeProd]&&RECIPES[curRecipeProd][ridx]!==undefined){
+          RECIPES[curRecipeProd][ridx].qty=val;
+          RECIPES[curRecipeProd][ridx].grams=val;
+          saveRecipes();
+          // Update cost display inline without full re-render
+          updateRecipeCostDisplay();
+        }
+      }
+      inp.addEventListener('change',saveQty);
+      inp.addEventListener('blur',saveQty);
+      inp.addEventListener('input',function(){
+        // Live cost preview as user types
+        var ridx=parseInt(this.getAttribute('data-ridx'));
+        var val=parseFloat(this.value)||0;
+        if(RECIPES[curRecipeProd]&&RECIPES[curRecipeProd][ridx]!==undefined){
+          RECIPES[curRecipeProd][ridx].qty=val;
+          RECIPES[curRecipeProd][ridx].grams=val;
+          saveRecipes();
+          updateRecipeCostDisplay();
+        }
       });
     });
+    // Unit selects — save immediately on change
     document.querySelectorAll('.runit').forEach(function(sel){
       sel.addEventListener('change',function(){
-        var idx=parseInt(this.getAttribute('data-ridx'));
-        if(RECIPES[curRecipeProd])RECIPES[curRecipeProd][idx].unit=this.value;
-        saveRecipes();renderRecipeEditor();
+        var ridx=parseInt(this.getAttribute('data-ridx'));
+        if(RECIPES[curRecipeProd]&&RECIPES[curRecipeProd][ridx]!==undefined){
+          RECIPES[curRecipeProd][ridx].unit=this.value;
+          saveRecipes();
+          updateRecipeCostDisplay();
+        }
       });
     });
   },30);
@@ -2444,14 +2548,31 @@ function render(){
   if(tpEl) tpEl.innerHTML=!todayLogs.length
     ?'<div class="empty"><div class="empty-icon">📋</div><p>No production recorded today</p></div>'
     :todayLogs.slice().reverse().map(function(l){
-      return'<div class="row"><div class="ri">'
+      var isTf=(S.transfers||[]).some(function(t){return t.batchIds&&t.batchIds.indexOf(l.id)>=0;});
+      return'<div class="row" style="flex-wrap:wrap;gap:4px"><div class="ri">'
         +'<div class="rn" style="font-family:monospace;font-size:12px;font-weight:700;color:var(--green)">'+(l.batchId||'—')+'</div>'
         +'<div class="rm">'+l.worker+' · '+l.totalSets+' sets · '+l.time+'</div>'
-        +'</div><span class="badge '+(l.synced?'badge-g':'badge-y')+'">'+(l.synced?'Synced':'Pending')+'</span></div>';
+        +'</div>'
+        +'<div style="display:flex;align-items:center;gap:5px">'
+        +'<span class="badge '+(l.synced?'badge-g':'badge-y')+'">'+(l.synced?'Synced':'Pending')+'</span>'
+        +(!isTf?'<button data-edit-id="'+l.id+'" class="batch-edit-btn" style="padding:3px 9px;background:var(--gl);color:var(--green);border:1px solid var(--green);border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">✏️</button>':'')
+        +(!isTf?'<button data-del-id="'+l.id+'" class="batch-del-btn" style="padding:3px 9px;background:var(--rl);color:var(--red);border:1px solid var(--red);border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">🗑</button>':'')
+        +'</div></div>';
     }).join('');
 
   updatePendingUI();
   renderStock();
+
+  // Bind batch edit/delete on dashboard
+  var tpEl2=document.getElementById('tProd');
+  if(tpEl2){
+    tpEl2.querySelectorAll('.batch-edit-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){editBatch(parseInt(this.getAttribute('data-edit-id')));});
+    });
+    tpEl2.querySelectorAll('.batch-del-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){deleteBatch(parseInt(this.getAttribute('data-del-id')));});
+    });
+  }
 }
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
@@ -3298,16 +3419,17 @@ function renderProductStock(){
   if(!S.products.length){
     el.innerHTML='<div class="empty"><p>No products yet</p></div>';return;
   }
-  // Check if all zeros — suggest pull
+  // Check if all zeros — only show warning if no production logs exist locally
+  var hasLocalLogs = S.prodLog && S.prodLog.length > 0;
   var stock2=calcProductStock();
-  var allZero=S.products.every(function(p){var s=stock2[p.id];return !s||s.in===0;});
-  if(allZero&&isConn()){
+  var totalIn=Object.keys(stock2).reduce(function(s,pid){return s+(stock2[pid].in||0)},0);
+  if(!hasLocalLogs && totalIn===0 && isConn()){
     var nb=document.getElementById('prodStockList');
     if(nb) nb.insertAdjacentHTML('beforebegin',
       '<div style="background:var(--al);border:1.5px solid #F5D9A0;border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">'
       +'<span style="font-size:20px">⚠️</span>'
-      +'<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--am)">All zeros? Data may be on another device.</div>'
-      +'<div style="font-size:12px;color:var(--mt);margin-top:2px">Tap Pull to load latest data from Google Sheets.</div></div>'
+      +'<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--am)">No local data found.</div>'
+      +'<div style="font-size:12px;color:var(--mt);margin-top:2px">Tap Pull to load latest stock from Google Sheets.</div></div>'
       +'<button onclick="pullAndRenderStock()" style="padding:8px 14px;background:var(--am);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">↓ Pull</button>'
       +'</div>'
     );
@@ -3544,6 +3666,135 @@ function syncProductStock(){
   });
 }
 
+
+// ── BATCH EDIT / DELETE ───────────────────────────────────────────────────────
+var editingBatchId = null;
+
+function editBatch(logId){
+  var log = S.prodLog.find(function(l){return l.id===logId});
+  if(!log){toast('Batch not found','e');return;}
+  editingBatchId = logId;
+  document.getElementById('editBatchIdLabel').textContent = log.batchId||('Batch #'+logId);
+  document.getElementById('editBatchWorker').value = log.worker||'';
+
+  // Build editable rows for each product
+  var rows='';
+  S.products.forEach(function(p,i){
+    var item=(log.items||[]).find(function(i){return i.id===p.id});
+    var val=item?item.sets:0;
+    var bg=i%2===0?'#fff':'var(--bg)';
+    rows+='<div style="display:grid;grid-template-columns:1fr 90px;gap:8px;padding:10px 0;border-bottom:1px solid var(--bd);align-items:center;background:'+bg+'">'
+      +'<div><div style="font-size:13px;font-weight:500">'+p.name+'</div>'
+      +'<div style="font-size:11px;color:var(--mt)">'+p.code+'</div></div>'
+      +'<div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">'
+      +'<input type="number" min="0" inputmode="numeric" value="'+val+'" data-pid="'+p.id+'" class="edit-batch-inp pinp'+(val>0?' ok':' zero')+'">'
+      +'<span style="font-size:11px;color:var(--mt)">set</span>'
+      +'</div></div>';
+  });
+  document.getElementById('editBatchRows').innerHTML=rows;
+
+  // Bind input styling
+  document.querySelectorAll('.edit-batch-inp').forEach(function(inp){
+    inp.addEventListener('input',function(){
+      var v=parseInt(this.value)||0;
+      this.className='edit-batch-inp pinp'+(this.value!==''?(v>0?' ok':' zero'):'');
+    });
+  });
+  openM('editBatchModal');
+}
+
+function saveEditBatch(){
+  if(!editingBatchId)return;
+  var log=S.prodLog.find(function(l){return l.id===editingBatchId});
+  if(!log){toast('Batch not found','e');return;}
+
+  // Update worker
+  var workerInp=document.getElementById('editBatchWorker');
+  if(workerInp) log.worker=workerInp.value.trim()||log.worker;
+
+  // Update item quantities
+  var inputs=document.querySelectorAll('.edit-batch-inp');
+  var newItems=[];
+  var totalSets=0;
+  inputs.forEach(function(inp){
+    var pid=parseInt(inp.getAttribute('data-pid'));
+    var sets=parseInt(inp.value)||0;
+    var prod=S.products.find(function(p){return p.id===pid});
+    newItems.push({
+      id:pid,
+      name:prod?prod.name:'',
+      code:prod?prod.code:'',
+      sets:sets,
+      price:prod?prod.price:0
+    });
+    totalSets+=sets;
+  });
+
+  log.items=newItems;
+  log.totalSets=totalSets;
+  log.readyCount=newItems.filter(function(i){return i.sets>0}).length;
+  log.synced=false; // mark for re-sync
+  save();
+
+  // Close modal and refresh
+  document.getElementById('editBatchModal').classList.remove('open');
+  editingBatchId=null;
+
+  // Push updated logs + sync product stock
+  Promise.all([
+    pushAllLogsToSheets(),
+    new Promise(function(resolve){setTimeout(function(){syncProductStock();resolve();},500);})
+  ]).then(function(){
+    toast('✓ Batch updated — stock recalculated & synced','g');
+    renderTransfer();
+    renderProductStock();
+    render();
+  });
+}
+
+function deleteBatch(logId){
+  var log=S.prodLog.find(function(l){return l.id===logId});
+  if(!log){toast('Batch not found','e');return;}
+  var bid=log.batchId||('Batch #'+logId);
+  var totalSets=log.totalSets||0;
+
+  // Build summary of what will be removed
+  var itemSummary=(log.items||[]).filter(function(i){return i.sets>0})
+    .map(function(i){
+      var p=S.products.find(function(p){return p.id===i.id});
+      return(p?p.name:'')+' ×'+i.sets;
+    }).join(', ');
+
+  if(!confirm('Delete "'+bid+'"?\n\nWill REMOVE from stock:\n'+itemSummary+'\n\nTotal: '+totalSets+' sets\n\nThis cannot be undone.'))return;
+
+  // Remove batch from prodLog
+  S.prodLog=S.prodLog.filter(function(l){return l.id!==logId});
+  save();
+
+  toast('Deleting and updating stock...','g');
+
+  // Push updated logs + sync product stock sheet
+  Promise.all([
+    pushAllLogsToSheets(),
+    new Promise(function(resolve){setTimeout(function(){syncProductStock();resolve();},500);})
+  ]).then(function(){
+    toast('✓ '+bid+' deleted — stock adjusted & synced','g');
+    renderTransfer();
+    renderProductStock();
+    render();
+  }).catch(function(){
+    toast('✓ '+bid+' deleted locally — sync pending','w');
+    renderTransfer();
+    render();
+  });
+}
+
+function confirmDeleteFromModal(){
+  if(!editingBatchId)return;
+  document.getElementById('editBatchModal').classList.remove('open');
+  setTimeout(function(){deleteBatch(editingBatchId);editingBatchId=null;},200);
+}
+
 // ── TRANSFER ──────────────────────────────────────────────────────────────────
 var TF_TAB = '🔄 Stock Transfer';
 if(!S.transfers) S.transfers = [];
@@ -3635,7 +3886,9 @@ function renderTfBatchList(){
     html += '<div style="padding:8px 14px;background:var(--gl);font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--bd)">Available for Transfer ('+available.length+')</div>';
     available.forEach(function(b){
       var checked = tfSelectedBatches[b.id]===true;
-      html += '<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-bottom:1px solid var(--bd);background:'+(checked?'var(--gl)':'#fff')+';cursor:pointer" onclick="toggleBatch('+b.id+')">'
+      html += '<div style="border-bottom:1px solid var(--bd);background:'+(checked?'var(--gl)':'#fff')+'">'
+        // Tap row to toggle
+        +'<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px 6px;cursor:pointer" onclick="toggleBatch('+b.id+')">'
         +'<div style="width:22px;height:22px;border-radius:6px;border:2px solid '+(checked?'var(--green)':'var(--bd)')+';background:'+(checked?'var(--green)':'#fff')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">'
         +(checked?'<span style="color:#fff;font-size:13px;font-weight:700">✓</span>':'')
         +'</div>'
@@ -3650,7 +3903,13 @@ function renderTfBatchList(){
           var p=S.products.find(function(p){return p.id===i.id});
           return(p?p.name:'')+' ×'+i.sets;
         }).join(', ')+'</div>'
-        +'</div></div>';
+        +'</div></div>'
+        // Action buttons row
+        +'<div style="display:flex;gap:6px;padding:0 14px 10px 54px">'
+        +'<button data-edit-id="'+b.id+'" class="batch-edit-btn" style="padding:5px 12px;background:var(--gl);color:var(--green);border:1px solid var(--green);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer">✏️ Edit</button>'
+        +'<button data-del-id="'+b.id+'" class="batch-del-btn" style="padding:5px 12px;background:var(--rl);color:var(--red);border:1px solid var(--red);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer">🗑 Delete</button>'
+        +'</div>'
+        +'</div>';
     });
   }
 
@@ -3687,6 +3946,21 @@ function renderTfBatchList(){
   }
 
   el.innerHTML = html;
+
+  // Bind edit/delete buttons using addEventListener (Safari-safe)
+  el.querySelectorAll('.batch-edit-btn').forEach(function(btn){
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      editBatch(parseInt(this.getAttribute('data-edit-id')));
+    });
+  });
+  el.querySelectorAll('.batch-del-btn').forEach(function(btn){
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      deleteBatch(parseInt(this.getAttribute('data-del-id')));
+    });
+  });
+
   updateTfSummary();
 }
 
@@ -4493,16 +4767,21 @@ function showCurrentStock(){
 function pullAndRenderStock(){
   if(!isConn()){toast('Not connected','w');return;}
   toast('Pulling latest stock...','g');
+  setSyncUI('sy');
   Promise.all([
     pullIngStockFromSheets(),
     pullAllLogsFromSheets()
   ]).then(function(results){
     var ingChanged=results[0],logChanged=results[1];
+    setSyncUI('idle');
     renderProductStock();
     renderStock();
     renderTfHistory();
     render();
-    toast((ingChanged||logChanged)?'✓ Stock levels updated':'Already up to date','g');
+    toast((ingChanged||logChanged)?'✓ Stock levels updated from Sheets':'Already up to date','g');
+  }).catch(function(){
+    setSyncUI('err');
+    toast('Pull failed — check connection','e');
   });
 }
 
@@ -4537,7 +4816,17 @@ function clearTestData(){
   S.batchCounter={};
   save();
   render();
-  toast('✓ Test data cleared — fresh start','g');
+  toast('Cleared — pulling latest from Sheets...','g');
+  // Auto-pull logs from Sheets after clearing so stock recalculates correctly
+  if(isConn()){
+    setTimeout(function(){
+      pullAllLogsFromSheets().then(function(changed){
+        render();
+        renderProductStock();
+        toast(changed?'✓ Latest stock data loaded from Sheets':'✓ Cleared — no data in Sheets yet','g');
+      });
+    },500);
+  }
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
