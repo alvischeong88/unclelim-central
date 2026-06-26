@@ -357,9 +357,25 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
         <span class="ss">›</span>
         <div class="si"><span class="sn">3</span>Submit</div>
       </div>
-      <div class="r2" style="margin-bottom:12px">
-        <div><div style="font-size:11px;font-weight:700;color:var(--mt);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Date</div><div class="dtbox" id="aDate">—</div></div>
-        <div><div style="font-size:11px;font-weight:700;color:var(--mt);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Time</div><div class="dtbox" id="aTime">—</div></div>
+      <div class="r2" style="margin-bottom:8px">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--mt);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Date</div>
+          <div class="dtbox" id="aDate" style="cursor:pointer" onclick="toggleBackdate()">—</div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--mt);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Time</div>
+          <div class="dtbox" id="aTime">—</div>
+        </div>
+      </div>
+      <!-- Backdate picker (hidden by default) -->
+      <div id="backdatePanel" style="display:none;margin-bottom:12px;background:var(--al);border:1.5px solid #F5D9A0;border-radius:10px;padding:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:8px">📅 Select Date (Backdate)</div>
+        <input type="date" id="backdateInput"
+          style="width:100%;background:#fff;border:1.5px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:14px;outline:none;color:var(--tx)">
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button onclick="applyBackdate()" style="flex:1;padding:9px;background:var(--am);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Apply Date</button>
+          <button onclick="cancelBackdate()" style="flex:1;padding:9px;background:#fff;color:var(--mt);border:1.5px solid var(--bd);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>
+        </div>
       </div>
       <label style="margin-top:0">Worker Name</label>
       <input type="text" id="wName" placeholder="e.g. Azman / Siti Aishah">
@@ -1530,8 +1546,64 @@ function updateCfgBar(){
 function updateDT(){
   var now=new Date();
   var de=document.getElementById('aDate'),te=document.getElementById('aTime');
-  if(de)de.textContent=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+  // Date: use customDate if set, else today
+  if(de&&!customDate){
+    de.textContent=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+    de.style.background='';de.style.borderColor='';de.style.color='';
+  }
+  // Time: always current time
   if(te)te.textContent=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+}
+
+
+// ── BACKDATE ──────────────────────────────────────────────────────────────────
+var customDate = null; // null = use today, Date object = backdated
+
+function toggleBackdate(){
+  var panel=document.getElementById('backdatePanel');
+  if(!panel)return;
+  var isOpen=panel.style.display!=='none';
+  if(isOpen){cancelBackdate();}
+  else{
+    panel.style.display='block';
+    // Set input to current date
+    var d=customDate||new Date();
+    var y=d.getFullYear();
+    var m=String(d.getMonth()+1).padStart(2,'0');
+    var day=String(d.getDate()).padStart(2,'0');
+    var bi=document.getElementById('backdateInput');
+    if(bi) bi.value=y+'-'+m+'-'+day;
+  }
+}
+
+function applyBackdate(){
+  var bi=document.getElementById('backdateInput');
+  if(!bi||!bi.value){toast('Select a date','w');return;}
+  customDate=new Date(bi.value+'T00:00:00');
+  var panel=document.getElementById('backdatePanel');
+  if(panel)panel.style.display='none';
+  // Update date display
+  var dateEl=document.getElementById('aDate');
+  if(dateEl){
+    dateEl.textContent=customDate.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+    dateEl.style.background='#FEF3E2';
+    dateEl.style.borderColor='var(--am)';
+    dateEl.style.color='var(--am)';
+  }
+  toast('📅 Backdated to '+customDate.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'}),'w');
+}
+
+function cancelBackdate(){
+  var panel=document.getElementById('backdatePanel');
+  if(panel)panel.style.display='none';
+}
+
+function resetBackdate(){
+  customDate=null;
+  var dateEl=document.getElementById('aDate');
+  if(dateEl){
+    dateEl.style.background='';dateEl.style.borderColor='';dateEl.style.color='';
+  }
 }
 
 // ── RECORD PAGE ───────────────────────────────────────────────────────────────
@@ -1613,16 +1685,26 @@ function reviewRecord(){
 function submitRecord(){
   var worker=document.getElementById('wName').value.trim()||CU.username;
   var now=new Date();
-  var dateStr=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-  var dayStr=now.toLocaleDateString('en-MY',{weekday:'short'});
+  var recordDate=customDate||now;  // use backdated date if set
+  var dateStr=recordDate.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+  var dayStr=recordDate.toLocaleDateString('en-MY',{weekday:'short'});
   var timeStr=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  // Batch ID uses record date not today
+  var batchDateKey=String(recordDate.getDate()).padStart(2,'0')+String(recordDate.getMonth()+1).padStart(2,'0')+recordDate.getFullYear();
   var totalSets=parsedItems.reduce(function(s,i){return s+i.sets},0);
   var produced=parsedItems.filter(function(i){return i.sets>0});
   var zeros=parsedItems.filter(function(i){return i.sets===0});
   var totalRevenue=parsedItems.reduce(function(s,i){return s+(i.price*i.sets)},0);
 
-  var batchId=genBatchId();
-  var entry={id:S.nextId++,batchId:batchId,worker:worker,date:dateStr,time:timeStr,items:parsedItems,totalSets:totalSets,readyCount:produced.length,ts:Date.now(),synced:false};
+  // Generate batch ID using record date
+  if(!S.batchCounter)S.batchCounter={};
+  S.batchCounter[batchDateKey]=(S.batchCounter[batchDateKey]||0)+1;
+  var batchId='PROD'+batchDateKey+'-B'+S.batchCounter[batchDateKey];
+  save();
+  var entry={id:S.nextId++,batchId:batchId,worker:worker,date:dateStr,time:timeStr,
+    items:parsedItems,totalSets:totalSets,readyCount:produced.length,
+    ts:recordDate.getTime()+(now.getHours()*3600+now.getMinutes()*60)*1000,
+    synced:false,backdated:!!customDate};
   S.prodLog.push(entry);save();
   // Auto-sync product stock + push logs to Sheets
   if(isConn()){
@@ -1694,10 +1776,12 @@ function backToStep1(){document.getElementById('recStep2').style.display='none';
 function newRecord(){
   parsedItems=[];prodData={};initProdData();
   wastageItems=[];currentWastBatchId='';
+  resetBackdate(); customDate=null;
   document.getElementById('wName').value=CU&&CU.role==='worker'?CU.username:'';
   document.getElementById('recStep3').style.display='none';
   document.getElementById('recStep4').style.display='none';
   document.getElementById('recStep5').style.display='none';
+  document.getElementById('backdatePanel').style.display='none';
   document.getElementById('recStep1').style.display='block';
   renderProdRows();updateDT();
 }
@@ -1760,15 +1844,22 @@ function renderSetup(){
   if(pl)pl.innerHTML=!S.products.length
     ?'<div class="empty"><div class="empty-icon">📦</div><p>No products yet — add one above</p></div>'
     :S.products.map(function(p){
-      return'<div class="row" style="flex-wrap:wrap;gap:6px">'
-        +'<div class="ri"><div class="rn">'+p.name+'</div><div class="rm">'+p.code+'</div></div>'
-        +'<div style="display:flex;align-items:center;gap:6px;margin-left:auto">'
-        +'<span style="font-size:12px;color:var(--mt);font-weight:500">RM</span>'
+      return'<div style="padding:12px 0;border-bottom:1px solid var(--bd)">'
+        // Name row
+        +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">'
+        +'<input type="text" value="'+p.name.replace(/"/g,"&quot;")+'" data-pid="'+p.id+'" class="name-inp"'
+        +' style="flex:1;background:var(--bg);border:1.5px solid var(--bd);border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;outline:none;color:var(--tx)">'
+        +'</div>'
+        // Code + Price + Save row
+        +'<div style="display:flex;align-items:center;gap:6px">'
+        +'<span style="font-size:12px;color:var(--mt);font-weight:600;flex-shrink:0">'+p.code+'</span>'
+        +'<span style="font-size:12px;color:var(--mt)">·</span>'
+        +'<span style="font-size:12px;color:var(--mt);font-weight:500;flex-shrink:0">RM</span>'
         +'<input type="number" min="0" step="0.01" value="'+p.price.toFixed(2)+'" data-pid="'+p.id+'" class="price-inp"'
         +' style="width:80px;background:var(--bg);border:1.5px solid var(--bd);border-radius:8px;padding:6px 8px;font-family:monospace;font-size:14px;font-weight:700;text-align:center;outline:none;-moz-appearance:textfield;color:var(--tx)">'
-        +'<span style="font-size:11px;color:var(--mt)">/set</span>'
-        +'<button data-pid="'+p.id+'" class="save-price-btn" style="padding:6px 10px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Save</button>'
-        +'<button onclick="delProduct('+p.id+')" style="padding:6px 10px;background:var(--rl);color:var(--red);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✕</button>'
+        +'<span style="font-size:11px;color:var(--mt);flex-shrink:0">/set</span>'
+        +'<button data-pid="'+p.id+'" class="save-price-btn" style="padding:6px 10px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">Save</button>'
+        +'<button onclick="delProduct('+p.id+')" style="padding:6px 10px;background:var(--rl);color:var(--red);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">✕</button>'
         +'</div>'
         +'</div>';
     }).join('');
@@ -1778,12 +1869,22 @@ function renderSetup(){
       btn.addEventListener('click',function(){
         var pid=parseInt(this.getAttribute('data-pid'));
         var inp=pl.querySelector('.price-inp[data-pid="'+pid+'"]');
+        var nameInp=pl.querySelector('.name-inp[data-pid="'+pid+'"]');
         var prod=S.products.find(function(p){return p.id===pid});
         if(!prod||!inp)return;
         prod.price=parseFloat(inp.value)||0;
-        save();renderSetup();
-        toast('✓ Price saved — syncing to all devices...','g');
-        pushSetupToSheets().then(function(){toast('✓ RM'+prod.price.toFixed(2)+' saved & synced to all devices','g')});
+        if(nameInp&&nameInp.value.trim()) prod.name=nameInp.value.trim();
+        save();renderSetup();renderProdRows();
+        // Refresh recipe dropdown too
+        var rp=document.getElementById('recProd');
+        if(rp){
+          var prevVal=curRecipeProd;
+          rp.innerHTML=S.products.map(function(p){
+            return'<option value="'+p.id+'"'+(p.id===prevVal?' selected':'')+'>'+p.name+'</option>';
+          }).join('');
+        }
+        toast('✓ Saved — syncing to all devices...','g');
+        pushSetupToSheets().then(function(){toast('✓ Product updated & synced','g')});
       });
     });
     pl.querySelectorAll('.price-inp').forEach(function(inp){
@@ -3441,18 +3542,7 @@ if(!S.transferCounter) S.transferCounter = {};
 
 var tfSelectedBatches = {}; // batchId: true/false
 
-// Generate production batch ID: PROD28062026-B1
-function genBatchId(){
-  var now=new Date();
-  var d=String(now.getDate()).padStart(2,'0');
-  var m=String(now.getMonth()+1).padStart(2,'0');
-  var y=now.getFullYear();
-  var dateKey=d+m+y;
-  if(!S.batchCounter)S.batchCounter={};
-  S.batchCounter[dateKey]=(S.batchCounter[dateKey]||0)+1;
-  save();
-  return 'PROD'+dateKey+'-B'+S.batchCounter[dateKey];
-}
+// genBatchId inlined in submitRecord for backdate support
 
 // Generate transfer ID: TTFM28062026-B1
 function genTransferId(){
@@ -4031,9 +4121,12 @@ function submitDist(){
   var custId=distCurrentCust.id;
   var notes=document.getElementById('distNotes').value.trim();
   var now=new Date();
-  var dateStr=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-  var dayStr=now.toLocaleDateString('en-MY',{weekday:'short'});
+  var recordDate=customDate||now;  // use backdated date if set
+  var dateStr=recordDate.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+  var dayStr=recordDate.toLocaleDateString('en-MY',{weekday:'short'});
   var timeStr=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  // Batch ID uses record date not today
+  var batchDateKey=String(recordDate.getDate()).padStart(2,'0')+String(recordDate.getMonth()+1).padStart(2,'0')+recordDate.getFullYear();
   if(!S.distLog)S.distLog=[];
 
   var items=S.products.map(function(p){
