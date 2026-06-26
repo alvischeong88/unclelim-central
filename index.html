@@ -1444,7 +1444,7 @@ function writeSheetHeaders(){
     // Also init log tabs
     return Promise.all([
       appendRow(LOGS_PROD_TAB,['id','batchId','worker','date','time','totalSets','readyCount','ts','synced','items']),
-      appendRow(LOGS_TRANS_TAB,['id','tfId','branch','notes','batchIds','products','grandTotal','date','time','ts','synced']),
+      appendRow(LOGS_TRANS_TAB,['id','tfId','branch','notes','batchIds','products','grandTotal','date','time','ts','synced','batchLabels']),
       appendRow(LOGS_DIST_TAB,['id','custId','prodId','sets','price','notes','ts','synced']),
       appendRow(LOGS_WAST_TAB,['ts','batchId','ingId','name','unit','qty','costPerUnit','totalCost','reason'])
     ]);
@@ -2472,7 +2472,13 @@ function showPage(id){
   if(id==='stock'){setStockTab('prod');}
   if(id==='cost'){renderIngCostList();}
   if(id==='distribute'){renderDistribute();}
-  if(id==='transfer'){renderTransfer();}
+  if(id==='transfer'){
+    if(isConn()){
+      pullAllLogsFromSheets().then(function(){renderTransfer();});
+    } else {
+      renderTransfer();
+    }
+  }
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────
@@ -3102,11 +3108,12 @@ function pushAllLogsToSheets(){
   });
 
   // Transfers
-  var transRows=[['id','tfId','branch','notes','batchIds','products','grandTotal','date','time','ts','synced']];
+  var transRows=[['id','tfId','branch','notes','batchIds','products','grandTotal','date','time','ts','synced','batchLabels']];
   (S.transfers||[]).forEach(function(t){
     transRows.push([t.id,t.tfId||'',t.branch||'',t.notes||'',
       JSON.stringify(t.batchIds||[]),JSON.stringify(t.products||{}),
-      t.grandTotal||0,t.date||'',t.time||'',t.ts||0,t.synced?1:0]);
+      t.grandTotal||0,t.date||'',t.time||'',t.ts||0,t.synced?1:0,
+      JSON.stringify(t.batchLabels||[])]);
   });
 
   // Distribution
@@ -3170,11 +3177,13 @@ function pullAllLogsFromSheets(){
         try{batchIds=JSON.parse(row.batchIds||'[]');}catch(e){}
         try{products=JSON.parse(row.products||'{}');}catch(e){}
         if(!S.transfers)S.transfers=[];
+        var batchLabels=[];
+        try{batchLabels=JSON.parse(row.batchLabels||'[]');}catch(e){}
         S.transfers.push({
           id:parseInt(row.id),tfId:row.tfId||'',branch:row.branch||'',
-          notes:row.notes||'',batchIds:batchIds,products:products,
-          grandTotal:parseInt(row.grandTotal)||0,date:row.date||'',
-          time:row.time||'',ts:parseInt(row.ts)||0,
+          notes:row.notes||'',batchIds:batchIds,batchLabels:batchLabels,
+          products:products,grandTotal:parseInt(row.grandTotal)||0,
+          date:row.date||'',time:row.time||'',ts:parseInt(row.ts)||0,
           synced:row.synced==='1'||row.synced===1
         });
         changed=true;
@@ -3577,7 +3586,12 @@ function getAllBatches(){
     }
     var totalSets=(log.items||[]).reduce(function(s,i){return s+i.sets},0);
     var transferred=(S.transfers||[]).some(function(t){
-      return t.batchIds&&t.batchIds.indexOf(log.id)>=0;
+      // Check by log.id (number) OR by batchId string for cross-device reliability
+      return t.batchIds&&(
+        t.batchIds.indexOf(log.id)>=0 ||
+        t.batchIds.indexOf(String(log.id))>=0 ||
+        (bid && t.batchLabels && t.batchLabels.indexOf(bid)>=0)
+      );
     });
     batches.push({
       id:log.id,
@@ -3809,6 +3823,7 @@ function submitTransfer(){
   var transfer={
     id:S.nextId++, tfId:tfId, branch:branch, notes:notes,
     batchIds:selected.map(function(b){return b.id}),
+    batchLabels:selected.map(function(b){return b.batchId}), // store batchId strings too
     products:totals, grandTotal:grandTotal,
     date:dateStr, time:timeStr, ts:now.getTime(), synced:false
   };
