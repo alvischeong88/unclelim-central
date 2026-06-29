@@ -3146,7 +3146,10 @@ function renderRProd(){
   var el=document.getElementById('rProdList');
   var badge=document.getElementById('rProdCount');
   if(!el)return;
-  var logs=[].concat(S.prodLog).reverse();
+  // Filter out any corrupt entries before rendering
+  var logs=[].concat(S.prodLog).filter(function(l){
+    return l.batchId&&l.batchId!=='batchId'&&l.batchId!=='id'&&parseInt(l.id)>0;
+  }).reverse();
   if(badge){badge.textContent=logs.length+' record'+(logs.length!==1?'s':'');badge.className='badge badge-g';}
   if(!logs.length){el.innerHTML='<div class="empty"><p>No production records yet</p></div>';return;}
   el.innerHTML=logs.map(function(l,i){
@@ -3925,6 +3928,8 @@ function pullAllLogsFromSheets(){
     }
 
     if(changed)save();
+    // Clean any corrupt entries that came from Sheets
+    cleanCorruptLogs();
     return changed;
   }).catch(function(e){console.log('Logs pull error:',e);return false;});
 }
@@ -4392,15 +4397,18 @@ function genTransferId(){
 // Get all production logs grouped as batches
 function getAllBatches(){
   var batches = [];
-  S.prodLog.forEach(function(log, idx){
+  // Filter out corrupt entries first
+  var validLogs = S.prodLog.filter(function(l){
+    return l.batchId&&l.batchId!=='batchId'&&l.batchId!=='id'&&parseInt(l.id)>0&&parseInt(l.ts)>1000000;
+  });
+  validLogs.forEach(function(log, idx){
     var d = new Date(log.ts);
     var dateStr = d.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
     var timeStr = d.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
-    // Use stored batchId if available, else generate from date+count
     var bid = log.batchId;
     if(!bid){
       var dayKey=String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+d.getFullYear();
-      var batchNum=S.prodLog.filter(function(l,i){
+      var batchNum=validLogs.filter(function(l,i){
         var ld=new Date(l.ts);
         var lk=String(ld.getDate()).padStart(2,'0')+String(ld.getMonth()+1).padStart(2,'0')+ld.getFullYear();
         return lk===dayKey&&i<=idx;
@@ -5456,6 +5464,61 @@ function clearTestData(){
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
+// Clean any corrupt log entries from localStorage on startup
+function cleanCorruptLogs(){
+  var changed = false;
+  // Remove production logs with invalid batchId (header rows saved as data)
+  if(S.prodLog){
+    var before = S.prodLog.length;
+    S.prodLog = S.prodLog.filter(function(l){
+      if(!l.id || isNaN(parseInt(l.id)) || parseInt(l.id) <= 0) return false;
+      if(!l.ts || isNaN(parseInt(l.ts)) || parseInt(l.ts) < 1000000) return false;
+      if(l.batchId === 'batchId') return false; // header row
+      if(l.batchId === 'id') return false;
+      if(!l.batchId && !l.totalSets) return false;
+      return true;
+    });
+    if(S.prodLog.length !== before) changed = true;
+  }
+  // Remove transfers with invalid IDs
+  if(S.transfers){
+    var before2 = S.transfers.length;
+    S.transfers = S.transfers.filter(function(t){
+      if(!t.id || isNaN(parseInt(t.id)) || parseInt(t.id) <= 0) return false;
+      if(t.tfId === 'tfId' || t.tfId === 'id') return false;
+      if(!t.tfId) return false;
+      return true;
+    });
+    if(S.transfers.length !== before2) changed = true;
+  }
+  // Remove distribution with invalid IDs
+  if(S.distLog){
+    var before3 = S.distLog.length;
+    S.distLog = S.distLog.filter(function(d){
+      if(!d.id || isNaN(parseInt(d.id)) || parseInt(d.id) <= 0) return false;
+      if(!d.ts || isNaN(parseInt(d.ts)) || parseInt(d.ts) < 1000000) return false;
+      return true;
+    });
+    if(S.distLog.length !== before3) changed = true;
+  }
+  // Remove wastage with invalid timestamps
+  if(S.wastageLog){
+    var before4 = S.wastageLog.length;
+    S.wastageLog = S.wastageLog.filter(function(w){
+      if(!w.ts || isNaN(parseInt(w.ts)) || parseInt(w.ts) < 1000000) return false;
+      if(w.name === 'name' || w.name === 'batchId') return false;
+      return true;
+    });
+    if(S.wastageLog.length !== before4) changed = true;
+  }
+  if(changed){
+    save();
+    console.log('Cleaned corrupt log entries from localStorage');
+  }
+  return changed;
+}
+
+cleanCorruptLogs(); // Run on every app load
 initProdData();
 checkSession();
 </script>
