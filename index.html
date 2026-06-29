@@ -266,12 +266,12 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
 
 <!-- NAV -->
 <div class="nav" id="NAV">
-  <div class="nt active" onclick="showPage('dash')"><span class="nt-icon">📊</span>Dashboard</div>
+  <div class="nt active" onclick="showPage('dash')"><span class="nt-icon">📊</span>Dash</div>
   <div class="nt" onclick="showPage('record')"><span class="nt-icon">📋</span>Record</div>
   <div class="nt" onclick="showPage('transfer')"><span class="nt-icon">🔄</span>Transfer</div>
-  <div class="nt" onclick="showPage('distribute')"><span class="nt-icon">🚚</span>Distribute</div>
+  <div class="nt" onclick="showPage('distribute')"><span class="nt-icon">🚚</span>Deliver</div>
   <div class="nt" onclick="showPage('stock')"><span class="nt-icon">📦</span>Stock</div>
-  <div class="nt" onclick="showPage('cost')"><span class="nt-icon">💰</span>Cost</div>
+  <div class="nt" onclick="showPage('reports')"><span class="nt-icon">📁</span>Reports</div>
   <div class="nt" onclick="showPage('setup')"><span class="nt-icon">⚙️</span>Setup</div>
 </div>
 
@@ -936,6 +936,131 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
   </div>
 </div>
 
+
+<!-- REPORTS -->
+<div class="page" id="page-reports">
+
+  <!-- Export section -->
+  <div class="card">
+    <div class="ctitle">📥 Export to Excel</div>
+    <p style="font-size:12px;color:var(--mt);margin-bottom:12px;line-height:1.5">Download all records as Excel for backup or analysis.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+      <button onclick="exportExcel('today')" style="padding:10px 6px;background:var(--green);color:#fff;border:none;border-radius:9px;font-size:11px;font-weight:700;cursor:pointer;line-height:1.4">📅 Today<br>Report</button>
+      <button onclick="exportExcel('month')" style="padding:10px 6px;background:var(--green);color:#fff;border:none;border-radius:9px;font-size:11px;font-weight:700;cursor:pointer;line-height:1.4">📆 Monthly<br>Report</button>
+      <button onclick="exportExcel('all')" style="padding:10px 6px;background:var(--green);color:#fff;border:none;border-radius:9px;font-size:11px;font-weight:700;cursor:pointer;line-height:1.4">📊 Full<br>Export</button>
+    </div>
+    <div style="font-size:11px;color:var(--mt);line-height:1.6">
+      Includes: Production · Transfers · Distribution · Wastage · Stock Summary
+    </div>
+  </div>
+
+  <!-- Record type tabs -->
+  <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px">
+    <button id="rtab-prod" onclick="setReportTab('prod')" style="flex-shrink:0;padding:8px 12px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--green);background:var(--green);color:#fff;white-space:nowrap">📋 Production</button>
+    <button id="rtab-dist" onclick="setReportTab('dist')" style="flex-shrink:0;padding:8px 12px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--bd);background:#fff;color:var(--mt);white-space:nowrap">🚚 Distribution</button>
+    <button id="rtab-trans" onclick="setReportTab('trans')" style="flex-shrink:0;padding:8px 12px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--bd);background:#fff;color:var(--mt);white-space:nowrap">🔄 Transfer</button>
+    <button id="rtab-wast" onclick="setReportTab('wast')" style="flex-shrink:0;padding:8px 12px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--bd);background:#fff;color:var(--mt);white-space:nowrap">⚠️ Wastage</button>
+  </div>
+
+  <!-- Production records -->
+  <div id="rtab-prod-p">
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+        <div class="ctitle" style="margin-bottom:0">Production Batches</div>
+        <span id="rProdCount" class="badge badge-g"></span>
+      </div>
+      <div id="rProdList"></div>
+    </div>
+  </div>
+
+  <!-- Distribution records -->
+  <div id="rtab-dist-p" style="display:none">
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+        <div class="ctitle" style="margin-bottom:0">Distribution Records</div>
+        <span id="rDistCount" class="badge badge-g"></span>
+      </div>
+      <div id="rDistList"></div>
+    </div>
+  </div>
+
+  <!-- Transfer records -->
+  <div id="rtab-trans-p" style="display:none">
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+        <div class="ctitle" style="margin-bottom:0">Transfer Records</div>
+        <span id="rTransCount" class="badge badge-y"></span>
+      </div>
+      <div id="rTransList"></div>
+    </div>
+  </div>
+
+  <!-- Wastage records -->
+  <div id="rtab-wast-p" style="display:none">
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+        <div class="ctitle" style="margin-bottom:0">Wastage Records</div>
+        <span id="rWastCount" class="badge badge-r"></span>
+      </div>
+      <div id="rWastList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT DISTRIBUTION MODAL -->
+<div class="mov" id="editDistModal" onclick="closeOv(event,'editDistModal')">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <div class="mtitle">✏️ Edit Distribution Record</div>
+    <div id="editDistInfo" style="background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--mt)"></div>
+    <label style="margin-top:0">Customer</label>
+    <select id="editDistCust" style="-webkit-appearance:auto;appearance:auto;width:100%;background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;padding:11px 13px;font-size:14px;outline:none;color:var(--tx)"></select>
+    <label>Sets</label>
+    <input type="number" id="editDistSets" min="0" inputmode="numeric">
+    <label>Price per set (RM)</label>
+    <input type="number" id="editDistPrice" min="0" step="0.01" inputmode="decimal">
+    <label>Notes</label>
+    <input type="text" id="editDistNotes" placeholder="Notes (optional)">
+    <button class="btn btn-g" style="margin-top:14px" onclick="saveEditDist()">✓ Save Changes</button>
+    <button class="btn btn-r" style="margin-top:8px" onclick="deleteDistRecord()">🗑 Delete Record</button>
+  </div>
+</div>
+
+<!-- EDIT TRANSFER MODAL -->
+<div class="mov" id="editTransModal" onclick="closeOv(event,'editTransModal')">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <div class="mtitle">✏️ Edit Transfer Record</div>
+    <div id="editTransInfo" style="background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--mt)"></div>
+    <label style="margin-top:0">Branch / Destination</label>
+    <input type="text" id="editTransBranch" placeholder="Branch name">
+    <label>Notes</label>
+    <input type="text" id="editTransNotes" placeholder="Notes (optional)">
+    <div style="background:var(--al);border-radius:10px;padding:10px 12px;margin-top:12px;font-size:12px;color:var(--am)">
+      ⚠️ Product quantities are linked to production batches and cannot be changed here. Delete and re-transfer if quantities need to change.
+    </div>
+    <button class="btn btn-g" style="margin-top:14px" onclick="saveEditTrans()">✓ Save Changes</button>
+    <button class="btn btn-r" style="margin-top:8px" onclick="deleteTransRecord()">🗑 Delete Record</button>
+  </div>
+</div>
+
+<!-- EDIT WASTAGE MODAL -->
+<div class="mov" id="editWastModal" onclick="closeOv(event,'editWastModal')">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <div class="mtitle">✏️ Edit Wastage Record</div>
+    <div id="editWastInfo" style="background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--mt)"></div>
+    <label style="margin-top:0">Ingredient</label>
+    <select id="editWastIng" style="-webkit-appearance:auto;appearance:auto;width:100%;background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;padding:11px 13px;font-size:14px;outline:none;color:var(--tx)"></select>
+    <label>Quantity Wasted</label>
+    <input type="number" id="editWastQty" min="0" step="0.01" inputmode="decimal">
+    <label>Reason</label>
+    <input type="text" id="editWastReason" placeholder="e.g. Spillage, Expired">
+    <button class="btn btn-g" style="margin-top:14px" onclick="saveEditWast()">✓ Save Changes</button>
+    <button class="btn btn-r" style="margin-top:8px" onclick="deleteWastRecord()">🗑 Delete Record</button>
+  </div>
+</div>
+
 <!-- CFG MODAL -->
 <div class="mov" id="cfgModal" onclick="closeOv(event,'cfgModal')">
   <div class="modal">
@@ -1272,7 +1397,8 @@ function applyRole(){
   var cfgBar=document.getElementById('cfgBar');
   if(CU.role==='worker'){
     // Worker: Record tab ONLY (index 1 in new 6-tab nav)
-    for(var i=0;i<tabs.length;i++) tabs[i].style.display=i===1?'flex':'none'; // Record tab is index 1
+    // Worker sees Record tab only (index 1 in 7-tab nav)
+    for(var i=0;i<tabs.length;i++) tabs[i].style.display=i===1?'flex':'none';
     if(cfgBar)cfgBar.style.display='none';
     showPage('record');
   } else {
@@ -2606,7 +2732,7 @@ function showPage(id){
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});
   document.querySelectorAll('.nt').forEach(function(t){t.classList.remove('active')});
   var pe=document.getElementById('page-'+id);if(pe)pe.classList.add('active');
-  var tabs=['dash','record','transfer','distribute','stock','cost','setup'];
+  var tabs=['dash','record','transfer','distribute','stock','reports','setup'];
   var idx=tabs.indexOf(id);
   var nts=document.querySelectorAll('.nt');if(nts[idx])nts[idx].classList.add('active');
   render();
@@ -2615,6 +2741,7 @@ function showPage(id){
   if(id==='stock'){setStockTab('prod');}
   if(id==='cost'){renderIngCostList();}
   if(id==='distribute'){renderDistribute();}
+  if(id==='reports'){renderReports();}
   if(id==='transfer'){
     if(isConn()){
       pullAllLogsFromSheets().then(function(){renderTransfer();});
@@ -2984,6 +3111,421 @@ function tryPublicPull(){
   });
 }
 
+
+
+// ── REPORTS & RECORDS MANAGER ─────────────────────────────────────────────────
+var curReportTab = 'prod';
+var editingDistId = null;
+var editingTransId = null;
+var editingWastIdx = null;
+
+function setReportTab(tab){
+  curReportTab = tab;
+  ['prod','dist','trans','wast'].forEach(function(t){
+    var btn=document.getElementById('rtab-'+t);
+    var panel=document.getElementById('rtab-'+t+'-p');
+    if(btn){btn.style.background=t===tab?'var(--green)':'#fff';btn.style.color=t===tab?'#fff':'var(--mt)';btn.style.borderColor=t===tab?'var(--green)':'var(--bd)';}
+    if(panel)panel.style.display=t===tab?'block':'none';
+  });
+  renderReportTab(tab);
+}
+
+function renderReports(){
+  renderReportTab(curReportTab);
+}
+
+function renderReportTab(tab){
+  if(tab==='prod') renderRProd();
+  if(tab==='dist') renderRDist();
+  if(tab==='trans') renderRTrans();
+  if(tab==='wast') renderRWast();
+}
+
+// ── PRODUCTION RECORDS ────────────────────────────────────────────────────────
+function renderRProd(){
+  var el=document.getElementById('rProdList');
+  var badge=document.getElementById('rProdCount');
+  if(!el)return;
+  var logs=[].concat(S.prodLog).reverse();
+  if(badge){badge.textContent=logs.length+' record'+(logs.length!==1?'s':'');badge.className='badge badge-g';}
+  if(!logs.length){el.innerHTML='<div class="empty"><p>No production records yet</p></div>';return;}
+  el.innerHTML=logs.map(function(l,i){
+    var bg=i%2===0?'#fff':'var(--bg)';
+    var isTf=(S.transfers||[]).some(function(t){return t.batchIds&&t.batchIds.indexOf(l.id)>=0;});
+    return'<div style="padding:12px 14px;border-bottom:1px solid var(--bd);background:'+bg+'">'
+      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">'
+      +'<div>'
+      +'<div style="font-family:monospace;font-size:12px;font-weight:700;color:var(--green)">'+(l.batchId||'—')+'</div>'
+      +'<div style="font-size:12px;color:var(--mt);margin-top:2px">'+l.date+' · '+l.time+' · '+l.worker+'</div>'
+      +'<div style="font-size:12px;font-weight:600;color:var(--tx);margin-top:3px">'+l.totalSets+' sets</div>'
+      +'</div>'
+      +'<span class="badge '+(isTf?'badge-y':'badge-g')+'" style="font-size:10px;flex-shrink:0">'+(isTf?'Transferred':'Available')+'</span>'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--mt);margin-bottom:8px">'
+      +(l.items||[]).filter(function(i){return i.sets>0}).map(function(i){
+        var p=S.products.find(function(p){return p.id===i.id});
+        return(p?p.name:'')+' ×'+i.sets;
+      }).join(' · ')
+      +'</div>'
+      +'<div style="display:flex;gap:6px">'
+      +'<button data-edit-id="'+l.id+'" class="batch-edit-btn" style="padding:5px 12px;background:var(--gl);color:var(--green);border:1px solid var(--green);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer">✏️ Edit</button>'
+      +(!isTf?'<button data-del-id="'+l.id+'" class="batch-del-btn" style="padding:5px 12px;background:var(--rl);color:var(--red);border:1px solid var(--red);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer">🗑 Delete</button>':'')
+      +'</div>'
+      +'</div>';
+  }).join('');
+  // Bind buttons
+  el.querySelectorAll('.batch-edit-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){editBatch(parseInt(this.getAttribute('data-edit-id')));});
+  });
+  el.querySelectorAll('.batch-del-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){deleteBatch(parseInt(this.getAttribute('data-del-id')));});
+  });
+}
+
+// ── DISTRIBUTION RECORDS ──────────────────────────────────────────────────────
+function renderRDist(){
+  var el=document.getElementById('rDistList');
+  var badge=document.getElementById('rDistCount');
+  if(!el)return;
+  var logs=[].concat(S.distLog||[]).reverse();
+  if(badge){badge.textContent=logs.length+' record'+(logs.length!==1?'s':'');badge.className='badge badge-g';}
+  if(!logs.length){el.innerHTML='<div class="empty"><p>No distribution records yet</p></div>';return;}
+  el.innerHTML=logs.map(function(d,i){
+    var bg=i%2===0?'#fff':'var(--bg)';
+    var prod=S.products.find(function(p){return p.id===d.prodId});
+    var cust=(S.customers||[]).find(function(c){return c.id===d.custId});
+    var dt=new Date(d.ts);
+    var dateStr=dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+    var timeStr=dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+    var rev=((d.price||0)*(d.sets||0)).toFixed(2);
+    return'<div style="padding:12px 14px;border-bottom:1px solid var(--bd);background:'+bg+'">'
+      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">'
+      +'<div>'
+      +'<div style="font-size:13px;font-weight:600">'+(cust?cust.name:'Unknown Customer')+'</div>'
+      +'<div style="font-size:12px;color:var(--mt);margin-top:2px">'+dateStr+' · '+timeStr+'</div>'
+      +'<div style="font-size:12px;color:var(--mt);margin-top:2px">'+(prod?prod.name:'?')+' · '+d.sets+' sets · RM'+rev+'</div>'
+      +(d.notes?'<div style="font-size:11px;color:var(--mt);margin-top:2px">'+d.notes+'</div>':'')
+      +'</div>'
+      +'<button data-dist-idx="'+d.id+'" class="edit-dist-btn" style="padding:5px 10px;background:var(--gl);color:var(--green);border:1px solid var(--green);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">✏️</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+  el.querySelectorAll('.edit-dist-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){openEditDist(parseInt(this.getAttribute('data-dist-idx')));});
+  });
+}
+
+function openEditDist(distId){
+  var d=(S.distLog||[]).find(function(x){return x.id===distId});
+  if(!d){toast('Record not found','e');return;}
+  editingDistId=distId;
+  var prod=S.products.find(function(p){return p.id===d.prodId});
+  var info=document.getElementById('editDistInfo');
+  if(info)info.textContent=(prod?prod.name:'?')+' · '+new Date(d.ts).toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+  // Fill customer dropdown
+  var sel=document.getElementById('editDistCust');
+  if(sel){
+    sel.innerHTML=(S.customers||[]).map(function(c){
+      return'<option value="'+c.id+'"'+(c.id===d.custId?' selected':'')+'>'+c.name+'</option>';
+    }).join('');
+  }
+  var setsEl=document.getElementById('editDistSets');if(setsEl)setsEl.value=d.sets||0;
+  var priceEl=document.getElementById('editDistPrice');if(priceEl)priceEl.value=(d.price||0).toFixed(2);
+  var notesEl=document.getElementById('editDistNotes');if(notesEl)notesEl.value=d.notes||'';
+  openM('editDistModal');
+}
+
+function saveEditDist(){
+  var d=(S.distLog||[]).find(function(x){return x.id===editingDistId});
+  if(!d){toast('Record not found','e');return;}
+  var sel=document.getElementById('editDistCust');
+  var setsEl=document.getElementById('editDistSets');
+  var priceEl=document.getElementById('editDistPrice');
+  var notesEl=document.getElementById('editDistNotes');
+  if(sel)d.custId=parseInt(sel.value);
+  if(setsEl)d.sets=parseInt(setsEl.value)||0;
+  if(priceEl)d.price=parseFloat(priceEl.value)||0;
+  if(notesEl)d.notes=notesEl.value.trim();
+  d.synced=false;
+  save();
+  document.getElementById('editDistModal').classList.remove('open');
+  renderRDist();renderDistribute();render();
+  toast('✓ Saved — syncing to Sheets...','g');
+  // Auto-push immediately — no manual action needed
+  pushAllLogsToSheets().then(function(){
+    return syncProductStock();
+  }).then(function(){
+    toast('✓ Distribution updated & synced to all devices','g');
+  });
+}
+
+function deleteDistRecord(){
+  if(!confirm('Delete this distribution record?'))return;
+  S.distLog=(S.distLog||[]).filter(function(x){return x.id!==editingDistId});
+  save();
+  document.getElementById('editDistModal').classList.remove('open');
+  renderRDist();renderDistribute();render();
+  toast('✓ Deleted — syncing...','g');
+  pushAllLogsToSheets().then(function(){
+    return syncProductStock();
+  }).then(function(){
+    toast('✓ Distribution deleted & synced to all devices','g');
+  });
+}
+
+// ── TRANSFER RECORDS ──────────────────────────────────────────────────────────
+function renderRTrans(){
+  var el=document.getElementById('rTransList');
+  var badge=document.getElementById('rTransCount');
+  if(!el)return;
+  var logs=[].concat(S.transfers||[]).reverse();
+  if(badge){badge.textContent=logs.length+' record'+(logs.length!==1?'s':'');badge.className='badge badge-y';}
+  if(!logs.length){el.innerHTML='<div class="empty"><p>No transfer records yet</p></div>';return;}
+  el.innerHTML=logs.map(function(t,i){
+    var bg=i%2===0?'#fff':'var(--bg)';
+    var prods=Object.keys(t.products||{}).map(function(pid){
+      var p=S.products.find(function(p){return p.id===parseInt(pid)});
+      return(p?p.name:pid)+' ×'+(t.products[pid]);
+    }).join(' · ');
+    return'<div style="padding:12px 14px;border-bottom:1px solid var(--bd);background:'+bg+'">'
+      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">'
+      +'<div>'
+      +'<div style="font-family:monospace;font-size:12px;font-weight:700;color:var(--am)">'+t.tfId+'</div>'
+      +'<div style="font-size:13px;font-weight:600;margin-top:3px">→ '+t.branch+'</div>'
+      +'<div style="font-size:12px;color:var(--mt);margin-top:2px">'+t.date+' · '+t.time+' · '+t.grandTotal+' sets</div>'
+      +'<div style="font-size:11px;color:var(--mt);margin-top:3px">'+prods+'</div>'
+      +(t.notes?'<div style="font-size:11px;color:var(--mt);margin-top:2px">'+t.notes+'</div>':'')
+      +'</div>'
+      +'<button data-trans-id="'+t.id+'" class="edit-trans-btn" style="padding:5px 10px;background:var(--al);color:var(--am);border:1px solid var(--am);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">✏️</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+  el.querySelectorAll('.edit-trans-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){openEditTrans(parseInt(this.getAttribute('data-trans-id')));});
+  });
+}
+
+function openEditTrans(transId){
+  var t=(S.transfers||[]).find(function(x){return x.id===transId});
+  if(!t){toast('Record not found','e');return;}
+  editingTransId=transId;
+  var info=document.getElementById('editTransInfo');
+  if(info)info.textContent=t.tfId+' · '+t.date+' · '+t.grandTotal+' sets';
+  var branchEl=document.getElementById('editTransBranch');if(branchEl)branchEl.value=t.branch||'';
+  var notesEl=document.getElementById('editTransNotes');if(notesEl)notesEl.value=t.notes||'';
+  openM('editTransModal');
+}
+
+function saveEditTrans(){
+  var t=(S.transfers||[]).find(function(x){return x.id===editingTransId});
+  if(!t){toast('Record not found','e');return;}
+  var branchEl=document.getElementById('editTransBranch');
+  var notesEl=document.getElementById('editTransNotes');
+  if(branchEl)t.branch=branchEl.value.trim();
+  if(notesEl)t.notes=notesEl.value.trim();
+  t.synced=false;
+  save();
+  document.getElementById('editTransModal').classList.remove('open');
+  renderRTrans();renderTfHistory();render();
+  toast('✓ Saved — syncing...','g');
+  pushAllLogsToSheets().then(function(){
+    return syncProductStock();
+  }).then(function(){
+    toast('✓ Transfer updated & synced to all devices','g');
+  });
+}
+
+function deleteTransRecord(){
+  var t=(S.transfers||[]).find(function(x){return x.id===editingTransId});
+  if(!t){return;}
+  if(!confirm('Delete transfer "'+t.tfId+'"?\n\nThis will restore '+t.grandTotal+' sets back to available stock.'))return;
+  // Also unlock the batches
+  S.transfers=(S.transfers||[]).filter(function(x){return x.id!==editingTransId});
+  save();
+  document.getElementById('editTransModal').classList.remove('open');
+  renderRTrans();renderTfHistory();renderTransfer();render();renderProductStock();
+  toast('✓ Transfer deleted — syncing...','g');
+  pushAllLogsToSheets().then(function(){
+    return syncProductStock();
+  }).then(function(){
+    toast('✓ Transfer deleted & synced — batches unlocked on all devices','g');
+  });
+}
+
+// ── WASTAGE RECORDS ───────────────────────────────────────────────────────────
+function renderRWast(){
+  var el=document.getElementById('rWastList');
+  var badge=document.getElementById('rWastCount');
+  if(!el)return;
+  var logs=[].concat(S.wastageLog||[]).reverse();
+  if(badge){badge.textContent=logs.length+' record'+(logs.length!==1?'s':'');badge.className='badge badge-r';}
+  if(!logs.length){el.innerHTML='<div class="empty"><p>No wastage records yet</p></div>';return;}
+  el.innerHTML=logs.map(function(w,i){
+    var bg=i%2===0?'#fff':'var(--bg)';
+    var dt=new Date(w.ts);
+    var dateStr=dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+    var timeStr=dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+    return'<div style="padding:12px 14px;border-bottom:1px solid var(--bd);background:'+bg+'">'
+      +'<div style="display:flex;align-items:flex-start;justify-content:space-between">'
+      +'<div>'
+      +'<div style="font-size:13px;font-weight:600">'+w.name+'</div>'
+      +'<div style="font-size:12px;color:var(--mt);margin-top:2px">'+dateStr+' · '+timeStr+'</div>'
+      +'<div style="font-size:12px;color:var(--am);margin-top:2px;font-weight:600">'+w.qty+' '+w.unit+' · RM '+(w.totalCost||0).toFixed(4)+'</div>'
+      +(w.batchId?'<div style="font-family:monospace;font-size:11px;color:var(--mt);margin-top:2px">'+w.batchId+'</div>':'')
+      +(w.reason?'<div style="font-size:11px;color:var(--mt);margin-top:2px">'+w.reason+'</div>':'')
+      +'</div>'
+      +'<button data-wast-ts="'+w.ts+'" class="edit-wast-btn" style="padding:5px 10px;background:var(--al);color:var(--am);border:1px solid var(--am);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">✏️</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+  el.querySelectorAll('.edit-wast-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){openEditWast(parseInt(this.getAttribute('data-wast-ts')));});
+  });
+}
+
+function openEditWast(ts){
+  var w=(S.wastageLog||[]).find(function(x){return x.ts===ts});
+  if(!w){toast('Record not found','e');return;}
+  editingWastIdx=ts;
+  var info=document.getElementById('editWastInfo');
+  var dt=new Date(ts);
+  if(info)info.textContent=dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'})+' · '+(w.batchId||'');
+  var sel=document.getElementById('editWastIng');
+  if(sel){
+    sel.innerHTML=S.ingredients.map(function(i){
+      return'<option value="'+i.id+'"'+(i.name===w.name?' selected':'')+'>'+i.name+' ('+i.unit+')</option>';
+    }).join('');
+  }
+  var qtyEl=document.getElementById('editWastQty');if(qtyEl)qtyEl.value=w.qty||0;
+  var reaEl=document.getElementById('editWastReason');if(reaEl)reaEl.value=w.reason||'';
+  openM('editWastModal');
+}
+
+function saveEditWast(){
+  var w=(S.wastageLog||[]).find(function(x){return x.ts===editingWastIdx});
+  if(!w){toast('Record not found','e');return;}
+  var sel=document.getElementById('editWastIng');
+  var qtyEl=document.getElementById('editWastQty');
+  var reaEl=document.getElementById('editWastReason');
+  if(sel){
+    var ing=S.ingredients.find(function(i){return i.id===parseInt(sel.value)});
+    if(ing){w.ingId=ing.id;w.name=ing.name;w.unit=ing.unit;
+      var isPcs=ing.unit==='pcs'||ing.unit==='pack';
+      w.costPerUnit=isPcs?(ing.costPerUnit||ing.cost||0):(ing.cost||0);
+    }
+  }
+  if(qtyEl){
+    var newQty=parseFloat(qtyEl.value)||0;
+    w.totalCost=w.costPerUnit*newQty;
+    w.qty=newQty;
+  }
+  if(reaEl)w.reason=reaEl.value.trim();
+  save();
+  document.getElementById('editWastModal').classList.remove('open');
+  renderRWast();render();
+  toast('✓ Saved — syncing to Sheets...','g');
+  pushAllLogsToSheets().then(function(){
+    toast('✓ Wastage updated & synced to all devices','g');
+  });
+}
+
+function deleteWastRecord(){
+  if(!confirm('Delete this wastage record?'))return;
+  S.wastageLog=(S.wastageLog||[]).filter(function(x){return x.ts!==editingWastIdx});
+  save();
+  document.getElementById('editWastModal').classList.remove('open');
+  renderRWast();render();
+  toast('✓ Deleted — syncing...','g');
+  pushAllLogsToSheets().then(function(){
+    toast('✓ Wastage deleted & synced to all devices','g');
+  });
+}
+
+// ── EXCEL EXPORT ──────────────────────────────────────────────────────────────
+function exportExcel(range){
+  var now=new Date();
+  var today=now.toDateString();
+  var curMonth=now.getMonth();
+  var curYear=now.getFullYear();
+
+  function inRange(ts){
+    if(range==='all')return true;
+    var d=new Date(ts);
+    if(range==='today')return d.toDateString()===today;
+    if(range==='month')return d.getMonth()===curMonth&&d.getFullYear()===curYear;
+    return true;
+  }
+
+  var rangeLabel=range==='today'?'Today_'+now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'}).replace(/ /g,''):
+    range==='month'?['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][curMonth]+curYear:
+    'FullExport_'+now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'}).replace(/ /g,'');
+
+  // Build CSV content per sheet
+  var csvSections=[];
+
+  // Production
+  csvSections.push('=== PRODUCTION BATCHES ===');
+  csvSections.push('Batch ID,Date,Worker,Time,Total Sets,Products');
+  S.prodLog.filter(function(l){return inRange(l.ts)}).forEach(function(l){
+    var prods=(l.items||[]).filter(function(i){return i.sets>0}).map(function(i){
+      var p=S.products.find(function(p){return p.id===i.id});
+      return(p?p.name:'')+' x'+i.sets;
+    }).join('; ');
+    csvSections.push('"'+(l.batchId||'')+'","'+l.date+'","'+l.worker+'","'+l.time+'",'+l.totalSets+',"'+prods+'"');
+  });
+
+  csvSections.push('');
+  csvSections.push('=== TRANSFERS ===');
+  csvSections.push('Transfer ID,Date,Time,Branch,Total Sets,Products,Notes');
+  (S.transfers||[]).filter(function(t){return inRange(t.ts)}).forEach(function(t){
+    var prods=Object.keys(t.products||{}).map(function(pid){
+      var p=S.products.find(function(p){return p.id===parseInt(pid)});
+      return(p?p.name:pid)+' x'+(t.products[pid]);
+    }).join('; ');
+    csvSections.push('"'+t.tfId+'","'+t.date+'","'+t.time+'","'+(t.branch||'')+'",'+t.grandTotal+',"'+prods+'","'+(t.notes||'')+'"');
+  });
+
+  csvSections.push('');
+  csvSections.push('=== DISTRIBUTION ===');
+  csvSections.push('Date,Time,Customer,Product,Sets,Price/Set,Revenue,Notes');
+  (S.distLog||[]).filter(function(d){return inRange(d.ts)}).forEach(function(d){
+    var prod=S.products.find(function(p){return p.id===d.prodId});
+    var cust=(S.customers||[]).find(function(c){return c.id===d.custId});
+    var dt=new Date(d.ts);
+    var rev=((d.price||0)*(d.sets||0)).toFixed(2);
+    csvSections.push('"'+dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'})+'","'+dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'})+'","'+(cust?cust.name:'?')+'","'+(prod?prod.name:'?')+'",'+d.sets+','+d.price.toFixed(2)+','+rev+',"'+(d.notes||'')+'"');
+  });
+
+  csvSections.push('');
+  csvSections.push('=== WASTAGE ===');
+  csvSections.push('Date,Time,Batch ID,Ingredient,Unit,Qty,Cost/Unit,Total Cost,Reason');
+  (S.wastageLog||[]).filter(function(w){return inRange(w.ts)}).forEach(function(w){
+    var dt=new Date(w.ts);
+    csvSections.push('"'+dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'})+'","'+dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'})+'","'+(w.batchId||'')+'","'+w.name+'","'+w.unit+'",'+w.qty+','+(w.costPerUnit||0).toFixed(6)+','+(w.totalCost||0).toFixed(4)+',"'+(w.reason||'')+'"');
+  });
+
+  csvSections.push('');
+  csvSections.push('=== PRODUCT STOCK SUMMARY ===');
+  csvSections.push('Code,Product,Total In,Transferred,Sold,Balance');
+  var stock=calcProductStock();
+  S.products.forEach(function(p){
+    var s=stock[p.id]||{in:0,transferred:0,sold:0,balance:0};
+    csvSections.push('"'+p.code+'","'+p.name+'",'+s.in+','+s.transferred+','+s.sold+','+s.balance);
+  });
+
+  // Create and download CSV file
+  var csv=csvSections.join('\n');
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  a.download='UncLim_'+rangeLabel+'.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('✓ Downloaded: UncLim_'+rangeLabel+'.csv','g');
+}
 
 // ── INGREDIENT STOCK SYNC ─────────────────────────────────────────────────────
 // Separate from Ingredients Setup (which has prices/units)
@@ -3776,15 +4318,14 @@ function saveEditBatch(){
   document.getElementById('editBatchModal').classList.remove('open');
   editingBatchId=null;
 
-  // Push updated logs + sync product stock
+  renderTransfer();renderProductStock();render();renderRProd();
+  toast('✓ Saved — syncing to Sheets...','g');
+  // Auto-push immediately
   Promise.all([
     pushAllLogsToSheets(),
     new Promise(function(resolve){setTimeout(function(){syncProductStock();resolve();},500);})
   ]).then(function(){
-    toast('✓ Batch updated — stock recalculated & synced','g');
-    renderTransfer();
-    renderProductStock();
-    render();
+    toast('✓ Batch updated & synced to all devices','g');
   });
 }
 
@@ -3807,21 +4348,16 @@ function deleteBatch(logId){
   S.prodLog=S.prodLog.filter(function(l){return l.id!==logId});
   save();
 
-  toast('Deleting and updating stock...','g');
-
-  // Push updated logs + sync product stock sheet
+  renderTransfer();renderProductStock();render();renderRProd();
+  toast('✓ '+bid+' deleted — syncing...','g');
+  // Auto-push immediately
   Promise.all([
     pushAllLogsToSheets(),
     new Promise(function(resolve){setTimeout(function(){syncProductStock();resolve();},500);})
   ]).then(function(){
-    toast('✓ '+bid+' deleted — stock adjusted & synced','g');
-    renderTransfer();
-    renderProductStock();
-    render();
+    toast('✓ '+bid+' deleted & synced to all devices','g');
   }).catch(function(){
-    toast('✓ '+bid+' deleted locally — sync pending','w');
-    renderTransfer();
-    render();
+    toast('⚠️ Deleted locally — will sync when reconnected','w');
   });
 }
 
