@@ -340,14 +340,15 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
       <button onclick="fullSyncFromSheets()" style="padding:9px;background:var(--green);color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">↓ Full Sync</button>
       <button onclick="fullPushToSheets()" style="padding:9px;background:var(--gl);color:var(--green);border:1px solid var(--green);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">↑ Push All</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <button onclick="clearTestData()" style="padding:9px;background:var(--rl);color:var(--red);border:1px solid var(--red);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">🗑 Clear Logs</button>
       <button onclick="syncProductStock()" style="padding:9px;background:var(--gl);color:var(--green);border:1px solid var(--green);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">↑ Sync Stock</button>
     </div>
     <div style="font-size:11px;color:var(--mt);margin-top:8px;line-height:1.6">
-      <strong>↓ Full Sync</strong> — pulls ALL data from Google Sheets (Sheets is master)<br>
-      <strong>↑ Push All</strong> — pushes all local data to Google Sheets<br>
-      <strong>🗑 Clear Logs</strong> — removes local logs (re-pull from Sheets after)
+      <strong>↓ Full Sync</strong> — pulls ALL data from Sheets (Sheets is master)<br>
+      <strong>↑ Push All</strong> — pushes all local data to Sheets<br>
+      <strong>🗑 Clear Logs</strong> — wipes all logs on app AND Google Sheets<br>
+      <strong>↑ Sync Stock</strong> — updates product stock sheet
     </div>
   </div>
 </div>
@@ -3297,21 +3298,28 @@ function pullAllLogsFromSheets(){
     // Production logs — full replace from Sheets
     var newProdLog=[];
     prodRows.forEach(function(row){
-      if(!row.id||!row.ts)return;
+      // Skip header rows or corrupt rows (id must be a number, ts must be a large number)
+      var id=parseInt(row.id);
+      var ts=parseInt(row.ts);
+      if(!id||isNaN(id)||id<=0)return;      // skip if id is not a valid number
+      if(!ts||isNaN(ts)||ts<1000000)return; // skip if ts is not a valid timestamp
+      if(row.batchId==='batchId')return;    // skip header row that got saved as data
       var items=[];
       try{items=JSON.parse(row.items||'[]');}catch(e){}
       newProdLog.push({
-        id:parseInt(row.id),batchId:row.batchId||'',
+        id:id,batchId:row.batchId||'',
         worker:row.worker||'',date:row.date||'',time:row.time||'',
         totalSets:parseInt(row.totalSets)||0,readyCount:parseInt(row.readyCount)||0,
-        ts:parseInt(row.ts)||0,synced:true,items:items
+        ts:ts,synced:true,items:items
       });
     });
 
     // Transfers — full replace
     var newTransfers=[];
     transRows.forEach(function(row){
-      if(!row.id||!row.ts)return;
+      var id=parseInt(row.id);var ts=parseInt(row.ts);
+      if(!id||isNaN(id)||id<=0||!ts||isNaN(ts)||ts<1000000)return;
+      if(row.tfId==='tfId')return; // skip header row
       var batchIds=[],products={},batchLabels=[];
       try{batchIds=JSON.parse(row.batchIds||'[]');}catch(e){}
       try{products=JSON.parse(row.products||'{}');}catch(e){}
@@ -3327,7 +3335,8 @@ function pullAllLogsFromSheets(){
     // Distribution — full replace
     var newDistLog=[];
     distRows.forEach(function(row){
-      if(!row.id||!row.ts)return;
+      var id=parseInt(row.id);var ts=parseInt(row.ts);
+      if(!id||isNaN(id)||id<=0||!ts||isNaN(ts)||ts<1000000)return;
       newDistLog.push({
         id:parseInt(row.id),custId:parseInt(row.custId)||0,
         prodId:parseInt(row.prodId)||0,sets:parseInt(row.sets)||0,
@@ -3339,7 +3348,8 @@ function pullAllLogsFromSheets(){
     // Wastage — full replace
     var newWastageLog=[];
     wastRows.forEach(function(row){
-      if(!row.ts)return;
+      var ts=parseInt(row.ts);
+      if(!ts||isNaN(ts)||ts<1000000)return; // skip header or corrupt rows
       newWastageLog.push({
         ts:parseInt(row.ts)||0,batchId:row.batchId||'',
         ingId:parseInt(row.ingId)||0,name:row.name||'',
@@ -4887,17 +4897,25 @@ function clearTestData(){
   S.transferCounter={};
   S.batchCounter={};
   save();
-  render();
-  toast('Cleared — pulling latest from Sheets...','g');
-  // Auto-pull logs from Sheets after clearing so stock recalculates correctly
+  toast('Clearing all logs...','g');
+
   if(isConn()){
-    setTimeout(function(){
-      pullAllLogsFromSheets().then(function(changed){
-        render();
-        renderProductStock();
-        toast(changed?'✓ Latest stock data loaded from Sheets':'✓ Cleared — no data in Sheets yet','g');
-      });
-    },500);
+    // Push EMPTY logs to Sheets first — this clears the Sheets log tabs
+    pushAllLogsToSheets().then(function(){
+      // Then sync product stock (all zeros now)
+      return syncProductStock();
+    }).then(function(){
+      render();
+      renderProductStock();
+      renderTfHistory();
+      toast('✓ All logs cleared on app AND Google Sheets','g');
+    }).catch(function(){
+      render();
+      toast('Cleared locally — please also clear ⚙️ Log tabs in Google Sheets manually','w');
+    });
+  } else {
+    render();
+    toast('✓ Cleared locally — connect to Sheets to clear online data too','w');
   }
 }
 
