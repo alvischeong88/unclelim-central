@@ -3545,6 +3545,59 @@ function exportExcel(range){
   toast('✓ Downloaded: UncLim_'+rangeLabel+'.csv','g');
 }
 
+
+// ── FALLBACK: Read from 📋 Daily Production when ⚙️ Logs Production is empty ──
+// This recovers existing data that was written before ⚙️ Logs Production existed
+function pullLogsFromReportSheet(){
+  if(!isConn()) return Promise.resolve(false);
+  return readSheet('📋 Daily Production').then(function(rows){
+    if(!rows||!rows.length) return false;
+    var changed=false;
+    rows.forEach(function(row){
+      // Row format: Batch ID, Date, Day, Worker, Time, Total Sets, Produced, Zero Sets, Revenue, Cost, Profit, Margin, [product sets...]
+      var batchId=row['Batch ID']||row['batchId']||'';
+      if(!batchId||batchId==='Batch ID'||batchId==='batchId') return; // skip header
+      if(!batchId.startsWith('PROD')) return; // only valid batch IDs
+      // Check if already in prodLog
+      var exists=S.prodLog.find(function(l){return l.batchId===batchId});
+      if(exists) return;
+      // Build items from product columns (columns 13+ are product sets)
+      var items=[];
+      S.products.forEach(function(p,i){
+        // Column headers like "1 AYAM BEREMBAH (sets)" — try both key formats
+        var colKey=Object.keys(row).find(function(k){
+          return k.indexOf(p.name)>=0&&k.indexOf('sets')>=0||
+                 k.indexOf(p.code)>=0||
+                 k===(i+1)+' '+p.name+' (sets)';
+        });
+        var sets=colKey?parseInt(row[colKey])||0:0;
+        items.push({id:p.id,name:p.name,code:p.code,sets:sets,price:p.price||0});
+      });
+      var totalSets=parseInt(row['Total Sets'])||items.reduce(function(s,i){return s+i.sets},0);
+      // Build timestamp from date string — use noon MYT as fallback
+      var ts=Date.now();
+      try{
+        var d=new Date(row['Date']||row['date']||'');
+        if(!isNaN(d.getTime()))ts=d.getTime()+43200000; // noon
+      }catch(e){}
+      S.prodLog.push({
+        id:S.nextId++,
+        batchId:batchId,
+        worker:row['Worker']||row['worker']||'',
+        date:row['Date']||row['date']||'',
+        time:row['Time']||row['time']||'',
+        totalSets:totalSets,
+        readyCount:items.filter(function(i){return i.sets>0}).length,
+        ts:ts, synced:true, items:items,
+        recoveredFromReport:true
+      });
+      changed=true;
+    });
+    if(changed){save();}
+    return changed;
+  }).catch(function(e){console.log('Fallback pull error:',e);return false;});
+}
+
 // ── INGREDIENT STOCK SYNC ─────────────────────────────────────────────────────
 // Separate from Ingredients Setup (which has prices/units)
 // This tab only tracks live stock levels — updates on every change
@@ -3945,6 +3998,16 @@ function pullAllLogsFromSheets(){
     if(changed)save();
     // Clean any corrupt entries that came from Sheets
     cleanCorruptLogs();
+    // If still no prodLog, try recovering from 📋 Daily Production report sheet
+    if(!S.prodLog||S.prodLog.length===0){
+      return pullLogsFromReportSheet().then(function(recovered){
+        if(recovered){
+          // Push recovered logs to ⚙️ Logs Production so future pulls work
+          pushAllLogsToSheets();
+        }
+        return changed||recovered;
+      });
+    }
     return changed;
   }).catch(function(e){console.log('Logs pull error:',e);return false;});
 }
@@ -4031,9 +4094,9 @@ function renderProductStock(){
       banner.className='no-data-banner';
       banner.style.cssText='background:var(--al);border:1.5px solid #F5D9A0;border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px';
       banner.innerHTML='<span style="font-size:20px">⚠️</span>'
-        +'<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--am)">No local data — tap Pull to load from Sheets</div>'
-        +'<div style="font-size:12px;color:var(--mt);margin-top:2px">Stock will appear after pulling latest data.</div></div>'
-        +'<button onclick="pullAndRenderStock()" style="padding:8px 14px;background:var(--am);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">↓ Pull</button>';
+        +'<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--am)">No local data — tap Pull</div>'
+        +'<div style="font-size:12px;color:var(--mt);margin-top:2px">Pulls production records + recalculates stock.</div></div>'
+        +'<button onclick="recoverAndRenderStock()" style="padding:8px 14px;background:var(--am);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">↓ Pull</button>';
       nb.parentNode.insertBefore(banner, nb);
     }
   }
@@ -5362,6 +5425,35 @@ function showCurrentStock(){
   val.textContent=ing.stock.toFixed(2)+' '+ing.unit;
   val.style.color=isNeg?'var(--red)':ing.stock===0?'var(--red)':ing.stock<=ing.reorder&&ing.reorder>0?'var(--am)':'var(--green)';
   disp.style.borderColor=isNeg?'var(--red)':ing.stock<=ing.reorder&&ing.reorder>0?'var(--am)':'var(--bd)';
+}
+
+
+function recoverAndRenderStock(){
+  if(!isConn()){toast('Not connected','w');return;}
+  toast('Pulling records from Sheets...','g');
+  setSyncUI('sy');
+  // First try ⚙️ Logs Production, then fallback to 📋 Daily Production
+  pullAllLogsFromSheets()
+    .then(function(){
+      if(!S.prodLog||S.prodLog.length===0){
+        toast('Recovering from Daily Production report...','g');
+        return pullLogsFromReportSheet();
+      }
+      return true;
+    })
+    .then(function(changed){
+      return pullIngStockFromSheets();
+    })
+    .then(function(){
+      setSyncUI('idle');
+      renderProductStock();
+      renderStock();
+      render();
+      toast('✓ Stock recalculated from production records','g');
+    }).catch(function(){
+      setSyncUI('err');
+      toast('Pull failed — check connection','e');
+    });
 }
 
 function pullAndRenderStock(){
