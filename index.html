@@ -1942,7 +1942,7 @@ function reviewRecord(){
   }
   parsedItems=S.products.map(function(p){return{name:p.name,code:p.code,id:p.id,sets:parseInt(prodData[p.id])||0,price:p.price||0}});
   var dateStr=getMYTDateStr();
-  var timeStr=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
+  var timeStr=getMYTTimeStr();
   var totalSets=parsedItems.reduce(function(s,i){return s+i.sets},0);
   var produced=parsedItems.filter(function(i){return i.sets>0});
   var zeros=parsedItems.filter(function(i){return i.sets===0});
@@ -2388,7 +2388,7 @@ function saveOneIngCost(ingId){
   var ing=S.ingredients.find(function(i){return i.id===ingId});if(!ing)return;
   var isPcs=(ing.unit==='pcs'||ing.unit==='pack');
   var dateStr=getMYTDateStr();
-  var timeStr=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
+  var timeStr=getMYTTimeStr(); // fixed: was using undefined 'now' variable
 
   if(isPcs){
     // pcs/pack: save costPerUnit from icu_ input
@@ -3732,6 +3732,7 @@ function exportExcel(range){
     return true;
   }
 
+  var now=new Date();
   var rangeLabel=range==='today'
     ?'Today_'+now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'}).replace(/ /g,'')
     :range==='month'
