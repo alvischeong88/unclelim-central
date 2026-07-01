@@ -271,6 +271,7 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
   <div class="nt" onclick="showPage('transfer')"><span class="nt-icon">🔄</span>Transfer</div>
   <div class="nt" onclick="showPage('distribute')"><span class="nt-icon">🚚</span>Deliver</div>
   <div class="nt" onclick="showPage('stock')"><span class="nt-icon">📦</span>Stock</div>
+  <div class="nt" onclick="showPage('cost')"><span class="nt-icon">💰</span>Cost</div>
   <div class="nt" onclick="showPage('reports')"><span class="nt-icon">📁</span>Reports</div>
   <div class="nt" onclick="showPage('setup')"><span class="nt-icon">⚙️</span>Setup</div>
 </div>
@@ -1351,21 +1352,31 @@ function launchApp(){
   render();
   updateDT();
   setInterval(updateDT,30000);
-  // Auto-pull all data from Sheets every 5 minutes (keeps all devices in sync)
+  // ── Background sync every 2 minutes ──────────────────────────────────────
   setInterval(function(){
-    if(isConn()){
-      pullAllLogsFromSheets().then(function(changed){
-        if(changed){
-          render();
-          renderProductStock();
-          renderStock();
-        }
-      });
-      pullIngStockFromSheets().then(function(changed){
-        if(changed)renderStock();
-      });
+    if(!isConn()) return;
+
+    // 1. Push any unsynced local records to Sheets first
+    var hasUnsynced = (S.prodLog||[]).some(function(l){return !l.synced})
+      || (S.transfers||[]).some(function(t){return !t.synced})
+      || (S.distLog||[]).some(function(d){return !d.synced});
+
+    if(hasUnsynced){
+      pushAllLogsToSheets();  // push pending records silently
     }
-  },5*60*1000); // every 5 minutes
+
+    // 2. Pull latest from Sheets (catches edits made in Sheets or other devices)
+    pullAllLogsFromSheets().then(function(changed){
+      if(changed){
+        render();
+        renderProductStock();
+        renderStock();
+      }
+    });
+    pullIngStockFromSheets().then(function(changed){
+      if(changed) renderStock();
+    });
+  }, 2*60*1000); // every 2 minutes
   // Worker: pre-fill name
   if(CU.role==='worker'){
     var wn=document.getElementById('wName');
@@ -1397,10 +1408,15 @@ function launchApp(){
     // Step 3: render with complete data
     .then(function(){
       setSyncUI('idle');
-      render();             // dashboard uses fresh prodLog
+      render();
       renderProdRows();
-      renderProductStock(); // recalculates IN correctly
-      if(CU.role==='boss')renderSetup();
+      renderProductStock();
+      if(CU.role==='boss'){
+        renderSetup();
+        // Refresh recipes so Cost tab shows correct data
+        renderIngCostList();
+        if(curRecipeProd) renderRecipeEditor();
+      }
       renderStock();
       toast('✓ All data loaded from Google Sheets','g');
     }).catch(function(){
@@ -1946,6 +1962,7 @@ function submitRecord(){
 
   doSync('production',row,worker+' — '+totalSets+' sets').then(function(result){
     entry.synced=(result==='synced');save();
+    if(!entry.synced) toast('⚠️ Saved locally — will sync when connection is stable','w');
     var subBid=document.getElementById('subBatchId');
     if(subBid)subBid.textContent=batchId;
     document.getElementById('subMeta').textContent=dateStr+' · '+timeStr+' · '+worker+' · '+totalSets+' sets';
@@ -2754,15 +2771,36 @@ function showPage(id){
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});
   document.querySelectorAll('.nt').forEach(function(t){t.classList.remove('active')});
   var pe=document.getElementById('page-'+id);if(pe)pe.classList.add('active');
-  var tabs=['dash','record','transfer','distribute','stock','reports','setup'];
+  var tabs=['dash','record','transfer','distribute','stock','cost','reports','setup'];
   var idx=tabs.indexOf(id);
   var nts=document.querySelectorAll('.nt');if(nts[idx])nts[idx].classList.add('active');
   render();
   if(id==='record'){initProdData();renderProdRows();updateDT();}
   if(id==='setup')renderSetup();
   if(id==='stock'){setStockTab('prod');}
-  if(id==='cost'){renderIngCostList();}
+  if(id==='cost'){
+    // Always pull latest recipes from Sheets when opening Cost tab
+    if(isConn()){
+      pullSetupFromSheets().then(function(){
+        renderIngCostList();
+        if(curRecipeProd) renderRecipeEditor();
+      });
+    } else {
+      renderIngCostList();
+    }
+  }
   if(id==='distribute'){renderDistribute();}
+  if(id==='cost'){
+    // Always pull latest recipes from Sheets when opening Cost tab
+    if(isConn()){
+      pullSetupFromSheets().then(function(){
+        renderIngCostList();
+        if(curRecipeProd) renderRecipeEditor();
+      });
+    } else {
+      renderIngCostList();
+    }
+  }
   if(id==='reports'){renderReports();}
   if(id==='transfer'){
     if(isConn()){
@@ -5038,8 +5076,10 @@ function submitTransfer(){
     document.getElementById('tfStep3').style.display='block';
     // Reset selections
     tfSelectedBatches={};
-  }).catch(function(){
-    toast('Synced locally — will push when reconnected','w');
+  }).catch(function(e){
+    transfer.synced=false;save();
+    toast('⚠️ Transfer saved locally — tap Full Sync when connection is stable','w');
+    renderTransfer();renderProductStock();render();
   });
 }
 
@@ -5416,6 +5456,11 @@ function submitDist(){
     document.getElementById('distStep3').style.display='none';
     document.getElementById('distStep4').style.display='block';
     renderAvailableStock();
+  }).catch(function(){
+    save();
+    toast('⚠️ Distribution saved locally — tap Full Sync when connection is stable','w');
+    document.getElementById('distStep3').style.display='none';
+    document.getElementById('distStep4').style.display='block';
   });
 }
 
@@ -5689,7 +5734,12 @@ function submitWastage(){
     }).join('');
     document.getElementById('recStep4').style.display='none';
     document.getElementById('recStep5').style.display='block';
-    renderStock(); // update ingredient stock display
+    renderStock();
+    // Auto-push wastage logs + ingredient stock to Sheets
+    pushAllLogsToSheets().catch(function(){
+      toast('⚠️ Wastage saved locally — will sync on next Full Sync','w');
+    });
+    pushIngStockToSheets();
   });
 }
 
@@ -5744,6 +5794,17 @@ function recoverAndRenderStock(){
       setSyncUI('err');
       toast('Pull failed — check connection','e');
     });
+}
+
+
+function pullAndRefreshCost(){
+  if(!isConn()){toast('Not connected to Sheets','w');return;}
+  toast('Pulling recipes & ingredient costs...','g');
+  pullSetupFromSheets().then(function(){
+    renderIngCostList();
+    if(curRecipeProd) renderRecipeEditor();
+    toast('✓ Recipes & costs updated from Google Sheets','g');
+  });
 }
 
 function pullAndRenderStock(){
