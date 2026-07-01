@@ -1122,6 +1122,22 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
 <div class="toast" id="toast"></div>
 
 <script>
+// ── MALAYSIA TIME HELPER ─────────────────────────────────────────────────────
+// Always use Malaysia Time (MYT = UTC+8) regardless of device timezone
+function getMYT(){
+  // Returns a Date-like object adjusted to Malaysia time
+  return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kuala_Lumpur'}));
+}
+function getMYTDateStr(){
+  return new Date().toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'});
+}
+function getMYTTimeStr(){
+  return new Date().toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
+}
+function getMYTDayStr(){
+  return new Date().toLocaleDateString('en-MY',{weekday:'short',timeZone:'Asia/Kuala_Lumpur'});
+}
+
 // ── STATE ─────────────────────────────────────────────────────────────────────
 // Default products & ingredients pre-loaded for all devices
 var DEFAULT_PRODUCTS = [
@@ -1734,15 +1750,12 @@ function updateCfgBar(){
 
 // ── DATETIME ──────────────────────────────────────────────────────────────────
 function updateDT(){
-  var now=new Date();
   var de=document.getElementById('aDate'),te=document.getElementById('aTime');
-  // Date: use customDate if set, else today
   if(de&&!customDate){
-    de.textContent=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+    de.textContent=getMYTDateStr();
     de.style.background='';de.style.borderColor='';de.style.color='';
   }
-  // Time: always current time
-  if(te)te.textContent=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  if(te)te.textContent=getMYTTimeStr();
 }
 
 
@@ -1775,12 +1788,12 @@ function applyBackdate(){
   // Update date display
   var dateEl=document.getElementById('aDate');
   if(dateEl){
-    dateEl.textContent=customDate.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+    dateEl.textContent=customDate.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'});
     dateEl.style.background='#FEF3E2';
     dateEl.style.borderColor='var(--am)';
     dateEl.style.color='var(--am)';
   }
-  toast('📅 Backdated to '+customDate.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'}),'w');
+  toast('📅 Backdated to '+customDate.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'}),'w');
 }
 
 function cancelBackdate(){
@@ -1843,9 +1856,8 @@ function reviewRecord(){
     return;
   }
   parsedItems=S.products.map(function(p){return{name:p.name,code:p.code,id:p.id,sets:parseInt(prodData[p.id])||0,price:p.price||0}});
-  var now=new Date();
-  var dateStr=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-  var timeStr=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  var dateStr=getMYTDateStr();
+  var timeStr=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
   var totalSets=parsedItems.reduce(function(s,i){return s+i.sets},0);
   var produced=parsedItems.filter(function(i){return i.sets>0});
   var zeros=parsedItems.filter(function(i){return i.sets===0});
@@ -1875,10 +1887,11 @@ function reviewRecord(){
 function submitRecord(){
   var worker=document.getElementById('wName').value.trim()||CU.username;
   var now=new Date();
-  var recordDate=customDate||now;  // use backdated date if set
-  var dateStr=recordDate.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-  var dayStr=recordDate.toLocaleDateString('en-MY',{weekday:'short'});
-  var timeStr=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  var mytNow=getMYT(); // Malaysia time
+  var recordDate=customDate||mytNow;
+  var dateStr=recordDate.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'});
+  var dayStr=recordDate.toLocaleDateString('en-MY',{weekday:'short',timeZone:'Asia/Kuala_Lumpur'});
+  var timeStr=getMYTTimeStr();
   // Batch ID uses record date not today
   var batchDateKey=String(recordDate.getDate()).padStart(2,'0')+String(recordDate.getMonth()+1).padStart(2,'0')+recordDate.getFullYear();
   var totalSets=parsedItems.reduce(function(s,i){return s+i.sets},0);
@@ -2179,8 +2192,7 @@ function updateStock(){
   var old=ing.stock;ing.stock=parseFloat((ing.stock-used+added).toFixed(4)); // allow negative for stock-take
   document.getElementById('usAmt').value='';document.getElementById('rsAmt').value='';document.getElementById('stWorker').value='';
   save();renderStock();
-  var now=new Date();
-  var dateStr=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+  var dateStr=getMYTDateStr();
   var status=ing.stock<0?'DEFICIT':ing.stock===0?'OUT':ing.stock<=ing.reorder&&ing.reorder>0?'LOW':'OK';
   var row=[dateStr,ing.name,ing.unit,old,added,used,0,ing.stock,ing.reorder,status,(ing.cost||0),used*(ing.cost||0),ing.stock*(ing.cost||0),'By '+worker];
   doSync('stock',row,ing.name+' — used '+used+', added '+added).then(function(r){
@@ -2212,7 +2224,7 @@ function renderIngCostList(){
     var ing=S.ingredients[i];
     var last=null;
     for(var j=PHIST.length-1;j>=0;j--){if(PHIST[j].ingId===ing.id){last=PHIST[j];break}}
-    var lastDate=last?new Date(last.ts).toLocaleDateString('en-MY',{day:'2-digit',month:'short'}):'Never';
+    var lastDate=last?new Date(last.ts).toLocaleDateString('en-MY',{day:'2-digit',month:'short',timeZone:'Asia/Kuala_Lumpur'}):'Never';
     var isPcs=(ing.unit==='pcs'||ing.unit==='pack');
     var perKg=((ing.cost||0)*1000).toFixed(4);
     var per100=((ing.cost||0)*100).toFixed(4);
@@ -2253,9 +2265,8 @@ function renderIngCostList(){
 function saveOneIngCost(ingId){
   var ing=S.ingredients.find(function(i){return i.id===ingId});if(!ing)return;
   var isPcs=(ing.unit==='pcs'||ing.unit==='pack');
-  var now=new Date();
-  var dateStr=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-  var timeStr=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  var dateStr=getMYTDateStr();
+  var timeStr=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
 
   if(isPcs){
     // pcs/pack: save costPerUnit from icu_ input
@@ -3198,8 +3209,8 @@ function renderRDist(){
     var prod=S.products.find(function(p){return p.id===d.prodId});
     var cust=(S.customers||[]).find(function(c){return c.id===d.custId});
     var dt=new Date(d.ts);
-    var dateStr=dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-    var timeStr=dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+    var dateStr=dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'});
+    var timeStr=dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
     var rev=((d.price||0)*(d.sets||0)).toFixed(2);
     return'<div style="padding:12px 14px;border-bottom:1px solid var(--bd);background:'+bg+'">'
       +'<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">'
@@ -3224,7 +3235,7 @@ function openEditDist(distId){
   editingDistId=distId;
   var prod=S.products.find(function(p){return p.id===d.prodId});
   var info=document.getElementById('editDistInfo');
-  if(info)info.textContent=(prod?prod.name:'?')+' · '+new Date(d.ts).toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
+  if(info)info.textContent=(prod?prod.name:'?')+' · '+new Date(d.ts).toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'});
   // Fill customer dropdown
   var sel=document.getElementById('editDistCust');
   if(sel){
@@ -3366,8 +3377,8 @@ function renderRWast(){
   el.innerHTML=logs.map(function(w,i){
     var bg=i%2===0?'#fff':'var(--bg)';
     var dt=new Date(w.ts);
-    var dateStr=dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-    var timeStr=dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+    var dateStr=dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'});
+    var timeStr=dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
     return'<div style="padding:12px 14px;border-bottom:1px solid var(--bd);background:'+bg+'">'
       +'<div style="display:flex;align-items:flex-start;justify-content:space-between">'
       +'<div>'
@@ -3392,7 +3403,7 @@ function openEditWast(ts){
   editingWastIdx=ts;
   var info=document.getElementById('editWastInfo');
   var dt=new Date(ts);
-  if(info)info.textContent=dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'})+' · '+(w.batchId||'');
+  if(info)info.textContent=dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'})+' · '+(w.batchId||'');
   var sel=document.getElementById('editWastIng');
   if(sel){
     sel.innerHTML=S.ingredients.map(function(i){
@@ -3459,9 +3470,9 @@ function exportExcel(range){
     return true;
   }
 
-  var rangeLabel=range==='today'?'Today_'+now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'}).replace(/ /g,''):
+  var rangeLabel=range==='today'?'Today_'+now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'}).replace(/ /g,''):
     range==='month'?['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][curMonth]+curYear:
-    'FullExport_'+now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'}).replace(/ /g,'');
+    'FullExport_'+now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'}).replace(/ /g,'');
 
   // Build CSV content per sheet
   var csvSections=[];
@@ -3496,7 +3507,7 @@ function exportExcel(range){
     var cust=(S.customers||[]).find(function(c){return c.id===d.custId});
     var dt=new Date(d.ts);
     var rev=((d.price||0)*(d.sets||0)).toFixed(2);
-    csvSections.push('"'+dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'})+'","'+dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'})+'","'+(cust?cust.name:'?')+'","'+(prod?prod.name:'?')+'",'+d.sets+','+d.price.toFixed(2)+','+rev+',"'+(d.notes||'')+'"');
+    csvSections.push('"'+dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'})+'","'+dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'})+'","'+(cust?cust.name:'?')+'","'+(prod?prod.name:'?')+'",'+d.sets+','+d.price.toFixed(2)+','+rev+',"'+(d.notes||'')+'"');
   });
 
   csvSections.push('');
@@ -3504,7 +3515,7 @@ function exportExcel(range){
   csvSections.push('Date,Time,Batch ID,Ingredient,Unit,Qty,Cost/Unit,Total Cost,Reason');
   (S.wastageLog||[]).filter(function(w){return inRange(w.ts)}).forEach(function(w){
     var dt=new Date(w.ts);
-    csvSections.push('"'+dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'})+'","'+dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'})+'","'+(w.batchId||'')+'","'+w.name+'","'+w.unit+'",'+w.qty+','+(w.costPerUnit||0).toFixed(6)+','+(w.totalCost||0).toFixed(4)+',"'+(w.reason||'')+'"');
+    csvSections.push('"'+dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'})+'","'+dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'})+'","'+(w.batchId||'')+'","'+w.name+'","'+w.unit+'",'+w.qty+','+(w.costPerUnit||0).toFixed(6)+','+(w.totalCost||0).toFixed(4)+',"'+(w.reason||'')+'"');
   });
 
   csvSections.push('');
@@ -3537,8 +3548,8 @@ function exportExcel(range){
 function pushIngStockToSheets(){
   if(!isConn())return Promise.resolve();
   var now=new Date();
-  var ts=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'})
-    +' '+now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  var ts=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'})
+    +' '+now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
   var rows=[['id','name','unit','stock','reorder','cost','costPerUnit','lastUpdated']];
   S.ingredients.forEach(function(i){
     rows.push([i.id,i.name,i.unit||'g',
@@ -4002,20 +4013,25 @@ function renderProductStock(){
   if(!S.products.length){
     el.innerHTML='<div class="empty"><p>No products yet</p></div>';return;
   }
-  // Check if all zeros — only show warning if no production logs exist locally
+  // Show warning ONCE at top if no local logs — not inside the product loop
   var hasLocalLogs = S.prodLog && S.prodLog.length > 0;
   var stock2=calcProductStock();
   var totalIn=Object.keys(stock2).reduce(function(s,pid){return s+(stock2[pid].in||0)},0);
+  // Remove any existing banners first to avoid duplicates
+  var existingBanners=document.querySelectorAll('.no-data-banner');
+  existingBanners.forEach(function(b){b.parentNode.removeChild(b);});
   if(!hasLocalLogs && totalIn===0 && isConn()){
     var nb=document.getElementById('prodStockList');
-    if(nb) nb.insertAdjacentHTML('beforebegin',
-      '<div style="background:var(--al);border:1.5px solid #F5D9A0;border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">'
-      +'<span style="font-size:20px">⚠️</span>'
-      +'<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--am)">No local data found.</div>'
-      +'<div style="font-size:12px;color:var(--mt);margin-top:2px">Tap Pull to load latest stock from Google Sheets.</div></div>'
-      +'<button onclick="pullAndRenderStock()" style="padding:8px 14px;background:var(--am);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">↓ Pull</button>'
-      +'</div>'
-    );
+    if(nb){
+      var banner=document.createElement('div');
+      banner.className='no-data-banner';
+      banner.style.cssText='background:var(--al);border:1.5px solid #F5D9A0;border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px';
+      banner.innerHTML='<span style="font-size:20px">⚠️</span>'
+        +'<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--am)">No local data — tap Pull to load from Sheets</div>'
+        +'<div style="font-size:12px;color:var(--mt);margin-top:2px">Stock will appear after pulling latest data.</div></div>'
+        +'<button onclick="pullAndRenderStock()" style="padding:8px 14px;background:var(--am);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">↓ Pull</button>';
+      nb.parentNode.insertBefore(banner, nb);
+    }
   }
 
   el.innerHTML = S.products.map(function(p,i){
@@ -4051,8 +4067,8 @@ function renderProdStockLog(){
           ts:log.ts, type:'in', typeLabel:'Production',
           icon:'🏭', color:'var(--green)',
           prodId:item.id, sets:item.sets,
-          ref:log.worker||'', date:d.toLocaleDateString('en-MY',{day:'2-digit',month:'short'}),
-          time:d.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'})
+          ref:log.worker||'', date:d.toLocaleDateString('en-MY',{day:'2-digit',month:'short',timeZone:'Asia/Kuala_Lumpur'}),
+          time:d.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'})
         });
       }
     });
@@ -4081,8 +4097,8 @@ function renderProdStockLog(){
         ts:d.ts, type:'sold', typeLabel:'Sold → '+(cust?cust.name:'Customer'),
         icon:'🚚', color:'var(--red)',
         prodId:d.prodId, sets:d.sets,
-        ref:cust?cust.name:'', date:dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short'}),
-        time:dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'})
+        ref:cust?cust.name:'', date:dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',timeZone:'Asia/Kuala_Lumpur'}),
+        time:dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'})
       });
     }
   });
@@ -4123,8 +4139,8 @@ function syncProductStock(){
   // 1. STOCK IN — from production batches
   S.prodLog.forEach(function(log){
     var d=new Date(log.ts);
-    var dateStr=d.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-    var timeStr=d.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+    var dateStr=d.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'});
+    var timeStr=d.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
     var bid=log.batchId||'PROD?';
     (log.items||[]).forEach(function(item){
       if(!item.sets||item.sets<=0)return;
@@ -4148,8 +4164,8 @@ function syncProductStock(){
   // 2. STOCK OUT — from transfers to branch
   (S.transfers||[]).forEach(function(tf){
     var d=new Date(tf.ts);
-    var dateStr=d.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-    var timeStr=d.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+    var dateStr=d.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'});
+    var timeStr=d.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
     Object.keys(tf.products||{}).forEach(function(pid){
       var qty=tf.products[pid];
       if(!qty||qty<=0)return;
@@ -4174,8 +4190,8 @@ function syncProductStock(){
   (S.distLog||[]).forEach(function(d){
     if(!d.sets||d.sets<=0)return;
     var dt=new Date(d.ts);
-    var dateStr=dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-    var timeStr=dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+    var dateStr=dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'});
+    var timeStr=dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
     var p=S.products.find(function(p){return p.id===d.prodId});
     var cust=(S.customers||[]).find(function(c){return c.id===d.custId});
     var custName=cust?cust.name:'Customer';
@@ -4230,8 +4246,8 @@ function syncProductStock(){
   rows.push(['=== CURRENT STOCK SUMMARY ===','','','','','','','','','']);
   rows.push(['Last Updated','Time','','','Code','Product','Total In','Transferred Out','Sold Out','Balance on Hand']);
   var now=new Date();
-  var nowDate=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-  var nowTime=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  var nowDate=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'});
+  var nowTime=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
   var stock=calcProductStock();
   S.products.forEach(function(p){
     var s=stock[p.id]||{in:0,transferred:0,sold:0,balance:0};
@@ -4403,8 +4419,8 @@ function getAllBatches(){
   });
   validLogs.forEach(function(log, idx){
     var d = new Date(log.ts);
-    var dateStr = d.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-    var timeStr = d.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+    var dateStr = d.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'});
+    var timeStr = d.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
     var bid = log.batchId;
     if(!bid){
       var dayKey=String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+d.getFullYear();
@@ -4651,9 +4667,9 @@ function submitTransfer(){
   var notes = document.getElementById('tfNotes').value.trim();
   var selected = getAllBatches().filter(function(b){return tfSelectedBatches[b.id]===true});
   var now = new Date();
-  var dateStr = now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-  var dayStr = now.toLocaleDateString('en-MY',{weekday:'short'});
-  var timeStr = now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  var dateStr = getMYTDateStr();
+  var dayStr = getMYTDayStr();
+  var timeStr = getMYTTimeStr();
 
   // Generate proper ID
   var d=String(now.getDate()).padStart(2,'0');
@@ -4883,7 +4899,7 @@ function renderDistLog(){
   dl.innerHTML=logs.map(function(d){
     var prod=S.products.find(function(p){return p.id===d.prodId});
     var cust=(S.customers||[]).find(function(c){return c.id===d.custId});
-    var t=new Date(d.ts).toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+    var t=new Date(d.ts).toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
     var price=getCustPrice(d.custId,d.prodId);
     var rev=(price*(d.sets||0)).toFixed(2);
     return'<div class="row"><div class="ri">'
@@ -4990,10 +5006,11 @@ function submitDist(){
   var custId=distCurrentCust.id;
   var notes=document.getElementById('distNotes').value.trim();
   var now=new Date();
-  var recordDate=customDate||now;  // use backdated date if set
-  var dateStr=recordDate.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-  var dayStr=recordDate.toLocaleDateString('en-MY',{weekday:'short'});
-  var timeStr=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  var mytNow=getMYT(); // Malaysia time
+  var recordDate=customDate||mytNow;
+  var dateStr=recordDate.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'});
+  var dayStr=recordDate.toLocaleDateString('en-MY',{weekday:'short',timeZone:'Asia/Kuala_Lumpur'});
+  var timeStr=getMYTTimeStr();
   // Batch ID uses record date not today
   var batchDateKey=String(recordDate.getDate()).padStart(2,'0')+String(recordDate.getMonth()+1).padStart(2,'0')+recordDate.getFullYear();
   if(!S.distLog)S.distLog=[];
@@ -5263,9 +5280,9 @@ function renderWastList(){
 function submitWastage(){
   if(!wastageItems.length){toast('Add at least one wastage item','w');return;}
   var now = new Date();
-  var dateStr = now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric'});
-  var dayStr = now.toLocaleDateString('en-MY',{weekday:'short'});
-  var timeStr = now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  var dateStr = getMYTDateStr();
+  var dayStr = getMYTDayStr();
+  var timeStr = getMYTTimeStr();
 
   // Deduct from ingredient stock and log for dashboard
   if(!S.wastageLog) S.wastageLog=[];
