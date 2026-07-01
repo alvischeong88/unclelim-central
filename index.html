@@ -898,6 +898,23 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
     </div>
   </div>
 
+  <!-- Suppliers -->
+  <div class="card">
+    <div class="ctitle">🏪 Suppliers</div>
+    <p style="font-size:12px;color:var(--mt);margin-bottom:10px;line-height:1.5">
+      Manage your ingredient suppliers. These appear as dropdown options in the Procurement Excel template.
+    </p>
+    <div id="supplierList"></div>
+    <div style="margin-top:12px;display:grid;grid-template-columns:1fr auto;gap:8px">
+      <input type="text" id="newSupplierName" placeholder="e.g. Pasar Borong Selayang" style="flex:1">
+      <button onclick="addSupplier()" style="padding:11px 16px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">+ Add</button>
+    </div>
+    <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <input type="text" id="newSupplierContact" placeholder="Contact / Phone (optional)">
+      <input type="text" id="newSupplierCategory" placeholder="Category e.g. Rempah, Protein">
+    </div>
+  </div>
+
   <!-- Customer Pricing -->
   <div class="card">
     <div class="ctitle">Customer Prices (per product)</div>
@@ -1265,6 +1282,7 @@ var S = _parsed || {
   pendSync: [],
   distLog: [],
   customers: [],
+  suppliers: [],
   transfers: [],
   transferCounter: {},
   batchCounter: {},
@@ -1459,7 +1477,8 @@ function launchApp(){
       pullSetupFromSheets(),
       pullCustPricesFromSheets(),
       pullIngStockFromSheets(),
-      pullIngLedgerFromSheets()
+      pullIngLedgerFromSheets(),
+      pullSuppliersFromSheets()
     ])
     // Step 2: always pull logs so stock is always correct
     .then(function(){
@@ -1741,7 +1760,7 @@ function writeSheetHeaders(){
     ]);
   }).then(function(){
     setSyncUI('ok');
-    toast('✓ Headers written to all 12 sheet tabs','g');
+    toast('✓ Headers written to all 13 sheet tabs','g');
     setTimeout(function(){setSyncUI('idle')},3000);
   }).catch(function(e){
     setSyncUI('err');
@@ -2254,6 +2273,8 @@ function renderSetup(){
   }
   // Render backup settings
   renderBackupSettings();
+  // Render supplier list
+  renderSupplierList();
   // Render customer pricing selector
   renderCustomerPricing();
   // Render customer list
@@ -2924,11 +2945,168 @@ function toast(msg,type){
 var importData = {products:[], ingredients:[]};
 
 function downloadTemplate(){
-  // Direct link to the template - user will need to host it or we encode it
-  // Since we can't embed binary, show instructions
-  toast('Download the template from the link above ↑','w');
-  // Open instructions
-  alert('Download the Excel template:\n\n1. Ask your admin / Claude for the template file\n2. Fill in Products and Ingredients sheets\n3. Upload here');
+  if(typeof XLSX==='undefined'){
+    toast('Excel library loading — please wait a moment and try again','w');
+    return;
+  }
+  toast('Generating Excel template from your data...','g');
+  var wb = XLSX.utils.book_new();
+
+  // ── Hidden _Lists sheet (for dropdown validation) ──────────────────────────
+  var listData=[['Units','PayStatus','UpdatePrice','IngName','SupplierName']];
+  var units=['g','kg','ml','L','pcs','pack'];
+  var payStatus=['Paid','Pending','Credit'];
+  var updatePrice=['Yes','No'];
+  var ingNames=S.ingredients.map(function(i){return i.name;});
+  var supNames=getSupplierList();
+  var maxRows=Math.max(units.length,payStatus.length,updatePrice.length,ingNames.length,supNames.length);
+  for(var r=0;r<maxRows;r++){
+    listData.push([
+      units[r]||'', payStatus[r]||'', updatePrice[r]||'',
+      ingNames[r]||'', supNames[r]||''
+    ]);
+  }
+  var wsLists=XLSX.utils.aoa_to_sheet(listData);
+  XLSX.utils.book_append_sheet(wb,wsLists,'_Lists');
+
+  // ── Products sheet ─────────────────────────────────────────────────────────
+  var prodData=[
+    ['Uncle Lim Products — '+getMYTDateStr()],
+    ['Code','Product Name','Price per Set (RM)','Notes']
+  ];
+  S.products.forEach(function(p){
+    prodData.push([p.code||'',p.name||'',(p.price||0).toFixed(2),'']);
+  });
+  // Empty rows for new products
+  for(var i=0;i<20;i++) prodData.push(['','','','']);
+  var wsProd=XLSX.utils.aoa_to_sheet(prodData);
+  wsProd['!cols']=[{wch:10},{wch:30},{wch:16},{wch:25}];
+  wsProd['!merges']=[{s:{r:0,c:0},e:{r:0,c:3}}];
+  // Price validation > 0
+  if(!wsProd['!dataValidation'])wsProd['!dataValidation']=[];
+  wsProd['!dataValidation'].push({
+    type:'decimal',operator:'greaterThanOrEqual',formula1:'0',
+    sqref:'C3:C100',allowBlank:true,
+    showErrorMessage:true,errorTitle:'Invalid Price',error:'Enter a number >= 0'
+  });
+  XLSX.utils.book_append_sheet(wb,wsProd,'Products');
+
+  // ── Ingredients sheet ──────────────────────────────────────────────────────
+  var ingData=[
+    ['Uncle Lim Ingredients — '+getMYTDateStr()],
+    ['Ingredient Name','Unit ▼','Current Stock','Reorder Level',
+     'Cost per g/ml (RM)','Cost per pcs/pack (RM)','Category','Notes']
+  ];
+  S.ingredients.forEach(function(i){
+    ingData.push([
+      i.name||'', i.unit||'g',
+      (i.stock||0).toFixed(2),(i.reorder||0),
+      (i.cost||0).toFixed(6),(i.costPerUnit||0).toFixed(6),
+      '','',
+    ]);
+  });
+  // Empty rows for new ingredients
+  for(var j=0;j<30;j++) ingData.push(['','g','0','0','0','0','','']);
+  var wsIng=XLSX.utils.aoa_to_sheet(ingData);
+  wsIng['!cols']=[{wch:28},{wch:8},{wch:14},{wch:14},{wch:18},{wch:20},{wch:14},{wch:20}];
+  wsIng['!merges']=[{s:{r:0,c:0},e:{r:0,c:7}}];
+  // Unit dropdown for ingredients
+  if(!wsIng['!dataValidation'])wsIng['!dataValidation']=[];
+  wsIng['!dataValidation'].push({
+    type:'list',formula1:"'_Lists'!$A$2:$A$7",
+    sqref:'B3:B'+(S.ingredients.length+32),
+    showDropDown:false,showErrorMessage:true,
+    errorTitle:'Invalid Unit',error:'Select from dropdown: g,kg,ml,L,pcs,pack'
+  });
+  XLSX.utils.book_append_sheet(wb,wsIng,'Ingredients');
+
+  // ── Procurement template sheet ─────────────────────────────────────────────
+  var procData=[
+    ['Procurement Import — '+getMYTDateStr()],
+    ['✅ Select from dropdowns to prevent typos. Leave Qty blank to skip ingredient.'],
+    ['Invoice No','Supplier ▼','Invoice Date','Payment ▼','Invoice Notes',
+     'Ingredient ▼ *','Unit (auto)','Qty Received *','Expiry Date',
+     'Unit Price (RM)','Update Price? ▼','Notes']
+  ];
+  // 3 empty invoice rows as example
+  for(var k=0;k<90;k++) procData.push(['','','','','','','g','','','','No','']);
+  var wsProc=XLSX.utils.aoa_to_sheet(procData);
+  wsProc['!cols']=[{wch:13},{wch:24},{wch:14},{wch:11},{wch:22},
+    {wch:26},{wch:8},{wch:12},{wch:14},{wch:13},{wch:13},{wch:20}];
+  wsProc['!merges']=[
+    {s:{r:0,c:0},e:{r:0,c:11}},
+    {s:{r:1,c:0},e:{r:1,c:11}}
+  ];
+  if(!wsProc['!dataValidation'])wsProc['!dataValidation']=[];
+  // Ingredient dropdown — col F (index 5)
+  wsProc['!dataValidation'].push({
+    type:'list',
+    formula1:"'_Lists'!$D$2:$D$"+(ingNames.length+1),
+    sqref:'F4:F93',showDropDown:false,
+    showErrorMessage:true,errorTitle:'Invalid Ingredient',
+    error:'Select from dropdown to prevent duplicate names'
+  });
+  // Supplier dropdown — col B
+  wsProc['!dataValidation'].push({
+    type:'list',
+    formula1:"'_Lists'!$E$2:$E$"+(supNames.length+1),
+    sqref:'B4:B93',showDropDown:false
+  });
+  // Payment — col D
+  wsProc['!dataValidation'].push({
+    type:'list',formula1:"'_Lists'!$B$2:$B$4",
+    sqref:'D4:D93',showDropDown:false
+  });
+  // Update Price — col K
+  wsProc['!dataValidation'].push({
+    type:'list',formula1:"'_Lists'!$C$2:$C$3",
+    sqref:'K4:K93',showDropDown:false
+  });
+  XLSX.utils.book_append_sheet(wb,wsProc,'Procurement Import');
+
+  // ── Supplier List sheet ────────────────────────────────────────────────────
+  var supData=[['Supplier Name (edit here to add/remove)','Contact','Category']];
+  (S.suppliers||getSupplierList().map(function(s){return {name:s,contact:'',category:''}}))
+    .forEach(function(s){
+      supData.push([s.name||s,s.contact||'',s.category||'']);
+    });
+  for(var m=0;m<20;m++) supData.push(['','','']);
+  var wsSup=XLSX.utils.aoa_to_sheet(supData);
+  wsSup['!cols']=[{wch:32},{wch:20},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,wsSup,'Supplier List');
+
+  // ── How to Use sheet ──────────────────────────────────────────────────────
+  var helpData=[
+    ['HOW TO USE THIS EXCEL FILE'],
+    [''],
+    ['PRODUCTS sheet','Add/update your products and prices'],
+    ['INGREDIENTS sheet','Add/update ingredients, units and costs'],
+    ['PROCUREMENT IMPORT sheet','Record stock purchases — select from dropdowns'],
+    ['SUPPLIER LIST sheet','Edit to add/remove suppliers (affects dropdown)'],
+    ['_Lists sheet','Hidden — powers all dropdowns, do not edit'],
+    [''],
+    ['IMPORT STEPS'],
+    ['Step 1','Fill in the sheets above'],
+    ['Step 2','Save this file as .xlsx'],
+    ['Step 3','Open app → Setup tab → Upload Excel file'],
+    ['Step 4','For Procurement: Stock → Ledger → Import Excel'],
+    [''],
+    ['DROPDOWN COLUMNS (▼)'],
+    ['Ingredient Name','Must match exactly — select from dropdown to avoid duplicates'],
+    ['Supplier','Select from dropdown or type new supplier name'],
+    ['Unit','g / kg / ml / L / pcs / pack'],
+    ['Payment','Paid / Pending / Credit'],
+    ['Update Price?','Yes = update ingredient cost in app | No = only add stock'],
+  ];
+  var wsHelp=XLSX.utils.aoa_to_sheet(helpData);
+  wsHelp['!cols']=[{wch:22},{wch:55}];
+  XLSX.utils.book_append_sheet(wb,wsHelp,'How to Use');
+
+  // ── Download ───────────────────────────────────────────────────────────────
+  var dateLabel=getMYTDateStr().replace(/ /g,'');
+  var fname='UncLim_Template_'+dateLabel+'.xlsx';
+  XLSX.writeFile(wb,fname);
+  toast('✓ Downloaded: '+fname+' with '+S.ingredients.length+' ingredients & '+getSupplierList().length+' suppliers','g');
 }
 
 function handleXlsxFile(file){
@@ -4565,6 +4743,151 @@ function validateBeforeTransfer(){
 
 
 
+
+// ── SUPPLIER MANAGEMENT ───────────────────────────────────────────────────────
+var SUPPLIER_TAB = '⚙️ Suppliers';
+
+var DEFAULT_SUPPLIERS = [
+  {id:1, name:'Pasar Borong Selayang',    contact:'',  category:'General'},
+  {id:2, name:'Pasar Borong Shah Alam',   contact:'',  category:'General'},
+  {id:3, name:'Pasar Borong Sungai Buloh',contact:'',  category:'General'},
+  {id:4, name:'Supplier Ayam Klang',      contact:'',  category:'Protein'},
+  {id:5, name:'Borong Kering Sdn Bhd',    contact:'',  category:'Dry Goods'},
+  {id:6, name:'Pasar Malam',              contact:'',  category:'General'},
+  {id:7, name:'Pasar Pagi',               contact:'',  category:'General'},
+  {id:8, name:'Tesco / Lotus',            contact:'',  category:'General'},
+  {id:9, name:'Aeon / Jaya Grocer',       contact:'',  category:'General'},
+  {id:10,name:'Mydin',                    contact:'',  category:'General'},
+  {id:11,name:'Kedai Borong Tempatan',    contact:'',  category:'General'},
+  {id:12,name:'Lain-lain / Others',       contact:'',  category:'General'},
+];
+
+function initSuppliers(){
+  // Load defaults if no suppliers saved yet
+  if(!S.suppliers||!S.suppliers.length){
+    S.suppliers=DEFAULT_SUPPLIERS.map(function(s){return Object.assign({},s)});
+    save();
+  }
+}
+
+function renderSupplierList(){
+  initSuppliers();
+  var el=document.getElementById('supplierList');
+  if(!el)return;
+  if(!S.suppliers.length){
+    el.innerHTML='<div class="empty"><p>No suppliers yet — add below</p></div>';return;
+  }
+  el.innerHTML=S.suppliers.map(function(s,i){
+    var bg=i%2===0?'#fff':'var(--bg)';
+    return'<div style="display:flex;align-items:flex-start;gap:8px;padding:10px 0;border-bottom:1px solid var(--bd);background:'+bg+'">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:13px;font-weight:600">'+s.name+'</div>'
+      +(s.contact?'<div style="font-size:11px;color:var(--mt)">📞 '+s.contact+'</div>':'')
+      +(s.category?'<div style="font-size:11px;color:var(--mt)">🏷 '+s.category+'</div>':'')
+      +'</div>'
+      +'<div style="display:flex;gap:4px;flex-shrink:0">'
+      +'<button data-sup-id="'+s.id+'" class="sup-edit-btn" style="padding:5px 8px;background:var(--gl);color:var(--green);border:1px solid var(--green);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer">✏️</button>'
+      +'<button data-sup-id="'+s.id+'" class="sup-del-btn" style="padding:5px 8px;background:var(--rl);color:var(--red);border:1px solid var(--red);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer">✕</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+
+  // Bind buttons
+  el.querySelectorAll('.sup-del-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var id=parseInt(this.getAttribute('data-sup-id'));
+      deleteSupplier(id);
+    });
+  });
+  el.querySelectorAll('.sup-edit-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var id=parseInt(this.getAttribute('data-sup-id'));
+      editSupplier(id);
+    });
+  });
+}
+
+function addSupplier(){
+  var name=(document.getElementById('newSupplierName')||{}).value||'';
+  var contact=(document.getElementById('newSupplierContact')||{}).value||'';
+  var category=(document.getElementById('newSupplierCategory')||{}).value||'';
+  name=name.trim();
+  if(!name){toast('Enter supplier name','w');return;}
+  initSuppliers();
+  if(S.suppliers.find(function(s){return s.name.toLowerCase()===name.toLowerCase()})){
+    toast('Supplier already exists','w');return;
+  }
+  S.suppliers.push({id:S.nextId++,name:name,contact:contact.trim(),category:category.trim()});
+  // Clear inputs
+  ['newSupplierName','newSupplierContact','newSupplierCategory'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.value='';
+  });
+  save();
+  pushSuppliersToSheets();
+  renderSupplierList();
+  toast('✓ '+name+' added','g');
+}
+
+function deleteSupplier(id){
+  var sup=S.suppliers.find(function(s){return s.id===id});
+  if(!sup)return;
+  if(!confirm('Remove "'+sup.name+'" from supplier list?'))return;
+  S.suppliers=S.suppliers.filter(function(s){return s.id!==id});
+  save();
+  pushSuppliersToSheets();
+  renderSupplierList();
+  toast('✓ Supplier removed','g');
+}
+
+function editSupplier(id){
+  var sup=S.suppliers.find(function(s){return s.id===id});
+  if(!sup)return;
+  var newName=prompt('Supplier name:',sup.name);
+  if(newName===null)return;
+  var newContact=prompt('Contact / Phone (optional):',sup.contact||'');
+  if(newContact===null)return;
+  var newCat=prompt('Category (optional):',sup.category||'');
+  if(newCat===null)return;
+  sup.name=newName.trim()||sup.name;
+  sup.contact=newContact.trim();
+  sup.category=newCat.trim();
+  save();
+  pushSuppliersToSheets();
+  renderSupplierList();
+  toast('✓ Supplier updated','g');
+}
+
+function pushSuppliersToSheets(){
+  if(!isConn())return Promise.resolve();
+  var rows=[['id','name','contact','category']];
+  (S.suppliers||[]).forEach(function(s){
+    rows.push([s.id,s.name,s.contact||'',s.category||'']);
+  });
+  return clearAndWriteSheet(SUPPLIER_TAB,rows)
+    .catch(function(e){console.log('Supplier push error:',e);});
+}
+
+function pullSuppliersFromSheets(){
+  if(!isConn())return Promise.resolve(false);
+  return readSheet(SUPPLIER_TAB).then(function(rows){
+    if(!rows||!rows.length)return false;
+    var newSups=[];
+    rows.forEach(function(row){
+      if(!row.name||row.name==='name')return;
+      newSups.push({
+        id:parseInt(row.id)||S.nextId++,
+        name:row.name,
+        contact:row.contact||'',
+        category:row.category||''
+      });
+    });
+    if(newSups.length&&JSON.stringify(S.suppliers)!==JSON.stringify(newSups)){
+      S.suppliers=newSups;save();return true;
+    }
+    return false;
+  }).catch(function(){return false;});
+}
+
 // ── BACKUP SYSTEM ─────────────────────────────────────────────────────────────
 var BACKUP_EMAIL_TAB = '⚙️ Backup Config';
 
@@ -5116,17 +5439,15 @@ function downloadProcurementTemplate(){
 }
 
 function getSupplierList(){
-  // Get unique suppliers from ledger history
-  var fromLedger={};
-  (S.ingLedger||[]).forEach(function(e){
-    if(e.supplier&&e.supplier.trim())fromLedger[e.supplier.trim()]=true;
-  });
-  var defaults=['Pasar Borong Selayang','Pasar Borong Shah Alam',
-    'Supplier Ayam Klang','Borong Kering Sdn Bhd','Pasar Malam','Pasar Pagi',
-    'Tesco / Lotus','Aeon / Jaya Grocer','Mydin','Kedai Borong Tempatan','Lain-lain / Others'];
+  // Use S.suppliers as primary source (managed in Setup tab)
+  initSuppliers();
+  var fromApp=(S.suppliers||[]).map(function(s){return s.name;});
+  // Also add any from ledger history not yet in list
   var merged={};
-  defaults.forEach(function(s){merged[s]=true;});
-  Object.keys(fromLedger).forEach(function(s){merged[s]=true;});
+  fromApp.forEach(function(s){merged[s]=true;});
+  (S.ingLedger||[]).forEach(function(e){
+    if(e.supplier&&e.supplier.trim())merged[e.supplier.trim()]=true;
+  });
   return Object.keys(merged).sort();
 }
 
@@ -7296,7 +7617,8 @@ function fullSyncFromSheets(){
     pullCustPricesFromSheets(),
     pullUsersFromSheets(),
     pullIngStockFromSheets(),
-    pullIngLedgerFromSheets()
+    pullIngLedgerFromSheets(),
+    pullSuppliersFromSheets()
   ])
   // Step 2: pull all logs (must be AFTER setup so product IDs are ready)
   .then(function(){
