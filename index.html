@@ -496,6 +496,8 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
         Select one or more production batches to transfer to a branch.
         System will total all products across selected batches.
       </div>
+      <!-- Stock validation alert -->
+      <div id="tfValidationAlert" style="display:none;background:var(--rl);border:1.5px solid var(--red);border-radius:10px;padding:12px 14px;margin-bottom:12px"></div>
       <label style="margin-top:0">Branch / Destination</label>
       <input type="text" id="tfBranch" placeholder="e.g. Branch Klang, Branch PJ">
       <label>Notes (optional)</label>
@@ -924,10 +926,11 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
   <div class="modal">
     <div class="mhandle"></div>
     <div class="mtitle">✏️ Edit Production Batch</div>
-    <div style="background:var(--gl);border:1.5px solid #A8D8B8;border-radius:10px;padding:10px 12px;margin-bottom:14px">
+    <div style="background:var(--gl);border:1.5px solid #A8D8B8;border-radius:10px;padding:10px 12px;margin-bottom:10px">
       <div style="font-size:12px;font-weight:700;color:var(--green)" id="editBatchIdLabel">Batch ID</div>
       <div style="font-size:11px;color:var(--mt);margin-top:2px">Edit quantities then tap Save. Changes sync to all devices.</div>
     </div>
+    <div id="editBatchTransferWarn" style="display:none;background:var(--al);border:1.5px solid #F5D9A0;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--am);line-height:1.5"></div>
     <div id="editBatchRows"></div>
     <label>Worker Name</label>
     <input type="text" id="editBatchWorker" placeholder="Worker name">
@@ -1036,11 +1039,12 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
     <input type="text" id="editTransBranch" placeholder="Branch name">
     <label>Notes</label>
     <input type="text" id="editTransNotes" placeholder="Notes (optional)">
-    <div style="background:var(--al);border-radius:10px;padding:10px 12px;margin-top:12px;font-size:12px;color:var(--am)">
-      ⚠️ Product quantities are linked to production batches and cannot be changed here. Delete and re-transfer if quantities need to change.
-    </div>
-    <button class="btn btn-g" style="margin-top:14px" onclick="saveEditTrans()">✓ Save Changes</button>
-    <button class="btn btn-r" style="margin-top:8px" onclick="deleteTransRecord()">🗑 Delete Record</button>
+    <label>Product Quantities</label>
+    <div style="font-size:11px;color:var(--mt);margin-bottom:8px">Adjust sets if transfer qty was recorded incorrectly.</div>
+    <div id="editTransProducts" style="border:1.5px solid var(--bd);border-radius:10px;overflow:hidden;margin-bottom:4px"></div>
+    <div id="editTransTotal" style="text-align:right;font-size:12px;font-weight:700;color:var(--green);padding:4px 0"></div>
+    <button class="btn btn-g" style="margin-top:14px" onclick="saveEditTrans()">✓ Save Changes & Sync</button>
+    <button class="btn btn-r" style="margin-top:8px" onclick="deleteTransRecord()">↩ Undo Transfer</button>
   </div>
 </div>
 
@@ -2726,6 +2730,9 @@ function render(){
   updatePendingUI();
   renderStock();
 
+  // Stock validation — show alert if mismatch detected
+  renderStockValidationAlert();
+
   // Bind batch edit/delete on dashboard
   var tpEl2=document.getElementById('tProd');
   if(tpEl2){
@@ -2759,9 +2766,13 @@ function showPage(id){
   if(id==='reports'){renderReports();}
   if(id==='transfer'){
     if(isConn()){
-      pullAllLogsFromSheets().then(function(){renderTransfer();});
+      pullAllLogsFromSheets().then(function(){
+        renderTransfer();
+        validateBeforeTransfer();
+      });
     } else {
       renderTransfer();
+      validateBeforeTransfer();
     }
   }
 }
@@ -3328,9 +3339,36 @@ function openEditTrans(transId){
   if(!t){toast('Record not found','e');return;}
   editingTransId=transId;
   var info=document.getElementById('editTransInfo');
-  if(info)info.textContent=t.tfId+' · '+t.date+' · '+t.grandTotal+' sets';
+  if(info)info.textContent=t.tfId+' · '+t.date+' · '+(t.branch||'')+' · '+t.grandTotal+' sets';
   var branchEl=document.getElementById('editTransBranch');if(branchEl)branchEl.value=t.branch||'';
   var notesEl=document.getElementById('editTransNotes');if(notesEl)notesEl.value=t.notes||'';
+
+  // Build product qty inputs
+  var prodEl=document.getElementById('editTransProducts');
+  if(prodEl){
+    prodEl.innerHTML=Object.keys(t.products||{}).map(function(pid,i){
+      var p=S.products.find(function(p){return p.id===parseInt(pid)});
+      var qty=t.products[pid]||0;
+      var bg=i%2===0?'#fff':'var(--bg)';
+      return'<div style="display:grid;grid-template-columns:1fr 90px;gap:8px;padding:10px 12px;border-bottom:1px solid var(--bd);background:'+bg+';align-items:center">'
+        +'<div style="font-size:13px;font-weight:500">'+(p?p.name:'Product '+pid)+'</div>'
+        +'<input type="number" min="0" inputmode="numeric" value="'+qty+'" data-tpid="'+pid+'"'
+        +' class="trans-qty-inp" style="background:var(--bg);border:1.5px solid var(--bd);border-radius:8px;padding:7px 8px;font-family:monospace;font-size:14px;font-weight:700;text-align:center;outline:none;width:100%;-moz-appearance:textfield">'
+        +'</div>';
+    }).join('');
+
+    // Update total on input
+    function updateTotal(){
+      var total=0;
+      prodEl.querySelectorAll('.trans-qty-inp').forEach(function(inp){total+=parseInt(inp.value)||0;});
+      var te=document.getElementById('editTransTotal');
+      if(te)te.textContent='Total: '+total+' sets';
+    }
+    prodEl.querySelectorAll('.trans-qty-inp').forEach(function(inp){
+      inp.addEventListener('input',updateTotal);
+    });
+    updateTotal();
+  }
   openM('editTransModal');
 }
 
@@ -3341,15 +3379,28 @@ function saveEditTrans(){
   var notesEl=document.getElementById('editTransNotes');
   if(branchEl)t.branch=branchEl.value.trim();
   if(notesEl)t.notes=notesEl.value.trim();
+
+  // Save updated product quantities
+  var prodEl=document.getElementById('editTransProducts');
+  if(prodEl){
+    var newTotal=0;
+    prodEl.querySelectorAll('.trans-qty-inp').forEach(function(inp){
+      var pid=inp.getAttribute('data-tpid');
+      var qty=parseInt(inp.value)||0;
+      if(t.products&&pid){t.products[pid]=qty;newTotal+=qty;}
+    });
+    t.grandTotal=newTotal;
+  }
+
   t.synced=false;
   save();
   document.getElementById('editTransModal').classList.remove('open');
-  renderRTrans();renderTfHistory();render();
-  toast('✓ Saved — syncing...','g');
+  renderRTrans();renderTfHistory();renderProductStock();render();
+  toast('✓ Saved — syncing to Sheets...','g');
   pushAllLogsToSheets().then(function(){
     return syncProductStock();
   }).then(function(){
-    toast('✓ Transfer updated & synced to all devices','g');
+    toast('✓ Transfer corrected & synced to all devices','g');
   });
 }
 
@@ -4017,6 +4068,132 @@ function pushLogsAfterProd(){
   if(isConn())setTimeout(function(){pushAllLogsToSheets();},3000);
 }
 
+
+// ── STOCK VALIDATION ──────────────────────────────────────────────────────────
+// Check if any product has transferred or sold more than produced
+function validateStockLevels(){
+  var warnings = [];
+  var stock = calcProductStock();
+  S.products.forEach(function(p){
+    var s = stock[p.id] || {in:0, transferred:0, sold:0, balance:0};
+    // Transfer exceeds production
+    if(s.transferred > s.in && s.in > 0){
+      warnings.push({
+        type: 'transfer_exceeds',
+        product: p.name,
+        produced: s.in,
+        transferred: s.transferred,
+        excess: s.transferred - s.in,
+        msg: p.name+': Transferred '+s.transferred+' but only produced '+s.in+' (excess: '+(s.transferred-s.in)+')'
+      });
+    }
+    // Total out exceeds production
+    var totalOut = s.transferred + s.sold;
+    if(totalOut > s.in && s.in > 0){
+      warnings.push({
+        type: 'total_exceeds',
+        product: p.name,
+        produced: s.in,
+        totalOut: totalOut,
+        excess: totalOut - s.in,
+        msg: p.name+': Total out ('+totalOut+') exceeds produced ('+s.in+')'
+      });
+    }
+  });
+  return warnings;
+}
+
+function renderStockValidationAlert(){
+  // Remove existing alerts
+  var existing = document.querySelectorAll('.stock-alert-banner');
+  existing.forEach(function(e){e.parentNode.removeChild(e);});
+
+  var warnings = validateStockLevels();
+  if(!warnings.length) return;
+
+  // Deduplicate by product name
+  var seen = {};
+  var unique = warnings.filter(function(w){
+    if(seen[w.product]) return false;
+    seen[w.product] = true;
+    return true;
+  });
+
+  var banner = document.createElement('div');
+  banner.className = 'stock-alert-banner';
+  banner.style.cssText = 'background:var(--rl);border:2px solid var(--red);border-radius:12px;padding:14px 16px;margin-bottom:14px';
+  banner.innerHTML =
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+    +'<span style="font-size:20px">⚠️</span>'
+    +'<div style="font-size:14px;font-weight:700;color:var(--red)">Stock Mismatch Detected!</div>'
+    +'</div>'
+    +'<div style="font-size:12px;color:var(--red);margin-bottom:10px;line-height:1.5">'
+    +'The following products have more transferred/sold than produced. This may be caused by old test data in your transfer records.'
+    +'</div>'
+    +unique.map(function(w){
+      return '<div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #FFCDD2">'
+        +'<div style="font-size:13px;font-weight:600;color:var(--red)">'+w.product+'</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:5px">'
+        +'<div style="text-align:center;background:var(--gl);border-radius:6px;padding:4px">'
+        +'<div style="font-size:10px;color:var(--mt)">Produced</div>'
+        +'<div style="font-family:monospace;font-weight:700;color:var(--green)">'+w.produced+'</div>'
+        +'</div>'
+        +'<div style="text-align:center;background:var(--al);border-radius:6px;padding:4px">'
+        +'<div style="font-size:10px;color:var(--mt)">Transferred</div>'
+        +'<div style="font-family:monospace;font-weight:700;color:var(--am)">'+w.transferred+'</div>'
+        +'</div>'
+        +'<div style="text-align:center;background:var(--rl);border-radius:6px;padding:4px">'
+        +'<div style="font-size:10px;color:var(--mt)">Excess</div>'
+        +'<div style="font-family:monospace;font-weight:700;color:var(--red)">+'+w.excess+'</div>'
+        +'</div>'
+        +'</div>'
+        +'</div>';
+    }).join('')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'
+    +'<button class="fix-reports-btn" style="padding:9px;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✏️ Fix in Reports</button>'
+    +'<button onclick="dismissStockAlert()" style="padding:9px;background:#fff;color:var(--red);border:1.5px solid var(--red);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✕ Dismiss</button>'
+    +'</div>';
+
+  // Insert at top of dashboard
+  var tilesEl = document.getElementById('dTiles');
+  if(tilesEl && tilesEl.parentNode){
+    tilesEl.parentNode.insertBefore(banner, tilesEl);
+    // Bind fix button (avoids nested quote issue)
+    var fixBtn = banner.querySelector('.fix-reports-btn');
+    if(fixBtn) fixBtn.addEventListener('click', function(){
+      showPage('reports');
+      setReportTab('trans');
+    });
+  }
+}
+
+function dismissStockAlert(){
+  var existing = document.querySelectorAll('.stock-alert-banner');
+  existing.forEach(function(e){e.parentNode.removeChild(e);});
+}
+
+// Also validate when Transfer tab opens
+function validateBeforeTransfer(){
+  var warnings = validateStockLevels();
+  var el = document.getElementById('tfValidationAlert');
+  if(!el) return;
+  if(!warnings.length){el.style.display='none';return;}
+
+  var unique={};
+  warnings.forEach(function(w){unique[w.product]=w;});
+  var items=Object.values(unique);
+
+  el.style.display='block';
+  el.innerHTML='<div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:8px">⚠️ Stock Warning — '+items.length+' product'+(items.length>1?'s':'')+' over-transferred</div>'
+    +items.map(function(w){
+      return'<div style="font-size:12px;color:var(--red);padding:4px 0;border-bottom:1px solid #FFCDD2">'
+        +w.product+': Produced <strong>'+w.produced+'</strong> · Transferred <strong>'+w.transferred+'</strong>'
+        +(w.excess>0?' <span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:5px;font-size:10px">+'+w.excess+' excess</span>':'')
+        +'</div>';
+    }).join('')
+    +'<div style="font-size:11px;color:var(--mt);margin-top:6px">Check Reports → Transfer to fix before continuing.</div>';
+}
+
 // ── PRODUCT STOCK ─────────────────────────────────────────────────────────────
 var PROD_STOCK_TAB = '📊 Product Stock';
 
@@ -4339,30 +4516,72 @@ function editBatch(logId){
   var log = S.prodLog.find(function(l){return l.id===logId});
   if(!log){toast('Batch not found','e');return;}
   editingBatchId = logId;
-  document.getElementById('editBatchIdLabel').textContent = log.batchId||('Batch #'+logId);
+
+  var batchLabel = log.batchId||('Batch #'+logId);
+  document.getElementById('editBatchIdLabel').textContent = batchLabel;
   document.getElementById('editBatchWorker').value = log.worker||'';
+
+  // Check if this batch has been transferred
+  var linkedTf=(S.transfers||[]).find(function(t){
+    return t.batchIds&&(t.batchIds.indexOf(log.id)>=0||
+      (t.batchLabels&&t.batchLabels.indexOf(log.batchId)>=0));
+  });
+
+  // Show transfer warning if applicable
+  var warnEl=document.getElementById('editBatchTransferWarn');
+  if(warnEl){
+    if(linkedTf){
+      warnEl.style.display='block';
+      warnEl.innerHTML='<strong>⚠️ This batch was transferred ('+linkedTf.tfId+')</strong><br>'
+        +'Editing production qty will also update the transfer qty to match.<br>'
+        +'<span style="color:var(--am)">Stock balance will recalculate automatically.</span>';
+    } else {
+      warnEl.style.display='none';
+    }
+  }
 
   // Build editable rows for each product
   var rows='';
+  var totalSets=0;
   S.products.forEach(function(p,i){
-    var item=(log.items||[]).find(function(i){return i.id===p.id});
+    var item=(log.items||[]).find(function(it){return it.id===p.id});
     var val=item?item.sets:0;
+    totalSets+=val;
     var bg=i%2===0?'#fff':'var(--bg)';
-    rows+='<div style="display:grid;grid-template-columns:1fr 90px;gap:8px;padding:10px 0;border-bottom:1px solid var(--bd);align-items:center;background:'+bg+'">'
+    // Show current transfer qty for comparison if transferred
+    var tfQty=linkedTf?((linkedTf.products||{})[p.id]||0):null;
+    var tfNote=linkedTf?'<div style="font-size:10px;color:var(--am)">Transferred: '+tfQty+'</div>':'';
+    rows+='<div style="display:grid;grid-template-columns:1fr 90px;gap:8px;padding:10px 12px;border-bottom:1px solid var(--bd);align-items:center;background:'+bg+'">'
       +'<div><div style="font-size:13px;font-weight:500">'+p.name+'</div>'
-      +'<div style="font-size:11px;color:var(--mt)">'+p.code+'</div></div>'
+      +'<div style="font-size:11px;color:var(--mt)">'+p.code+'</div>'
+      +tfNote
+      +'</div>'
       +'<div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">'
-      +'<input type="number" min="0" inputmode="numeric" value="'+val+'" data-pid="'+p.id+'" class="edit-batch-inp pinp'+(val>0?' ok':' zero')+'">'
+      +'<input type="number" min="0" inputmode="numeric" value="'+val+'" data-pid="'+p.id+'"'
+      +' data-tf-id="'+(linkedTf?linkedTf.id:'')+'"'
+      +' class="edit-batch-inp pinp'+(val>0?' ok':' zero')+'">'
       +'<span style="font-size:11px;color:var(--mt)">set</span>'
       +'</div></div>';
   });
+
+  // Total row
+  rows+='<div style="display:flex;justify-content:space-between;padding:10px 12px;background:var(--gl);font-size:13px;font-weight:700">'
+    +'<span style="color:var(--green)">Total</span>'
+    +'<span id="editBatchTotal" style="color:var(--green)">'+totalSets+' sets</span>'
+    +'</div>';
+
   document.getElementById('editBatchRows').innerHTML=rows;
 
-  // Bind input styling
+  // Bind input: update styling + live total
   document.querySelectorAll('.edit-batch-inp').forEach(function(inp){
     inp.addEventListener('input',function(){
       var v=parseInt(this.value)||0;
       this.className='edit-batch-inp pinp'+(this.value!==''?(v>0?' ok':' zero'):'');
+      // Update total
+      var total=0;
+      document.querySelectorAll('.edit-batch-inp').forEach(function(i){total+=parseInt(i.value)||0;});
+      var te=document.getElementById('editBatchTotal');
+      if(te)te.textContent=total+' sets';
     });
   });
   openM('editBatchModal');
@@ -4398,14 +4617,30 @@ function saveEditBatch(){
   log.items=newItems;
   log.totalSets=totalSets;
   log.readyCount=newItems.filter(function(i){return i.sets>0}).length;
-  log.synced=false; // mark for re-sync
+  log.synced=false;
+
+  // If batch was transferred, also update transfer product quantities to match
+  var linkedTf=(S.transfers||[]).find(function(t){
+    return t.batchIds&&(t.batchIds.indexOf(log.id)>=0||
+      (t.batchLabels&&t.batchLabels.indexOf(log.batchId)>=0));
+  });
+  if(linkedTf){
+    // Update transfer products to match corrected production
+    newItems.forEach(function(item){
+      if(linkedTf.products&&linkedTf.products[item.id]!==undefined){
+        linkedTf.products[item.id]=item.sets;
+      }
+    });
+    linkedTf.grandTotal=newItems.reduce(function(s,i){return s+i.sets},0);
+  }
+
   save();
 
   // Close modal and refresh
   document.getElementById('editBatchModal').classList.remove('open');
   editingBatchId=null;
 
-  renderTransfer();renderProductStock();render();renderRProd();
+  renderTransfer();renderProductStock();render();renderRProd();renderTfHistory();
   toast('✓ Saved — syncing to Sheets...','g');
   // Auto-push immediately
   Promise.all([
@@ -5579,6 +5814,7 @@ function fullSyncFromSheets(){
     renderProductStock();  // recalculates IN/TRANS/SOLD/BALANCE from fresh logs
     renderTransfer();
     if(typeof renderRecipeEditor==='function'&&curRecipeProd)renderRecipeEditor();
+    renderStockValidationAlert(); // check for mismatches after full sync
     toast('✓ Full sync complete — stock recalculated from Sheets','g');
   }).catch(function(){
     setSyncUI('err');
