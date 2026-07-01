@@ -4879,6 +4879,104 @@ function manualBackup(){
   toast('✓ Backup downloaded: '+a.download,'g');
 }
 
+
+// ── RETROACTIVE INGREDIENT DEDUCTION ──────────────────────────────────────────
+// Calculate total ingredient usage from ALL past production batches
+// using current recipes, then deduct from ingredient stock
+
+function calcTotalIngUsageFromHistory(){
+  // Returns {ingId: totalQty} across all prodLog entries
+  var totals = {};
+  S.prodLog.forEach(function(log){
+    (log.items||[]).filter(function(i){return i.sets>0}).forEach(function(item){
+      var recipe = RECIPES[item.id]||[];
+      recipe.forEach(function(line){
+        var qty = (line.qty||line.grams||0);
+        var unit = line.unit||'g';
+        var totalQty = qty * item.sets;
+        if(unit==='kg') totalQty*=1000;
+        else if(unit==='L') totalQty*=1000;
+        if(!totals[line.ingId]) totals[line.ingId]=0;
+        totals[line.ingId]+=totalQty;
+      });
+    });
+  });
+  return totals;
+}
+
+function previewRetroDeduction(){
+  if(!S.prodLog||!S.prodLog.length){
+    toast('No production records found — pull from Sheets first','w');
+    return;
+  }
+  var totals = calcTotalIngUsageFromHistory();
+  if(!Object.keys(totals).length){
+    toast('No recipe data found — set up recipes in Cost tab first','w');
+    return;
+  }
+  // Build preview message
+  var lines=['Ingredient usage from ALL production batches ('+S.prodLog.length+' batches):',''];
+  var hasRecipes=false;
+  Object.keys(totals).forEach(function(ingId){
+    var ing=S.ingredients.find(function(i){return i.id===parseInt(ingId)});
+    if(!ing)return;
+    var used=totals[ingId];
+    var current=ing.stock||0;
+    var afterDeduct=current-used;
+    lines.push((ing.name)+': Used '+used.toFixed(0)+' '+ing.unit
+      +' | Current stock: '+current.toFixed(0)
+      +' | After deduction: '+afterDeduct.toFixed(0)+(afterDeduct<0?' ⚠️ DEFICIT':''));
+    hasRecipes=true;
+  });
+  if(!hasRecipes){
+    toast('No matching recipes found — set up recipes in Cost tab first','w');
+    return;
+  }
+  lines.push('');
+  lines.push('Tap OK to apply these deductions to ingredient stock.');
+  if(confirm(lines.join('\n'))){
+    applyRetroDeduction(totals);
+  }
+}
+
+function applyRetroDeduction(totals){
+  var changed=false;
+  Object.keys(totals).forEach(function(ingId){
+    var ing=S.ingredients.find(function(i){return i.id===parseInt(ingId)});
+    if(!ing) return;
+    var used=totals[ingId];
+    ing.stock=parseFloat(((ing.stock||0)-used).toFixed(4));
+    changed=true;
+    // Add to ledger as adjustment record
+    if(!S.ingLedger) S.ingLedger=[];
+    S.ingLedger.push({
+      id:S.nextId++,
+      ts:Date.now(),
+      ingId:parseInt(ingId),
+      ingName:ing.name,
+      unit:ing.unit,
+      date:getMYTDateStr(),
+      time:getMYTTimeStr(),
+      type:'adj',
+      adjType:'overused',
+      typeLabel:'Production Usage (Retroactive)',
+      direction:'out',
+      qty:used,
+      stockBefore:(ing.stock||0)+used,
+      stockAfter:ing.stock,
+      notes:'Retroactive deduction for '+S.prodLog.length+' historical production batches'
+    });
+  });
+  if(changed){
+    save();
+    // Push to Sheets
+    Promise.all([pushIngStockToSheets(),pushIngLedgerToSheets()]).then(function(){
+      renderStock();
+      toast('✓ Ingredient stock updated for all past production batches','g');
+    });
+  }
+}
+
 // ── GENERATE PROCUREMENT EXCEL FROM APP DATA ──────────────────────────────────
 function downloadProcurementTemplate(){
   if(typeof XLSX==='undefined'){
