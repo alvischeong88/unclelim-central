@@ -4841,36 +4841,91 @@ function renderTfHistory(){
     byDate[dk].push(t);
   });
 
-  var html='';
+  var htmlStr='';
   Object.keys(byDate).forEach(function(date){
     var dayTransfers=byDate[date];
-    html+='<div style="padding:8px 0 4px;font-size:11px;font-weight:700;color:var(--mt);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--bd)">'+date+'</div>';
+    htmlStr+='<div style="padding:8px 0 4px;font-size:11px;font-weight:700;color:var(--mt);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--bd)">'+date+'</div>';
     dayTransfers.forEach(function(t){
-      var prods=Object.keys(t.products||{}).map(function(pid){
-        var p=S.products.find(function(p){return p.id===parseInt(pid)});
-        return(p?p.name:pid)+' ×'+(t.products[pid]);
-      }).join(' · ');
-      html+='<div style="padding:11px 0;border-bottom:1px solid var(--bd)">'
+      htmlStr+='<div style="padding:11px 0;border-bottom:1px solid var(--bd)">'
+        // Header row: transfer ID + sync badge
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">'
         +'<div style="font-family:monospace;font-size:13px;font-weight:700;color:var(--green)">'+t.tfId+'</div>'
         +'<span class="badge '+(t.synced?'badge-g':'badge-y')+'">'+(t.synced?'✓ Synced':'⏳ Pending')+'</span>'
         +'</div>'
-        +'<div style="font-size:14px;font-weight:600">→ '+t.branch+'</div>'
-        +'<div style="font-size:12px;color:var(--mt);margin-top:3px">'+t.time+' · <strong>'+t.grandTotal+' sets total</strong></div>'
+        // Branch + total
+        +'<div style="font-size:14px;font-weight:600">→ '+(t.branch||'')+'</div>'
+        +'<div style="font-size:12px;color:var(--mt);margin-top:3px">'+(t.time||'')+' · <strong>'+t.grandTotal+' sets total</strong></div>'
+        // Products breakdown
         +'<div style="margin-top:6px;background:var(--bg);border-radius:8px;padding:8px 10px">'
         +Object.keys(t.products||{}).map(function(pid){
           var p=S.products.find(function(p){return p.id===parseInt(pid)});
           return'<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px">'
             +'<span style="color:var(--tx)">'+(p?p.name:pid)+'</span>'
-            +'<span style="font-family:monospace;font-weight:700;color:var(--green)">×'+(t.products[pid])+' sets</span>'
+            +'<span style="font-family:monospace;font-weight:700;color:var(--am)">×'+(t.products[pid])+' sets</span>'
             +'</div>';
         }).join('')
         +'</div>'
         +(t.notes?'<div style="font-size:11px;color:var(--mt);margin-top:5px">📝 '+t.notes+'</div>':'')
+        // ── Undo button ──
+        +'<div style="margin-top:8px">'
+        +'<button data-undo-id="'+t.id+'" class="tf-undo-btn" style="width:100%;padding:8px;background:var(--rl);color:var(--red);border:1.5px solid var(--red);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">↩ Undo Transfer — Restore '+(t.grandTotal)+' sets to stock</button>'
+        +'</div>'
         +'</div>';
     });
   });
-  el.innerHTML=html;
+  el.innerHTML=htmlStr;
+
+  // Bind undo buttons (Safari-safe)
+  el.querySelectorAll('.tf-undo-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      undoTransfer(parseInt(this.getAttribute('data-undo-id')));
+    });
+  });
+}
+
+function undoTransfer(transId){
+  var t=(S.transfers||[]).find(function(x){return x.id===transId});
+  if(!t){toast('Transfer not found','e');return;}
+
+  // Build product summary for confirmation
+  var prodSummary=Object.keys(t.products||{}).map(function(pid){
+    var p=S.products.find(function(p){return p.id===parseInt(pid)});
+    return(p?p.name:pid)+' ×'+(t.products[pid])+' sets';
+  }).join('\n');
+
+  if(!confirm(
+    'Undo transfer "'+t.tfId+'"?\n\n'
+    +'Branch: '+t.branch+'\n'
+    +'Date: '+t.date+' · '+t.time+'\n\n'
+    +'This will:\n'
+    +'✓ Delete this transfer record\n'
+    +'✓ Unlock production batches\n'
+    +'✓ Restore '+t.grandTotal+' sets back to stock\n\n'
+    +'Products restored:\n'+prodSummary+'\n\n'
+    +'Cannot be undone.'
+  ))return;
+
+  // Remove transfer from local state
+  S.transfers=(S.transfers||[]).filter(function(x){return x.id!==transId});
+  save();
+
+  toast('↩ Undoing transfer...','g');
+
+  // Push to Sheets + update product stock
+  pushAllLogsToSheets()
+    .then(function(){return syncProductStock();})
+    .then(function(){
+      renderTfHistory();
+      renderTransfer();      // refresh batch list — batches now Available again
+      renderProductStock();  // refresh stock — balance restored
+      render();              // refresh dashboard
+      toast('✓ Transfer undone — '+t.grandTotal+' sets restored to stock','g');
+    }).catch(function(){
+      renderTfHistory();
+      renderTransfer();
+      render();
+      toast('✓ Undone locally — will sync when reconnected','w');
+    });
 }
 
 // ── DISTRIBUTION ──────────────────────────────────────────────────────────────
