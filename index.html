@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Uncle Lim's Kitchen</title>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -689,9 +690,10 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
 <!-- STOCK -->
 <div class="page" id="page-stock">
   <!-- Sub tabs -->
-  <div style="display:flex;gap:8px;margin-bottom:14px">
-    <button id="stab-prod" onclick="setStockTab('prod')" style="flex:1;padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--green);background:var(--green);color:#fff">📦 Product Stock</button>
-    <button id="stab-ing" onclick="setStockTab('ing')" style="flex:1;padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--bd);background:#fff;color:var(--mt)">🧂 Ingredient Stock</button>
+  <div style="display:flex;gap:6px;margin-bottom:12px">
+    <button id="stab-prod" onclick="setStockTab('prod')" style="flex:1;padding:8px 4px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid var(--green);background:var(--green);color:#fff">📦 Product</button>
+    <button id="stab-ing" onclick="setStockTab('ing')" style="flex:1;padding:8px 4px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid var(--bd);background:#fff;color:var(--mt)">🧂 Ingredient</button>
+    <button id="stab-ledger" onclick="setStockTab('ledger')" style="flex:1;padding:8px 4px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid var(--bd);background:#fff;color:var(--mt)">📒 Ledger</button>
   </div>
 
   <!-- PRODUCT STOCK -->
@@ -856,6 +858,46 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
     </div>
   </div>
 
+  <!-- Backup Settings -->
+  <div class="card" style="border:1.5px solid var(--green)">
+    <div class="ctitle">🔒 Backup Settings</div>
+    <p style="font-size:12px;color:var(--mt);margin-bottom:12px;line-height:1.5">
+      Auto-backup downloads CSV to your phone + opens email draft weekly and monthly. Set your email below.
+    </p>
+    <label style="margin-top:0">Your Email (primary backup)</label>
+    <input type="email" id="backupEmailPrimary" placeholder="alvis@example.com" inputmode="email">
+    <label>Dedicated Backup Email (optional — e.g. store archive)</label>
+    <input type="email" id="backupEmailSecondary" placeholder="backup@example.com" inputmode="email">
+    <label>Weekly Backup Day</label>
+    <select id="backupWeeklyDay" style="-webkit-appearance:auto;appearance:auto;width:100%;background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;padding:11px 13px;font-size:14px;outline:none;color:var(--tx)">
+      <option value="0">Sunday</option>
+      <option value="1" selected>Monday</option>
+      <option value="2">Tuesday</option>
+      <option value="3">Wednesday</option>
+      <option value="4">Thursday</option>
+      <option value="5">Friday</option>
+      <option value="6">Saturday</option>
+    </select>
+    <label>Monthly Backup Date</label>
+    <select id="backupMonthlyDate" style="-webkit-appearance:auto;appearance:auto;width:100%;background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;padding:11px 13px;font-size:14px;outline:none;color:var(--tx)">
+      <option value="1" selected>1st of month</option><option value="2">2nd of month</option><option value="3">3rd of month</option><option value="4">4th of month</option><option value="5">5th of month</option><option value="6">6th of month</option><option value="7">7th of month</option><option value="8">8th of month</option><option value="9">9th of month</option><option value="10">10th of month</option><option value="11">11th of month</option><option value="12">12th of month</option><option value="13">13th of month</option><option value="14">14th of month</option><option value="15">15th of month</option><option value="16">16th of month</option><option value="17">17th of month</option><option value="18">18th of month</option><option value="19">19th of month</option><option value="20">20th of month</option><option value="21">21th of month</option><option value="22">22th of month</option><option value="23">23th of month</option><option value="24">24th of month</option><option value="25">25th of month</option><option value="26">26th of month</option><option value="27">27th of month</option><option value="28">28th of month</option>,(_,i)=>`<option value="<option value="1" selected>1st of month</option><option value="2">2nd of month</option><option value="3">3rd of month</option><option value="4">4th of month</option><option value="5">5th of month</option><option value="6">6th of month</option><option value="7">7th of month</option><option value="8">8th of month</option><option value="9">9th of month</option><option value="10">10th of month</option><option value="11">11th of month</option><option value="12">12th of month</option><option value="13">13th of month</option><option value="14">14th of month</option><option value="15">15th of month</option><option value="16">16th of month</option><option value="17">17th of month</option><option value="18">18th of month</option><option value="19">19th of month</option><option value="20">20th of month</option><option value="21">21th of month</option><option value="22">22th of month</option><option value="23">23th of month</option><option value="24">24th of month</option><option value="25">25th of month</option><option value="26">26th of month</option><option value="27">27th of month</option><option value="28">28th of month</option>"<option value="1" selected>1st of month</option><option value="2">2nd of month</option><option value="3">3rd of month</option><option value="4">4th of month</option><option value="5">5th of month</option><option value="6">6th of month</option><option value="7">7th of month</option><option value="8">8th of month</option><option value="9">9th of month</option><option value="10">10th of month</option><option value="11">11th of month</option><option value="12">12th of month</option><option value="13">13th of month</option><option value="14">14th of month</option><option value="15">15th of month</option><option value="16">16th of month</option><option value="17">17th of month</option><option value="18">18th of month</option><option value="19">19th of month</option><option value="20">20th of month</option><option value="21">21th of month</option><option value="22">22th of month</option><option value="23">23th of month</option><option value="24">24th of month</option><option value="25">25th of month</option><option value="26">26th of month</option><option value="27">27th of month</option><option value="28">28th of month</option>><option value="1" selected>1st of month</option><option value="2">2nd of month</option><option value="3">3rd of month</option><option value="4">4th of month</option><option value="5">5th of month</option><option value="6">6th of month</option><option value="7">7th of month</option><option value="8">8th of month</option><option value="9">9th of month</option><option value="10">10th of month</option><option value="11">11th of month</option><option value="12">12th of month</option><option value="13">13th of month</option><option value="14">14th of month</option><option value="15">15th of month</option><option value="16">16th of month</option><option value="17">17th of month</option><option value="18">18th of month</option><option value="19">19th of month</option><option value="20">20th of month</option><option value="21">21th of month</option><option value="22">22th of month</option><option value="23">23th of month</option><option value="24">24th of month</option><option value="25">25th of month</option><option value="26">26th of month</option><option value="27">27th of month</option><option value="28">28th of month</option><option value="1" selected>1st of month</option><option value="2">2nd of month</option><option value="3">3rd of month</option><option value="4">4th of month</option><option value="5">5th of month</option><option value="6">6th of month</option><option value="7">7th of month</option><option value="8">8th of month</option><option value="9">9th of month</option><option value="10">10th of month</option><option value="11">11th of month</option><option value="12">12th of month</option><option value="13">13th of month</option><option value="14">14th of month</option><option value="15">15th of month</option><option value="16">16th of month</option><option value="17">17th of month</option><option value="18">18th of month</option><option value="19">19th of month</option><option value="20">20th of month</option><option value="21">21th of month</option><option value="22">22th of month</option><option value="23">23th of month</option><option value="24">24th of month</option><option value="25">25th of month</option><option value="26">26th of month</option><option value="27">27th of month</option><option value="28">28th of month</option> of month</option>`).join('')}
+    </select>
+    <div id="backupStatusBar" style="background:var(--bg);border-radius:8px;padding:8px 12px;margin-top:8px;font-size:12px;color:var(--mt)">
+      Backup status: Not configured
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+      <button onclick="saveBackupSettings()" style="padding:10px;background:var(--green);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer">💾 Save Settings</button>
+      <button onclick="manualBackup()" style="padding:10px;background:var(--gl);color:var(--green);border:1px solid var(--green);border-radius:9px;font-size:13px;font-weight:700;cursor:pointer">📥 Backup Now</button>
+    </div>
+    <div style="font-size:11px;color:var(--mt);margin-top:10px;line-height:1.6">
+      <strong>How it works:</strong><br>
+      ① App checks schedule every time you open it at 8am MYT<br>
+      ② Downloads full CSV backup to your phone<br>
+      ③ Opens email client with backup summary<br>
+      ④ CSV file contains ALL records — safe copy offline
+    </div>
+  </div>
+
   <!-- Customer Pricing -->
   <div class="card">
     <div class="ctitle">Customer Prices (per product)</div>
@@ -960,10 +1002,11 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
 
   <!-- Record type tabs -->
   <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px">
-    <button id="rtab-prod" onclick="setReportTab('prod')" style="flex-shrink:0;padding:8px 12px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--green);background:var(--green);color:#fff;white-space:nowrap">📋 Production</button>
-    <button id="rtab-dist" onclick="setReportTab('dist')" style="flex-shrink:0;padding:8px 12px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--bd);background:#fff;color:var(--mt);white-space:nowrap">🚚 Distribution</button>
-    <button id="rtab-trans" onclick="setReportTab('trans')" style="flex-shrink:0;padding:8px 12px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--bd);background:#fff;color:var(--mt);white-space:nowrap">🔄 Transfer</button>
-    <button id="rtab-wast" onclick="setReportTab('wast')" style="flex-shrink:0;padding:8px 12px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--bd);background:#fff;color:var(--mt);white-space:nowrap">⚠️ Wastage</button>
+    <button id="rtab-prod" onclick="setReportTab('prod')" style="flex-shrink:0;padding:8px 10px;border-radius:9px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid var(--green);background:var(--green);color:#fff;white-space:nowrap">📋 Production</button>
+    <button id="rtab-dist" onclick="setReportTab('dist')" style="flex-shrink:0;padding:8px 10px;border-radius:9px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid var(--bd);background:#fff;color:var(--mt);white-space:nowrap">🚚 Distribution</button>
+    <button id="rtab-trans" onclick="setReportTab('trans')" style="flex-shrink:0;padding:8px 10px;border-radius:9px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid var(--bd);background:#fff;color:var(--mt);white-space:nowrap">🔄 Transfer</button>
+    <button id="rtab-wast" onclick="setReportTab('wast')" style="flex-shrink:0;padding:8px 10px;border-radius:9px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid var(--bd);background:#fff;color:var(--mt);white-space:nowrap">⚠️ Wastage</button>
+    <button id="rtab-proc" onclick="setReportTab('proc')" style="flex-shrink:0;padding:8px 10px;border-radius:9px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid var(--bd);background:#fff;color:var(--mt);white-space:nowrap">📦 Procurement</button>
   </div>
 
   <!-- Production records -->
@@ -1007,6 +1050,17 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
         <span id="rWastCount" class="badge badge-r"></span>
       </div>
       <div id="rWastList"></div>
+    </div>
+  </div>
+
+  <!-- Procurement records -->
+  <div id="rtab-proc-p" style="display:none">
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+        <div class="ctitle" style="margin-bottom:0">Procurement Records</div>
+        <span id="rProcCount" class="badge badge-g"></span>
+      </div>
+      <div id="rProcList"></div>
     </div>
   </div>
 </div>
@@ -1215,6 +1269,8 @@ var S = _parsed || {
   transferCounter: {},
   batchCounter: {},
   wastageLog: [],
+  ingLedger: [],
+  backupConfig: {email:'',backupEmail:'',weeklyDay:1,monthlyDate:1,lastWeekly:0,lastMonthly:0,enabled:false},
   nextId: 200
 };
 
@@ -1353,6 +1409,11 @@ function launchApp(){
   updateDT();
   setInterval(updateDT,30000);
   // ── Background sync every 2 minutes ──────────────────────────────────────
+  // Also check backup schedule hourly
+  setInterval(function(){checkBackupSchedule();}, 60*60*1000);
+  // Check once on launch too (in case missed while app was closed)
+  setTimeout(function(){checkBackupSchedule();}, 5000);
+
   setInterval(function(){
     if(!isConn()) return;
 
@@ -1365,16 +1426,15 @@ function launchApp(){
       pushAllLogsToSheets();  // push pending records silently
     }
 
-    // 2. Pull latest from Sheets (catches edits made in Sheets or other devices)
+    // 2. Pull latest from Sheets
     pullAllLogsFromSheets().then(function(changed){
-      if(changed){
-        render();
-        renderProductStock();
-        renderStock();
-      }
+      if(changed){render();renderProductStock();renderStock();}
     });
     pullIngStockFromSheets().then(function(changed){
       if(changed) renderStock();
+    });
+    pullIngLedgerFromSheets().then(function(changed){
+      if(changed) renderLedger();
     });
   }, 2*60*1000); // every 2 minutes
   // Worker: pre-fill name
@@ -1398,7 +1458,8 @@ function launchApp(){
       pullUsersFromSheets(),
       pullSetupFromSheets(),
       pullCustPricesFromSheets(),
-      pullIngStockFromSheets()
+      pullIngStockFromSheets(),
+      pullIngLedgerFromSheets()
     ])
     // Step 2: always pull logs so stock is always correct
     .then(function(){
@@ -1680,7 +1741,7 @@ function writeSheetHeaders(){
     ]);
   }).then(function(){
     setSyncUI('ok');
-    toast('✓ Headers written to all 11 sheet tabs','g');
+    toast('✓ Headers written to all 12 sheet tabs','g');
     setTimeout(function(){setSyncUI('idle')},3000);
   }).catch(function(e){
     setSyncUI('err');
@@ -2157,6 +2218,8 @@ function renderSetup(){
       });
     });
   }
+  // Render backup settings
+  renderBackupSettings();
   // Render customer pricing selector
   renderCustomerPricing();
   // Render customer list
@@ -3185,7 +3248,7 @@ var editingWastIdx = null;
 
 function setReportTab(tab){
   curReportTab = tab;
-  ['prod','dist','trans','wast'].forEach(function(t){
+  ['prod','dist','trans','wast','proc'].forEach(function(t){
     var btn=document.getElementById('rtab-'+t);
     var panel=document.getElementById('rtab-'+t+'-p');
     if(btn){btn.style.background=t===tab?'var(--green)':'#fff';btn.style.color=t===tab?'#fff':'var(--mt)';btn.style.borderColor=t===tab?'var(--green)':'var(--bd)';}
@@ -3203,6 +3266,7 @@ function renderReportTab(tab){
   if(tab==='dist') renderRDist();
   if(tab==='trans') renderRTrans();
   if(tab==='wast') renderRWast();
+  if(tab==='proc') renderRProc();
 }
 
 // ── PRODUCTION RECORDS ────────────────────────────────────────────────────────
@@ -3460,6 +3524,77 @@ function deleteTransRecord(){
 }
 
 // ── WASTAGE RECORDS ───────────────────────────────────────────────────────────
+
+function renderRProc(){
+  var el=document.getElementById('rProcList');
+  var badge=document.getElementById('rProcCount');
+  if(!el)return;
+  var logs=[].concat(S.ingLedger||[]).filter(function(e){return e.type==='in';}).reverse();
+  if(badge){badge.textContent=logs.length+' record'+(logs.length!==1?'s':'');badge.className='badge badge-g';}
+  if(!logs.length){
+    el.innerHTML='<div class="empty"><p>No procurement records yet.<br>Record in Stock → 📒 Ledger</p></div>';return;
+  }
+
+  // Group by invoice
+  var byInv={};
+  logs.forEach(function(e){
+    var inv=e.invoice||'—';
+    if(!byInv[inv])byInv[inv]={rows:[],totalPaid:0,totalTarget:0,date:e.date,supplier:e.supplier};
+    var ing=S.ingredients.find(function(i){return i.id===e.ingId});
+    var target=ing?getTargetPrice(ing):0;
+    var paid=e.price||0;
+    byInv[inv].rows.push({e:e,ing:ing,target:target,paid:paid});
+    byInv[inv].totalPaid+=(paid*(e.qty||0));
+    byInv[inv].totalTarget+=(target*(e.qty||0));
+  });
+
+  el.innerHTML=Object.keys(byInv).map(function(invNo){
+    var grp=byInv[invNo];
+    var invDiff=grp.totalTarget>0?((grp.totalPaid-grp.totalTarget)/grp.totalTarget*100):null;
+    var invColor=invDiff===null?'var(--mt)':invDiff<-1?'var(--green)':invDiff>1?'var(--red)':'var(--mt)';
+    var invLabel=invDiff!==null?(invDiff>=0?'+':'')+invDiff.toFixed(1)+'%'+(invDiff<0?' SAVINGS ✅':invDiff>0?' OVER ⚠️':''):' ';
+    return'<div style="margin-bottom:14px;border:1.5px solid var(--bd);border-radius:12px;overflow:hidden">'
+      // Invoice header
+      +'<div style="padding:10px 14px;background:var(--green);display:flex;justify-content:space-between;align-items:center">'
+      +'<div>'
+      +'<div style="font-family:monospace;font-size:13px;font-weight:700;color:#fff">'+invNo+'</div>'
+      +'<div style="font-size:11px;color:rgba(255,255,255,.8);margin-top:2px">'+(grp.supplier||'No supplier')+' · '+(grp.date||'')+'</div>'
+      +'</div>'
+      +'<div style="text-align:right">'
+      +'<div style="font-size:13px;font-weight:700;color:#fff">RM '+grp.totalPaid.toFixed(2)+'</div>'
+      +(invDiff!==null?'<div style="font-size:11px;font-weight:700;color:'+(invDiff<0?'#A5D6A7':invDiff>0?'#FFCDD2':'rgba(255,255,255,.7)')+'">'+invLabel+'</div>':'')
+      +'</div>'
+      +'</div>'
+      // Invoice rows
+      +grp.rows.map(function(r,i){
+        var diff=r.target>0?calcPriceDiff(r.paid,r.target):null;
+        var bg=i%2===0?'#fff':'var(--bg)';
+        return'<div style="padding:10px 14px;border-bottom:1px solid var(--bd);background:'+bg+'">'
+          +'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
+          +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:13px;font-weight:500">'+r.e.ingName+'</div>'
+          +'<div style="font-size:11px;color:var(--mt);margin-top:2px">'+r.e.qty+' '+r.e.unit
+          +' · RM '+r.paid.toFixed(6)+'/'+r.e.unit
+          +(r.target>0?' · Target: RM '+r.target.toFixed(6)+'/'+r.e.unit:'')
+          +'</div>'
+          +(r.e.notes?'<div style="font-size:10px;color:var(--mt)">'+r.e.notes+'</div>':'')
+          +'</div>'
+          +'<div style="text-align:right;flex-shrink:0;margin-left:8px">'
+          +'<div style="font-family:monospace;font-size:13px;font-weight:700">RM '+(r.paid*r.e.qty).toFixed(2)+'</div>'
+          +(diff?'<div style="font-size:11px;font-weight:700;color:'+diff.color+'">'+diff.sign+diff.pct.toFixed(1)+'%</div>':'')
+          +'</div>'
+          +'</div>'
+          +'</div>';
+      }).join('')
+      // Invoice total row
+      +'<div style="padding:10px 14px;background:var(--bg);display:flex;justify-content:space-between">'
+      +'<div style="font-size:12px;font-weight:700;color:var(--mt)">Invoice Total</div>'
+      +'<div style="font-family:monospace;font-size:13px;font-weight:700;color:var(--green)">RM '+grp.totalPaid.toFixed(2)+'</div>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+
 function renderRWast(){
   var el=document.getElementById('rWastList');
   var badge=document.getElementById('rWastCount');
@@ -3563,80 +3698,239 @@ function exportExcel(range){
     return true;
   }
 
-  var rangeLabel=range==='today'?'Today_'+now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'}).replace(/ /g,''):
-    range==='month'?['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][curMonth]+curYear:
-    'FullExport_'+now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'}).replace(/ /g,'');
+  var rangeLabel=range==='today'
+    ?'Today_'+now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'}).replace(/ /g,'')
+    :range==='month'
+    ?['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][curMonth]+curYear
+    :'FullExport_'+now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'}).replace(/ /g,'');
 
-  // Build CSV content per sheet
   var csvSections=[];
 
-  // Production
-  csvSections.push('=== PRODUCTION BATCHES ===');
-  csvSections.push('Batch ID,Date,Worker,Time,Total Sets,Products');
-  S.prodLog.filter(function(l){return inRange(l.ts)}).forEach(function(l){
+  // ── Section 1: Production ─────────────────────────────────────────────────
+  csvSections.push('=== 1. PRODUCTION BATCHES ===');
+  csvSections.push('Batch ID,Date,Worker,Time,Total Sets,Revenue (RM),Cost (RM),Profit (RM),Margin %,Products');
+  var prodInRange=S.prodLog.filter(function(l){return inRange(l.ts)});
+  prodInRange.forEach(function(l){
+    var rev=l.items.reduce(function(s,i){return s+(i.price||0)*i.sets},0);
+    var cost=l.items.reduce(function(s,i){
+      var p=S.products.find(function(p){return p.id===i.id});
+      return s+(p?calcSetCost(p.id)*i.sets:0);
+    },0);
+    var profit=rev-cost;
+    var margin=rev>0?((profit/rev)*100).toFixed(1)+'%':'0%';
     var prods=(l.items||[]).filter(function(i){return i.sets>0}).map(function(i){
       var p=S.products.find(function(p){return p.id===i.id});
       return(p?p.name:'')+' x'+i.sets;
-    }).join('; ');
-    csvSections.push('"'+(l.batchId||'')+'","'+l.date+'","'+l.worker+'","'+l.time+'",'+l.totalSets+',"'+prods+'"');
+    }).join(' | ');
+    csvSections.push(csvRow([l.batchId||'',l.date||'',l.worker||'',l.time||'',
+      l.totalSets||0,rev.toFixed(2),cost.toFixed(2),profit.toFixed(2),margin,prods]));
   });
-
+  csvSections.push('TOTAL,,,,'
+    +prodInRange.reduce(function(s,l){return s+l.totalSets},0)+' sets,,,,,');
   csvSections.push('');
-  csvSections.push('=== TRANSFERS ===');
+
+  // ── Section 2: Transfers ──────────────────────────────────────────────────
+  csvSections.push('=== 2. STOCK TRANSFERS ===');
   csvSections.push('Transfer ID,Date,Time,Branch,Total Sets,Products,Notes');
-  (S.transfers||[]).filter(function(t){return inRange(t.ts)}).forEach(function(t){
+  var transInRange=(S.transfers||[]).filter(function(t){return inRange(t.ts)});
+  transInRange.forEach(function(t){
     var prods=Object.keys(t.products||{}).map(function(pid){
       var p=S.products.find(function(p){return p.id===parseInt(pid)});
       return(p?p.name:pid)+' x'+(t.products[pid]);
-    }).join('; ');
-    csvSections.push('"'+t.tfId+'","'+t.date+'","'+t.time+'","'+(t.branch||'')+'",'+t.grandTotal+',"'+prods+'","'+(t.notes||'')+'"');
+    }).join(' | ');
+    csvSections.push(csvRow([t.tfId||'',t.date||'',t.time||'',t.branch||'',
+      t.grandTotal||0,prods,t.notes||'']));
   });
-
+  csvSections.push('TOTAL,,,,'
+    +transInRange.reduce(function(s,t){return s+(t.grandTotal||0)},0)+' sets,,');
   csvSections.push('');
-  csvSections.push('=== DISTRIBUTION ===');
-  csvSections.push('Date,Time,Customer,Product,Sets,Price/Set,Revenue,Notes');
-  (S.distLog||[]).filter(function(d){return inRange(d.ts)}).forEach(function(d){
+
+  // ── Section 3: Distribution ───────────────────────────────────────────────
+  csvSections.push('=== 3. DISTRIBUTION / SALES ===');
+  csvSections.push('Date,Time,Customer,Product,Sets,Price/Set (RM),Revenue (RM),Notes');
+  var distInRange=(S.distLog||[]).filter(function(d){return inRange(d.ts)});
+  var totalDistRev=0;
+  distInRange.forEach(function(d){
     var prod=S.products.find(function(p){return p.id===d.prodId});
     var cust=(S.customers||[]).find(function(c){return c.id===d.custId});
     var dt=new Date(d.ts);
-    var rev=((d.price||0)*(d.sets||0)).toFixed(2);
-    csvSections.push('"'+dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'})+'","'+dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'})+'","'+(cust?cust.name:'?')+'","'+(prod?prod.name:'?')+'",'+d.sets+','+d.price.toFixed(2)+','+rev+',"'+(d.notes||'')+'"');
+    var rev=(d.price||0)*(d.sets||0);
+    totalDistRev+=rev;
+    csvSections.push(csvRow([
+      dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'}),
+      dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'}),
+      cust?cust.name:'?',prod?prod.name:'?',
+      d.sets||0,(d.price||0).toFixed(2),rev.toFixed(2),d.notes||''
+    ]));
   });
-
+  csvSections.push('TOTAL,,,,'+distInRange.reduce(function(s,d){return s+(d.sets||0)},0)
+    +' sets,,RM '+totalDistRev.toFixed(2)+',');
   csvSections.push('');
-  csvSections.push('=== WASTAGE ===');
-  csvSections.push('Date,Time,Batch ID,Ingredient,Unit,Qty,Cost/Unit,Total Cost,Reason');
-  (S.wastageLog||[]).filter(function(w){return inRange(w.ts)}).forEach(function(w){
+
+  // ── Section 4: Wastage ────────────────────────────────────────────────────
+  csvSections.push('=== 4. WASTAGE LOG ===');
+  csvSections.push('Date,Time,Batch ID,Ingredient,Unit,Qty Wasted,Cost/Unit (RM),Total Waste Cost (RM),Reason');
+  var wastInRange=(S.wastageLog||[]).filter(function(w){return inRange(w.ts)});
+  var totalWastCost=0;
+  wastInRange.forEach(function(w){
     var dt=new Date(w.ts);
-    csvSections.push('"'+dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'})+'","'+dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'})+'","'+(w.batchId||'')+'","'+w.name+'","'+w.unit+'",'+w.qty+','+(w.costPerUnit||0).toFixed(6)+','+(w.totalCost||0).toFixed(4)+',"'+(w.reason||'')+'"');
+    totalWastCost+=(w.totalCost||0);
+    csvSections.push(csvRow([
+      dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'}),
+      dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'}),
+      w.batchId||'',w.name||'',w.unit||'',w.qty||0,
+      (w.costPerUnit||0).toFixed(6),(w.totalCost||0).toFixed(4),w.reason||''
+    ]));
+  });
+  csvSections.push('TOTAL,,,,,,, RM '+totalWastCost.toFixed(4)+',');
+  csvSections.push('');
+
+  // ── Section 5: PROCUREMENT with target price comparison ───────────────────
+  csvSections.push('=== 5. PROCUREMENT LEDGER (with Target Price Comparison) ===');
+  csvSections.push('Date,Time,Invoice No,Supplier,Ingredient,Unit,Qty,Unit Price (RM),Total Cost (RM),Target Price (RM),Diff vs Target,% vs Target,Status,Notes');
+  var ledgerInRange=(S.ingLedger||[]).filter(function(e){return inRange(e.ts)&&e.type==='in'});
+
+  // Group by invoice for sub-totals
+  var invoiceGroups={};
+  ledgerInRange.forEach(function(e){
+    var inv=e.invoice||'—';
+    if(!invoiceGroups[inv]) invoiceGroups[inv]={rows:[],totalPaid:0,totalTarget:0,date:e.date,supplier:e.supplier};
+    var ing=S.ingredients.find(function(i){return i.id===e.ingId});
+    var target=ing?getTargetPrice(ing):0;
+    var paid=e.price||0;
+    var qty=e.qty||0;
+    var paidTotal=paid*qty;
+    var targetTotal=target*qty;
+    var diffAmt=paidTotal-targetTotal;
+    var diffPct=target>0?((paid-target)/target*100):null;
+    var status=diffPct===null?'No target':diffPct<-1?'CHEAPER ✅':diffPct>1?'EXPENSIVE ⚠️':'AT TARGET';
+    invoiceGroups[inv].rows.push({e:e,target:target,paid:paid,qty:qty,
+      paidTotal:paidTotal,targetTotal:targetTotal,diffAmt:diffAmt,diffPct:diffPct,status:status});
+    invoiceGroups[inv].totalPaid+=paidTotal;
+    invoiceGroups[inv].totalTarget+=targetTotal;
   });
 
+  var totalProcurementCost=0;
+  var totalProcurementTarget=0;
+
+  Object.keys(invoiceGroups).forEach(function(invNo){
+    var grp=invoiceGroups[invNo];
+    // Invoice header row
+    csvSections.push('--- INVOICE: '+invNo+' | Supplier: '+(grp.supplier||'—')+' | Date: '+(grp.date||'—')+' ---');
+    // Detail rows
+    grp.rows.forEach(function(r){
+      var diffPctStr=r.diffPct!==null?(r.diffPct>=0?'+':'')+r.diffPct.toFixed(1)+'%':'—';
+      var diffAmtStr=r.diffAmt!==0?(r.diffAmt>=0?'+':'')+r.diffAmt.toFixed(4):'0';
+      csvSections.push(csvRow([
+        r.e.date||'',r.e.time||'',invNo,r.e.supplier||'',
+        r.e.ingName||'',r.e.unit||'',r.qty,
+        r.paid.toFixed(6),r.paidTotal.toFixed(4),
+        r.target>0?r.target.toFixed(6):'No target',
+        r.target>0?diffAmtStr:'—',
+        r.target>0?diffPctStr:'—',
+        r.status,r.e.notes||''
+      ]));
+    });
+    // Invoice sub-total
+    var invDiffPct=grp.totalTarget>0?((grp.totalPaid-grp.totalTarget)/grp.totalTarget*100):null;
+    var invStatus=invDiffPct===null?'No target':invDiffPct<-1?'SAVINGS ✅':invDiffPct>1?'OVER BUDGET ⚠️':'AT TARGET';
+    csvSections.push(csvRow([
+      '','','','','INVOICE TOTAL','','',
+      '',grp.totalPaid.toFixed(4),
+      grp.totalTarget>0?grp.totalTarget.toFixed(4):'—',
+      grp.totalTarget>0?((grp.totalPaid-grp.totalTarget)>=0?'+':'')+(grp.totalPaid-grp.totalTarget).toFixed(4):'—',
+      invDiffPct!==null?(invDiffPct>=0?'+':'')+invDiffPct.toFixed(1)+'%':'—',
+      invStatus,''
+    ]));
+    csvSections.push('');
+    totalProcurementCost+=grp.totalPaid;
+    totalProcurementTarget+=grp.totalTarget;
+  });
+
+  // Grand total procurement
+  if(ledgerInRange.length>0){
+    var grandDiffPct=totalProcurementTarget>0?((totalProcurementCost-totalProcurementTarget)/totalProcurementTarget*100):null;
+    csvSections.push('PROCUREMENT GRAND TOTAL');
+    csvSections.push('Total Paid: RM '+totalProcurementCost.toFixed(4));
+    if(totalProcurementTarget>0){
+      csvSections.push('Total Target: RM '+totalProcurementTarget.toFixed(4));
+      csvSections.push('Overall vs Target: '+(grandDiffPct>=0?'+':'')+grandDiffPct.toFixed(1)+'%'
+        +(grandDiffPct<0?' (SAVINGS)':grandDiffPct>0?' (OVER BUDGET)':''));
+    }
+  }
   csvSections.push('');
-  csvSections.push('=== PRODUCT STOCK SUMMARY ===');
-  csvSections.push('Code,Product,Total In,Transferred,Sold,Balance');
+
+  // ── Section 6: Adjustments & Overuse ─────────────────────────────────────
+  var adjInRange=(S.ingLedger||[]).filter(function(e){return inRange(e.ts)&&e.type==='adj'});
+  if(adjInRange.length>0){
+    csvSections.push('=== 6. STOCK ADJUSTMENTS ===');
+    csvSections.push('Date,Time,Ingredient,Unit,Qty,Direction,Type,Notes');
+    adjInRange.forEach(function(e){
+      csvSections.push(csvRow([e.date||'',e.time||'',e.ingName||'',e.unit||'',
+        e.qty||0,e.direction==='in'?'+IN':'-OUT',e.typeLabel||e.adjType||'',e.notes||'']));
+    });
+    csvSections.push('');
+  }
+
+  // ── Section 7: Product Stock Summary ────────────────────────────────────
+  csvSections.push('=== 7. PRODUCT STOCK SUMMARY ===');
+  csvSections.push('Code,Product,Total IN (Produced),Transferred OUT,Sold OUT,Balance on Hand');
   var stock=calcProductStock();
   S.products.forEach(function(p){
     var s=stock[p.id]||{in:0,transferred:0,sold:0,balance:0};
-    csvSections.push('"'+p.code+'","'+p.name+'",'+s.in+','+s.transferred+','+s.sold+','+s.balance);
+    csvSections.push(csvRow([p.code||'',p.name||'',s.in,s.transferred,s.sold,s.balance]));
   });
+  csvSections.push('');
 
-  // Create and download CSV file
-  var csv=csvSections.join('\n');
+  // ── Section 8: Ingredient Stock Summary ──────────────────────────────────
+  csvSections.push('=== 8. INGREDIENT STOCK SUMMARY ===');
+  csvSections.push('Ingredient,Unit,Current Stock,Reorder Level,Target Price (RM/unit),Status');
+  S.ingredients.forEach(function(i){
+    var target=getTargetPrice(i);
+    var status=i.stock<0?'DEFICIT ⚠️':i.stock===0?'ZERO':i.stock<=(i.reorder||0)&&(i.reorder||0)>0?'LOW':'OK';
+    csvSections.push(csvRow([i.name||'',i.unit||'',(i.stock||0).toFixed(2),
+      i.reorder||0,target.toFixed(6),status]));
+  });
+  csvSections.push('');
+
+  // ── Report summary header ─────────────────────────────────────────────────
+  var summary=[
+    "UNCLE LIM'S KITCHEN — "+rangeLabel.replace(/_/g,' ').toUpperCase()+' REPORT',
+    'Generated: '+getMYTDateStr()+' '+getMYTTimeStr(),
+    '',
+    'SUMMARY',
+    'Production batches: '+prodInRange.length+' | Total sets: '+prodInRange.reduce(function(s,l){return s+l.totalSets},0),
+    'Transfers: '+transInRange.length+' batches | Total sets: '+transInRange.reduce(function(s,t){return s+(t.grandTotal||0)},0),
+    'Distribution: '+distInRange.length+' records | Revenue: RM '+totalDistRev.toFixed(2),
+    'Wastage: '+wastInRange.length+' records | Total cost: RM '+totalWastCost.toFixed(4),
+    'Procurement: '+ledgerInRange.length+' items | Total: RM '+totalProcurementCost.toFixed(2),
+    '',
+    '=============================================',
+    '',
+  ];
+
+  var csv=summary.join('\n')+'\n'+csvSections.join('\n');
   var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');
   a.href=url;
   a.download='UncLim_'+rangeLabel+'.csv';
-  document.body.appendChild(a);
-  a.click();
+  document.body.appendChild(a);a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   toast('✓ Downloaded: UncLim_'+rangeLabel+'.csv','g');
 }
 
+function csvRow(arr){
+  return arr.map(function(v){
+    var s=String(v);
+    if(s.indexOf(',')>=0||s.indexOf('"')>=0||s.indexOf('\n')>=0)
+      return '"'+s.replace(/"/g,'""')+'"';
+    return s;
+  }).join(',');
+}
 
-// ── FALLBACK: Read from 📋 Daily Production when ⚙️ Logs Production is empty ──
-// This recovers existing data that was written before ⚙️ Logs Production existed
+
 function pullLogsFromReportSheet(){
   if(!isConn()) return Promise.resolve(false);
   return readSheet('📋 Daily Production').then(function(rows){
@@ -4232,6 +4526,1014 @@ function validateBeforeTransfer(){
     +'<div style="font-size:11px;color:var(--mt);margin-top:6px">Check Reports → Transfer to fix before continuing.</div>';
 }
 
+
+
+
+
+// ── BACKUP SYSTEM ─────────────────────────────────────────────────────────────
+var BACKUP_EMAIL_TAB = '⚙️ Backup Config';
+
+// Backup config stored in S
+// S.backupConfig = { email: '', weeklyDay: 0 (Sun=0..Sat=6), monthlyDate: 1, lastWeekly: 0, lastMonthly: 0 }
+
+function getBackupConfig(){
+  return S.backupConfig || {
+    email: '', backupEmail: '',
+    weeklyDay: 1,    // Monday
+    monthlyDate: 1,  // 1st of month
+    lastWeekly: 0,
+    lastMonthly: 0,
+    enabled: false
+  };
+}
+
+
+function saveBackupSettings(){
+  var email  = (document.getElementById('backupEmailPrimary')||{}).value||'';
+  var email2 = (document.getElementById('backupEmailSecondary')||{}).value||'';
+  var wday   = parseInt((document.getElementById('backupWeeklyDay')||{}).value)||1;
+  var mdate  = parseInt((document.getElementById('backupMonthlyDate')||{}).value)||1;
+  if(!email){toast('Enter your email address','w');return;}
+  var cfg = getBackupConfig();
+  cfg.email       = email.trim();
+  cfg.backupEmail = email2.trim();
+  cfg.weeklyDay   = wday;
+  cfg.monthlyDate = mdate;
+  cfg.enabled     = true;
+  saveBackupConfig(cfg);
+  updateBackupStatusBar();
+  toast('✓ Backup settings saved — weekly + monthly auto-backup enabled','g');
+}
+
+function updateBackupStatusBar(){
+  var el=document.getElementById('backupStatusBar');
+  if(!el) return;
+  var cfg=getBackupConfig();
+  if(!cfg.enabled||!cfg.email){
+    el.textContent='Backup status: Not configured — enter email and save';
+    el.style.background='var(--rl)';el.style.color='var(--red)';
+    return;
+  }
+  var days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var ordinal=['','st','nd','rd'];
+  var mdate=cfg.monthlyDate||1;
+  var ord=ordinal[mdate]||'th';
+  var lastW=cfg.lastWeekly?new Date(cfg.lastWeekly).toLocaleDateString('en-MY',{day:'2-digit',month:'short',timeZone:'Asia/Kuala_Lumpur'}):'Never';
+  var lastM=cfg.lastMonthly?new Date(cfg.lastMonthly).toLocaleDateString('en-MY',{day:'2-digit',month:'short',timeZone:'Asia/Kuala_Lumpur'}):'Never';
+  el.innerHTML='✅ Backup ENABLED<br>'
+    +'📧 To: '+cfg.email+(cfg.backupEmail?' + '+cfg.backupEmail:'')+'<br>'
+    +'📅 Weekly: Every '+days[cfg.weeklyDay||1]+' at 8am | Last: '+lastW+'<br>'
+    +'📅 Monthly: '+mdate+ord+' at 8am | Last: '+lastM;
+  el.style.background='var(--gl)';el.style.color='var(--green)';
+}
+
+function renderBackupSettings(){
+  var cfg=getBackupConfig();
+  var p=document.getElementById('backupEmailPrimary');
+  var s=document.getElementById('backupEmailSecondary');
+  var w=document.getElementById('backupWeeklyDay');
+  var m=document.getElementById('backupMonthlyDate');
+  if(p)p.value=cfg.email||'';
+  if(s)s.value=cfg.backupEmail||'';
+  if(w)w.value=cfg.weeklyDay||1;
+  if(m)m.value=cfg.monthlyDate||1;
+  updateBackupStatusBar();
+}
+
+function saveBackupConfig(cfg){
+  S.backupConfig = cfg;
+  save();
+}
+
+// ── Check if backup is due ────────────────────────────────────────────────────
+function checkBackupSchedule(){
+  var cfg = getBackupConfig();
+  if(!cfg.enabled || !cfg.email) return;
+
+  var now  = getMYT();
+  var dayOfWeek  = now.getDay();    // 0=Sun..6=Sat
+  var dateOfMonth= now.getDate();
+  var hour = now.getHours();
+
+  // Only run at 8am MYT
+  if(hour !== 8) return;
+
+  var today = now.toDateString();
+
+  // Weekly backup check
+  if(dayOfWeek === (cfg.weeklyDay||1)){
+    var lastW = cfg.lastWeekly ? new Date(cfg.lastWeekly).toDateString() : '';
+    if(lastW !== today){
+      runBackup('weekly');
+      cfg.lastWeekly = now.getTime();
+      saveBackupConfig(cfg);
+    }
+  }
+
+  // Monthly backup check
+  if(dateOfMonth === (cfg.monthlyDate||1)){
+    var lastM = cfg.lastMonthly ? new Date(cfg.lastMonthly).toDateString() : '';
+    if(lastM !== today){
+      runBackup('monthly');
+      cfg.lastMonthly = now.getTime();
+      saveBackupConfig(cfg);
+    }
+  }
+}
+
+// ── Generate backup data as CSV string ───────────────────────────────────────
+function generateBackupCSV(type){
+  var now    = getMYT();
+  var dateStr= getMYTDateStr();
+  var monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var label  = type==='weekly'
+    ? 'Week_'+dateStr.replace(/ /g,'')
+    : 'Month_'+monthNames[now.getMonth()]+now.getFullYear();
+
+  var sections = [];
+
+  // Header
+  sections.push("UNCLE LIM'S KITCHEN — BACKUP REPORT");
+  sections.push('Type: '+type.toUpperCase()+' BACKUP');
+  sections.push('Generated: '+dateStr+' '+getMYTTimeStr());
+  sections.push('');
+
+  // ── Production Logs ───────────────────────────────────────────────────────
+  sections.push('=== PRODUCTION BATCHES ===');
+  sections.push('Batch ID,Date,Worker,Time,Total Sets,Products');
+  S.prodLog.forEach(function(l){
+    var prods=(l.items||[]).filter(function(i){return i.sets>0}).map(function(i){
+      var p=S.products.find(function(p){return p.id===i.id});
+      return (p?p.name:'')+' x'+i.sets;
+    }).join('; ');
+    sections.push(csv([l.batchId||'',l.date||'',l.worker||'',l.time||'',l.totalSets||0,prods]));
+  });
+  sections.push('Total batches: '+S.prodLog.length);
+  sections.push('');
+
+  // ── Transfers ─────────────────────────────────────────────────────────────
+  sections.push('=== STOCK TRANSFERS ===');
+  sections.push('Transfer ID,Date,Time,Branch,Total Sets,Products,Notes');
+  (S.transfers||[]).forEach(function(t){
+    var prods=Object.keys(t.products||{}).map(function(pid){
+      var p=S.products.find(function(p){return p.id===parseInt(pid)});
+      return (p?p.name:pid)+' x'+(t.products[pid]);
+    }).join('; ');
+    sections.push(csv([t.tfId||'',t.date||'',t.time||'',t.branch||'',t.grandTotal||0,prods,t.notes||'']));
+  });
+  sections.push('Total transfers: '+(S.transfers||[]).length);
+  sections.push('');
+
+  // ── Distribution ──────────────────────────────────────────────────────────
+  sections.push('=== DISTRIBUTION ===');
+  sections.push('Date,Time,Customer,Product,Sets,Price/Set,Revenue,Notes');
+  (S.distLog||[]).forEach(function(d){
+    var prod=S.products.find(function(p){return p.id===d.prodId});
+    var cust=(S.customers||[]).find(function(c){return c.id===d.custId});
+    var dt=new Date(d.ts);
+    sections.push(csv([
+      dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'}),
+      dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'}),
+      cust?cust.name:'?', prod?prod.name:'?',
+      d.sets||0, (d.price||0).toFixed(4),
+      ((d.price||0)*(d.sets||0)).toFixed(2), d.notes||''
+    ]));
+  });
+  sections.push('Total distribution: '+(S.distLog||[]).length+' records');
+  sections.push('');
+
+  // ── Wastage ───────────────────────────────────────────────────────────────
+  sections.push('=== WASTAGE LOG ===');
+  sections.push('Date,Time,Batch ID,Ingredient,Unit,Qty,Cost/Unit,Total Cost,Reason');
+  (S.wastageLog||[]).forEach(function(w){
+    var dt=new Date(w.ts);
+    sections.push(csv([
+      dt.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'}),
+      dt.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'}),
+      w.batchId||'',w.name||'',w.unit||'',w.qty||0,
+      (w.costPerUnit||0).toFixed(6),(w.totalCost||0).toFixed(4),w.reason||''
+    ]));
+  });
+  sections.push('');
+
+  // ── Procurement Ledger ────────────────────────────────────────────────────
+  sections.push('=== PROCUREMENT LEDGER ===');
+  sections.push('Date,Time,Type,Ingredient,Unit,Qty,Direction,Price/Unit,Total Cost,Supplier,Invoice,Notes');
+  (S.ingLedger||[]).forEach(function(e){
+    sections.push(csv([
+      e.date||'',e.time||'',e.typeLabel||e.type||'',
+      e.ingName||'',e.unit||'',e.qty||0,e.direction||'',
+      (e.price||0).toFixed(6),(e.totalCost||0).toFixed(4),
+      e.supplier||'',e.invoice||'',e.notes||''
+    ]));
+  });
+  sections.push('');
+
+  // ── Product Stock Summary ─────────────────────────────────────────────────
+  sections.push('=== PRODUCT STOCK SUMMARY ===');
+  sections.push('Code,Product,Total In,Transferred,Sold,Balance on Hand');
+  var stock=calcProductStock();
+  S.products.forEach(function(p){
+    var s=stock[p.id]||{in:0,transferred:0,sold:0,balance:0};
+    sections.push(csv([p.code||'',p.name||'',s.in,s.transferred,s.sold,s.balance]));
+  });
+  sections.push('');
+
+  // ── Ingredient Stock Summary ──────────────────────────────────────────────
+  sections.push('=== INGREDIENT STOCK SUMMARY ===');
+  sections.push('Ingredient,Unit,Current Stock,Reorder Level,Target Price (RM),Status');
+  S.ingredients.forEach(function(i){
+    var target=(i.unit==='pcs'||i.unit==='pack')?(i.costPerUnit||0):(i.cost||0);
+    var status=i.stock<0?'DEFICIT':i.stock===0?'ZERO':i.stock<=(i.reorder||0)?'LOW':'OK';
+    sections.push(csv([i.name||'',i.unit||'',(i.stock||0).toFixed(2),(i.reorder||0),target.toFixed(6),status]));
+  });
+  sections.push('');
+
+  // ── Setup summary ─────────────────────────────────────────────────────────
+  sections.push('=== PRODUCTS SETUP ===');
+  sections.push('Code,Name,Price/Set (RM)');
+  S.products.forEach(function(p){
+    sections.push(csv([p.code||'',p.name||'',(p.price||0).toFixed(2)]));
+  });
+  sections.push('');
+  sections.push('=== CUSTOMERS ===');
+  sections.push('Name');
+  (S.customers||[]).forEach(function(c){sections.push('"'+(c.name||'')+'"');});
+  sections.push('');
+  sections.push('Backup complete. Total records:');
+  sections.push('Production: '+S.prodLog.length
+    +' | Transfers: '+(S.transfers||[]).length
+    +' | Distribution: '+(S.distLog||[]).length
+    +' | Wastage: '+(S.wastageLog||[]).length
+    +' | Procurement: '+(S.ingLedger||[]).length);
+
+  return {csv: sections.join('\n'), label: label};
+}
+
+function csv(arr){
+  return arr.map(function(v){
+    var s=String(v);
+    if(s.indexOf(',')>=0||s.indexOf('"')>=0||s.indexOf('\n')>=0)
+      return '"'+s.replace(/"/g,'""')+'"';
+    return s;
+  }).join(',');
+}
+
+// ── Send backup via email (mailto link) ───────────────────────────────────────
+function runBackup(type){
+  var cfg=getBackupConfig();
+  if(!cfg.email){toast('Set backup email in Setup → Backup Settings first','w');return;}
+  var result=generateBackupCSV(type);
+  var subject='Uncle Lim Kitchen Backup — '+result.label;
+  var body="Uncle Lim's Kitchen "+type.toUpperCase()+" BACKUP\n"
+    +'Generated: '+getMYTDateStr()+' '+getMYTTimeStr()+'\n\n'
+    +'=== SUMMARY ===\n'
+    +'Production batches: '+S.prodLog.length+'\n'
+    +'Transfers: '+(S.transfers||[]).length+'\n'
+    +'Distribution: '+(S.distLog||[]).length+'\n'
+    +'Wastage: '+(S.wastageLog||[]).length+'\n'
+    +'Procurement: '+(S.ingLedger||[]).length+'\n\n'
+    +'=== FULL DATA ATTACHED AS TEXT BELOW ===\n\n'
+    +result.csv;
+
+  // Also download CSV as file backup
+  var blob=new Blob([result.csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  a.download='UncLim_Backup_'+result.label+'.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  // Open email client with backup summary
+  var emails=[cfg.email];
+  if(cfg.backupEmail&&cfg.backupEmail!==cfg.email) emails.push(cfg.backupEmail);
+  var mailto='mailto:'+emails.join(',')
+    +'?subject='+encodeURIComponent(subject)
+    +'&body='+encodeURIComponent(body.substring(0,2000)+'\n\n[Full CSV downloaded to your device as '+a.download+']');
+  window.open(mailto);
+  toast('✓ Backup CSV downloaded + email draft opened','g');
+}
+
+function manualBackup(){
+  var result=generateBackupCSV('manual');
+  var blob=new Blob([result.csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  a.download='UncLim_Backup_'+result.label+'.csv';
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
+
+  // Also send email
+  var cfg=getBackupConfig();
+  if(cfg.email){
+    var subject='Uncle Lim Kitchen Manual Backup — '+getMYTDateStr();
+    var body="Manual backup created on "+getMYTDateStr()+" at "+getMYTTimeStr()+"\n\n"
+      +'Records: Production='+S.prodLog.length+' | Transfers='+(S.transfers||[]).length
+      +' | Distribution='+(S.distLog||[]).length+'\n\n'
+      +'Full CSV has been downloaded to your device as: '+a.download;
+    var emails=[cfg.email];
+    if(cfg.backupEmail&&cfg.backupEmail!==cfg.email)emails.push(cfg.backupEmail);
+    var mailto='mailto:'+emails.join(',')
+      +'?subject='+encodeURIComponent(subject)
+      +'&body='+encodeURIComponent(body);
+    window.open(mailto);
+  }
+  toast('✓ Backup downloaded: '+a.download,'g');
+}
+
+// ── GENERATE PROCUREMENT EXCEL FROM APP DATA ──────────────────────────────────
+function downloadProcurementTemplate(){
+  if(typeof XLSX==='undefined'){
+    toast('Excel library not ready — please wait and try again','w');
+    return;
+  }
+
+  var wb = XLSX.utils.book_new();
+
+  // ── Hidden _Lists sheet ─────────────────────────────────────────────────────
+  var listData = [
+    ['IngredientName','Unit','TargetPrice','SupplierName','Units','PayStatus','UpdatePrice']
+  ];
+  // Add all ingredients with their units and target cost
+  S.ingredients.forEach(function(ing){
+    var targetPrice = (ing.unit==='pcs'||ing.unit==='pack')
+      ? (ing.costPerUnit||0) : (ing.cost||0);
+    listData.push([ing.name, ing.unit||'g', targetPrice, '', '', '', '']);
+  });
+  // Add suppliers in column D
+  var suppliers = getSupplierList();
+  suppliers.forEach(function(sup, i){
+    if(listData[i+1]) listData[i+1][3]=sup;
+    else listData.push(['','','',sup,'','','']);
+  });
+  // Units in column E
+  var units=['g','kg','ml','L','pcs','pack'];
+  units.forEach(function(u,i){
+    if(listData[i+1]) listData[i+1][4]=u;
+  });
+  // Payment in column F
+  ['Paid','Pending','Credit'].forEach(function(p,i){
+    if(listData[i+1]) listData[i+1][5]=p;
+  });
+  // Update price in G
+  ['Yes','No'].forEach(function(u,i){
+    if(listData[i+1]) listData[i+1][6]=u;
+  });
+
+  var wsList = XLSX.utils.aoa_to_sheet(listData);
+  XLSX.utils.book_append_sheet(wb, wsList, '_Lists');
+
+  // ── Main import sheet ───────────────────────────────────────────────────────
+  var ingCount = S.ingredients.length;
+  var supCount = suppliers.length;
+  var lastRow  = 200; // support up to 196 data rows
+
+  var headers = [
+    ['Uncle Lim\'s Kitchen — Procurement Import (Generated '+getMYTDateStr()+')'],
+    ['✅ Select ingredient from dropdown (Col G). Leave Qty blank to skip. ▼ = dropdown column'],
+    ['📄 INVOICE DETAILS','','','','','','🧂 INGREDIENT (select ▼)','','','','','💰 COST',''],
+    ['Invoice No','Supplier ▼','Invoice Date','Delivery Date','Payment ▼','Invoice Notes',
+     'Ingredient ▼ *','Unit (auto)','Qty Received *','Expiry Date','Notes',
+     'Unit Price (RM)','Update Price? ▼']
+  ];
+
+  var ws = XLSX.utils.aoa_to_sheet(headers);
+
+  // ── Add data validations ───────────────────────────────────────────────────
+  if(!ws['!dataValidation']) ws['!dataValidation']=[];
+
+  // Ingredient dropdown — col G (index 6), rows 5 to lastRow
+  ws['!dataValidation'].push({
+    type:'list', sqref:'G5:G'+lastRow,
+    formula1:"'_Lists'!$A$2:$A$"+(ingCount+1),
+    showDropDown:false, showErrorMessage:true,
+    errorTitle:'Invalid Ingredient',
+    error:'Select from dropdown to prevent duplicates'
+  });
+  // Supplier dropdown — col B
+  ws['!dataValidation'].push({
+    type:'list', sqref:'B5:B'+lastRow,
+    formula1:"'_Lists'!$D$2:$D$"+(supCount+1),
+    showDropDown:false
+  });
+  // Payment status — col E
+  ws['!dataValidation'].push({
+    type:'list', sqref:'E5:E'+lastRow,
+    formula1:"'_Lists'!$F$2:$F$4",
+    showDropDown:false
+  });
+  // Update Price — col M
+  ws['!dataValidation'].push({
+    type:'list', sqref:'M5:M'+lastRow,
+    formula1:"'_Lists'!$G$2:$G$3",
+    showDropDown:false
+  });
+  // Qty > 0 validation
+  ws['!dataValidation'].push({
+    type:'decimal', operator:'greaterThan', formula1:'0',
+    sqref:'I5:I'+lastRow, showErrorMessage:true,
+    errorTitle:'Invalid Qty', error:'Enter a number greater than 0',
+    allowBlank:true
+  });
+
+  // ── Column widths ──────────────────────────────────────────────────────────
+  ws['!cols']=[
+    {wch:13},{wch:22},{wch:14},{wch:14},{wch:11},{wch:22},
+    {wch:26},{wch:9},{wch:12},{wch:14},{wch:20},{wch:13},{wch:13}
+  ];
+
+  // Merge cells for title rows
+  ws['!merges']=[
+    {s:{r:0,c:0},e:{r:0,c:12}},
+    {s:{r:1,c:0},e:{r:1,c:12}},
+    {s:{r:2,c:0},e:{r:2,c:5}},
+    {s:{r:2,c:6},e:{r:2,c:10}},
+    {s:{r:2,c:11},e:{r:2,c:12}},
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Procurement Import');
+
+  // ── Ingredient Reference sheet ──────────────────────────────────────────────
+  var refData=[['Ingredient Name','Unit','Target Price (RM/unit)','Current Stock','Reorder Level']];
+  S.ingredients.forEach(function(ing){
+    var tp=(ing.unit==='pcs'||ing.unit==='pack')?(ing.costPerUnit||0):(ing.cost||0);
+    refData.push([ing.name,ing.unit||'g',tp,(ing.stock||0).toFixed(2),(ing.reorder||0)]);
+  });
+  var wsRef=XLSX.utils.aoa_to_sheet(refData);
+  wsRef['!cols']=[{wch:28},{wch:8},{wch:20},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, wsRef, 'Ingredient Reference');
+
+  // ── Supplier List sheet ─────────────────────────────────────────────────────
+  var supData=[['Supplier Name (edit to add/remove)','Contact / Notes']];
+  suppliers.forEach(function(s){supData.push([s,'']);});
+  // Add empty rows
+  for(var i=0;i<20;i++) supData.push(['','']);
+  var wsSup=XLSX.utils.aoa_to_sheet(supData);
+  wsSup['!cols']=[{wch:32},{wch:35}];
+  XLSX.utils.book_append_sheet(wb, wsSup, 'Supplier List');
+
+  // ── Download ────────────────────────────────────────────────────────────────
+  var date=getMYTDateStr().replace(/ /g,'').replace(/\//g,'');
+  XLSX.writeFile(wb, 'UncLim_Procurement_'+date+'.xlsx');
+  toast('✓ Downloaded: UncLim_Procurement_'+date+'.xlsx','g');
+}
+
+function getSupplierList(){
+  // Get unique suppliers from ledger history
+  var fromLedger={};
+  (S.ingLedger||[]).forEach(function(e){
+    if(e.supplier&&e.supplier.trim())fromLedger[e.supplier.trim()]=true;
+  });
+  var defaults=['Pasar Borong Selayang','Pasar Borong Shah Alam',
+    'Supplier Ayam Klang','Borong Kering Sdn Bhd','Pasar Malam','Pasar Pagi',
+    'Tesco / Lotus','Aeon / Jaya Grocer','Mydin','Kedai Borong Tempatan','Lain-lain / Others'];
+  var merged={};
+  defaults.forEach(function(s){merged[s]=true;});
+  Object.keys(fromLedger).forEach(function(s){merged[s]=true;});
+  return Object.keys(merged).sort();
+}
+
+// ── PROCUREMENT EXCEL IMPORT ──────────────────────────────────────────────────
+function importProcurementExcel(input){
+  var file = input.files[0];
+  if(!file){return;}
+  input.value=''; // reset so same file can be re-imported if needed
+
+  toast('Reading Excel file...','g');
+
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      // Parse xlsx using SheetJS (loaded via CDN)
+      if(typeof XLSX==='undefined'){
+        toast('Excel library not loaded — please refresh the app','e');
+        return;
+      }
+      var data  = new Uint8Array(e.target.result);
+      var wb    = XLSX.read(data, {type:'array', cellDates:true});
+      // Read first sheet
+      var ws    = wb.Sheets[wb.SheetNames[0]];
+      var rows  = XLSX.utils.sheet_to_json(ws, {defval:''});
+
+      if(!rows||!rows.length){
+        toast('No data found in Excel file','w');
+        return;
+      }
+
+      // Process rows
+      var imported=[], skipped=[], errors=[];
+      var grouped={}; // group by invoice
+
+      rows.forEach(function(row,idx){
+        var rowNum = idx+2; // +2 because row 1 is header
+        // Column mapping (flexible — handles both exact headers and variations)
+        // Flexible column lookup — handles wrapped headers from Excel
+        function getCol(row){
+          var keys=Object.keys(row);
+          return function(){
+            var names=[].slice.call(arguments);
+            for(var n=0;n<names.length;n++){
+              var k=keys.find(function(k){return k.replace(/\n/g,' ').trim().toLowerCase()===names[n].toLowerCase();});
+              if(k!==undefined&&row[k]!=='')return row[k];
+            }
+            return '';
+          };
+        }
+        var G=getCol(row);
+        var invNo   = String(G('Invoice No (Ref)','Invoice No','Invoice')||'').trim();
+        var supplier= String(G('Supplier Name','Supplier')||'').trim();
+        var invDate = G('Invoice Date *','Invoice Date','Date')||'';
+        var ingName = String(G('Ingredient Name *','Ingredient Name','Ingredient')||'').trim();
+        var qty     = parseFloat(G('Qty Received *','Qty Received','Qty')||0)||0;
+        var unit    = String(G('Unit')||'g').trim().toLowerCase();
+        var price   = parseFloat(G('Unit Price (RM)','Unit Price')||0)||0;
+        var totalCost=parseFloat(G('Total Cost (RM)','Total Cost')||0)||0;
+        var updatePr= String(G('Update Price?','Update Price')||'No').trim().toLowerCase()==='yes';
+        var notes   = String(G('Ingredient Notes','Notes')||'').trim();
+        var invNotes= String(G('Invoice Notes')||'').trim();
+        var expiry  = G('Expiry Date','Expiry')||'';
+
+        // Skip rows with no ingredient name or no qty
+        if(!ingName||!qty||qty<=0){
+          if(ingName&&(!qty||qty<=0)){skipped.push('Row '+rowNum+': '+ingName+' — no qty');}
+          return;
+        }
+
+        // Match ingredient by name (case-insensitive, trim)
+        var ing = S.ingredients.find(function(i){
+          return i.name.toLowerCase().trim()===ingName.toLowerCase();
+        });
+        if(!ing){
+          // Try partial match
+          ing = S.ingredients.find(function(i){
+            return i.name.toLowerCase().indexOf(ingName.toLowerCase())>=0
+              || ingName.toLowerCase().indexOf(i.name.toLowerCase())>=0;
+          });
+        }
+        if(!ing){
+          errors.push('Row '+rowNum+': "'+ingName+'" not found in ingredients list');
+          return;
+        }
+
+        // Format invoice date
+        var dateStr='';
+        if(invDate instanceof Date){
+          dateStr=invDate.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'});
+        } else if(invDate){
+          try{
+            var d=new Date(invDate);
+            if(!isNaN(d.getTime()))dateStr=d.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'});
+          }catch(e){dateStr=String(invDate);}
+        }
+        if(!dateStr)dateStr=getMYTDateStr();
+
+        // Calculate cost
+        var unitPriceG=price; // assume per unit already
+        if(!totalCost&&price&&qty) totalCost=price*qty;
+
+        // Build ledger entry
+        var entry={
+          id:S.nextId++, ts:Date.now()+(imported.length*100), // slight offset for ordering
+          ingId:ing.id, ingName:ing.name, unit:ing.unit||unit,
+          date:dateStr, time:getMYTTimeStr(),
+          type:'in', typeLabel:'Stock IN — Procurement',
+          direction:'in', qty:qty,
+          stockBefore:ing.stock||0,
+          price:price, totalCost:totalCost,
+          supplier:supplier, invoice:invNo,
+          expiry:expiry instanceof Date?expiry.toISOString().split('T')[0]:String(expiry||''),
+          notes:(invNotes||notes||'')+(supplier?' | '+supplier:''),
+        };
+
+        // Update ingredient stock
+        ing.stock=parseFloat(((ing.stock||0)+qty).toFixed(4));
+        entry.stockAfter=ing.stock;
+
+        // Update ingredient price if requested
+        if(updatePr&&price>0){
+          var isPcs=ing.unit==='pcs'||ing.unit==='pack';
+          if(isPcs) ing.costPerUnit=price;
+          else ing.cost=price;
+        }
+
+        if(!S.ingLedger)S.ingLedger=[];
+        S.ingLedger.push(entry);
+        imported.push(entry);
+
+        // Track by invoice for summary
+        if(!grouped[invNo||'—'])grouped[invNo||'—']=[];
+        grouped[invNo||'—'].push(ing.name+' +'+qty+' '+ing.unit);
+      });
+
+      if(!imported.length&&!errors.length){
+        toast('No valid rows found — check ingredient names and qty columns','w');
+        return;
+      }
+
+      save();
+
+      // Show import summary modal
+      showImportSummary(imported,skipped,errors,grouped);
+
+    }catch(err){
+      console.error('Import error:',err);
+      toast('Error reading file: '+err.message,'e');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showImportSummary(imported,skipped,errors,grouped,invoiceSummary){
+  var invCount=Object.keys(grouped).length;
+  var msg='✅ Imported '+imported.length+' ingredient movements from '+invCount+' invoice'+(invCount>1?'s':'')+'\n\n';
+
+  Object.keys(grouped).forEach(function(inv){
+    msg+='📄 Invoice: '+inv+'\n';
+    grouped[inv].slice(0,5).forEach(function(l){msg+='  · '+l+'\n';});
+    if(grouped[inv].length>5)msg+='  · ... and '+(grouped[inv].length-5)+' more\n';
+
+    // Price vs target summary for this invoice
+    if(invoiceSummary&&invoiceSummary[inv]){
+      var s=invoiceSummary[inv];
+      if(s.totalTarget>0){
+        var totalDiff=calcPriceDiff(
+          s.totalPaid/Math.max(s.totalTarget,0.0001),1
+        );
+        var totalPct=((s.totalPaid-s.totalTarget)/s.totalTarget*100);
+        var totalSign=totalPct<=0?'':'+'
+        msg+='  💰 Total paid: RM '+s.totalPaid.toFixed(2)+' vs target: RM '+s.totalTarget.toFixed(2)+'\n';
+        msg+='  📊 Invoice total vs target: '+totalSign+totalPct.toFixed(1)+'%'+(totalPct<0?' ✅ SAVINGS':'')+'\n';
+        // Per ingredient breakdown
+        s.items.forEach(function(item){
+          msg+='     '+item.name+': RM'+item.paid.toFixed(4)+' vs RM'+item.target.toFixed(4)+' ('+item.diff.label+')\n';
+        });
+      }
+    }
+    msg+='\n';
+  });
+
+  if(skipped.length) msg+='⏭ Skipped '+skipped.length+' rows (no qty)\n';
+  if(errors.length){
+    msg+='\n❌ '+errors.length+' errors:\n';
+    errors.slice(0,5).forEach(function(e){msg+='  '+e+'\n';});
+    if(errors.length>5)msg+='  ... and '+(errors.length-5)+' more';
+  }
+
+  alert(msg);
+
+  // Sync to Sheets
+  toast('Syncing to Google Sheets...','g');
+  Promise.all([
+    pushIngLedgerToSheets(),
+    pushIngStockToSheets()
+  ]).then(function(){
+    toast('✓ '+imported.length+' procurement records synced to Sheets','g');
+    renderStock();
+    renderLedger();
+  });
+}
+
+
+// ── TARGET PRICE TRACKING ─────────────────────────────────────────────────────
+function getTargetPrice(ing){
+  // Target price = cost saved in the ingredient setup (Cost tab)
+  if(!ing) return 0;
+  var isPcs = ing.unit==='pcs'||ing.unit==='pack';
+  return isPcs ? (ing.costPerUnit||0) : (ing.cost||0);
+}
+
+function calcPriceDiff(actualPrice, targetPrice){
+  // Returns {pct, sign, label, color}
+  if(!targetPrice||targetPrice===0) return {pct:null,sign:'',label:'No target set',color:'var(--mt)'};
+  var diff  = actualPrice - targetPrice;
+  var pct   = (diff / targetPrice) * 100;
+  var sign  = pct > 0 ? '+' : '';
+  var color = pct < -1  ? 'var(--green)' :   // cheaper than target → green
+              pct > 1   ? 'var(--red)'   :   // more expensive → red
+                          'var(--mt)';        // within 1% → neutral
+  var label = sign + pct.toFixed(1) + '%';
+  if(pct < 0) label += ' cheaper ✅';
+  else if(pct > 0) label += ' more expensive ⚠️';
+  else label = 'At target price';
+  return {pct:pct, sign:sign, label:label, color:color};
+}
+
+// ── INGREDIENT STOCK LEDGER ───────────────────────────────────────────────────
+var ING_LEDGER_TAB = '📒 Ingredient Ledger';
+var ingMovType = 'in'; // 'in' or 'adj'
+if(!S.ingLedger) S.ingLedger = [];
+
+function setMovType(type){
+  ingMovType = type;
+  var btnIN  = document.getElementById('movTypeIN');
+  var btnADJ = document.getElementById('movTypeADJ');
+  var fIN    = document.getElementById('movFieldsIN');
+  var fADJ   = document.getElementById('movFieldsADJ');
+  var title  = document.getElementById('ingMovTitle');
+  if(type==='in'){
+    if(btnIN) {btnIN.style.background='var(--green)';btnIN.style.color='#fff';btnIN.style.border='none';}
+    if(btnADJ){btnADJ.style.background='#fff';btnADJ.style.color='var(--mt)';btnADJ.style.border='1.5px solid var(--bd)';}
+    if(fIN)  fIN.style.display='block';
+    if(fADJ) fADJ.style.display='none';
+    if(title)title.textContent='📥 Stock IN — Procurement';
+  } else {
+    if(btnADJ){btnADJ.style.background='var(--am)';btnADJ.style.color='#fff';btnADJ.style.border='none';}
+    if(btnIN) {btnIN.style.background='#fff';btnIN.style.color='var(--mt)';btnIN.style.border='1.5px solid var(--bd)';}
+    if(fIN)  fIN.style.display='none';
+    if(fADJ) fADJ.style.display='block';
+    if(title)title.textContent='± Stock Adjustment';
+  }
+}
+
+function openIngMovement(type){
+  ingMovType = type||'in';
+  // Fill ingredient dropdown
+  var sel = document.getElementById('ingMovIng');
+  if(sel){
+    sel.innerHTML = S.ingredients.map(function(i){
+      return'<option value="'+i.id+'">'+i.name+' ('+i.unit+')'+'</option>';
+    }).join('');
+    sel.onchange = function(){
+      var ing = S.ingredients.find(function(i){return i.id===parseInt(this.value);}.bind(this));
+      var unitIN  = document.getElementById('movUnitIN');
+      var unitBox = document.getElementById('currentIngStock');
+      var unitVal = document.getElementById('currentIngStockVal');
+      if(ing){
+        if(unitIN) unitIN.textContent = ing.unit||'g';
+        if(unitBox) unitBox.style.display='block';
+        var stockDisplay=(ing.stock||0).toFixed(2)+' '+ing.unit+(ing.stock<0?' ⚠️ DEFICIT':'');
+        var target=getTargetPrice(ing);
+        var targetDisplay=target>0?' | Target: RM '+target.toFixed(6)+'/'+ing.unit:'';
+        if(unitVal) unitVal.textContent = stockDisplay + targetDisplay;
+      }
+    };
+    sel.dispatchEvent(new Event('change'));
+  }
+  // Reset fields
+  ['movQtyIN','movPrice','movSupplier','movInvoice','movNotesIN','movQtyADJ','movNotesADJ']
+    .forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  var exp=document.getElementById('movExpiry');if(exp)exp.value='';
+  // Bind live price vs target display
+  var priceInp=document.getElementById('movPrice');
+  if(priceInp){
+    priceInp._boundDiff=true;
+    priceInp.oninput=function(){
+      var sel2=document.getElementById('ingMovIng');
+      if(!sel2) return;
+      var ing2=S.ingredients.find(function(i){return i.id===parseInt(sel2.value)});
+      var target=ing2?getTargetPrice(ing2):0;
+      var paid=parseFloat(this.value)||0;
+      var diffEl=document.getElementById('movPriceDiff');
+      if(!diffEl) return;
+      if(paid>0&&target>0){
+        var diff=calcPriceDiff(paid,target);
+        diffEl.style.display='block';
+        diffEl.style.background=diff.pct<0?'var(--gl)':diff.pct>0?'var(--rl)':'var(--bg)';
+        diffEl.style.color=diff.color;
+        diffEl.textContent='vs target RM '+target.toFixed(6)+'/'+( ing2?ing2.unit:'unit')+' → '+diff.label;
+      } else {
+        diffEl.style.display='none';
+      }
+    };
+  }
+  setMovType(ingMovType);
+  openM('ingMovModal');
+}
+
+function saveIngMovement(){
+  var sel = document.getElementById('ingMovIng');
+  if(!sel||!sel.value){toast('Select an ingredient','w');return;}
+  var ingId = parseInt(sel.value);
+  var ing   = S.ingredients.find(function(i){return i.id===ingId});
+  if(!ing){toast('Ingredient not found','w');return;}
+
+  var now     = new Date();
+  var dateStr = getMYTDateStr();
+  var timeStr = getMYTTimeStr();
+  var entry   = {
+    id:S.nextId++, ts:now.getTime(),
+    ingId:ingId, ingName:ing.name, unit:ing.unit,
+    date:dateStr, time:timeStr,
+    stockBefore: ing.stock||0
+  };
+
+  if(ingMovType==='in'){
+    var qty = parseFloat(document.getElementById('movQtyIN').value)||0;
+    if(!qty||qty<=0){toast('Enter quantity received','w');return;}
+    entry.type    = 'in';
+    entry.typeLabel = 'Stock IN — Procurement';
+    entry.qty     = qty;
+    entry.direction = 'in';
+    entry.price   = parseFloat(document.getElementById('movPrice').value)||0;
+    entry.supplier= document.getElementById('movSupplier').value.trim();
+    entry.invoice = document.getElementById('movInvoice').value.trim();
+    entry.expiry  = document.getElementById('movExpiry').value||'';
+    entry.notes   = document.getElementById('movNotesIN').value.trim();
+    entry.totalCost = entry.price * qty;
+    // Update stock
+    ing.stock = parseFloat(((ing.stock||0) + qty).toFixed(4));
+  } else {
+    var qty2 = parseFloat(document.getElementById('movQtyADJ').value)||0;
+    if(!qty2||qty2<=0){toast('Enter quantity','w');return;}
+    var adjType = document.getElementById('movAdjType').value;
+    var dir     = document.getElementById('movAdjDir').value;
+    var notes2  = document.getElementById('movNotesADJ').value.trim();
+    if(!notes2&&adjType==='other'){toast('Enter a reason for adjustment','w');return;}
+    entry.type      = 'adj';
+    entry.adjType   = adjType;
+    entry.typeLabel = adjTypeLabel(adjType);
+    entry.qty       = qty2;
+    entry.direction = dir;
+    entry.notes     = notes2;
+    // Update stock
+    if(dir==='out') ing.stock = parseFloat(((ing.stock||0) - qty2).toFixed(4));
+    else            ing.stock = parseFloat(((ing.stock||0) + qty2).toFixed(4));
+  }
+
+  entry.stockAfter = ing.stock;
+  if(!S.ingLedger) S.ingLedger=[];
+  S.ingLedger.push(entry);
+  save();
+
+  // Close modal + refresh
+  document.getElementById('ingMovModal').classList.remove('open');
+  renderStock();
+  renderLedger();
+  toast('✓ Saved — syncing...','g');
+
+  // Push to Sheets
+  pushIngLedgerToSheets();
+  pushIngStockToSheets();
+}
+
+function adjTypeLabel(type){
+  var labels = {
+    'overused':        'Overused in production',
+    'damaged':         'Damaged / Dropped',
+    'expired':         'Expired / Thrown away',
+    'transfer_out':    'Transfer to branch',
+    'stocktake_add':   'Stock-take (+)',
+    'stocktake_remove':'Stock-take (−)',
+    'other':           'Adjustment'
+  };
+  return labels[type]||type;
+}
+
+// ── Render ledger ─────────────────────────────────────────────────────────────
+function renderLedger(){
+  // Bind file input for Excel import
+  var fi=document.getElementById('procurementFileInput');
+  if(fi&&!fi._bound){fi._bound=true;fi.addEventListener('change',function(){importProcurementExcel(this);});}
+  // Build filter dropdown
+  var filterSel = document.getElementById('ledgerFilter');
+  if(filterSel && filterSel.options.length===1){
+    S.ingredients.forEach(function(i){
+      var opt=document.createElement('option');
+      opt.value=i.id;opt.textContent=i.name+' ('+i.unit+')';
+      filterSel.appendChild(opt);
+    });
+  }
+  var filterId = filterSel ? parseInt(filterSel.value)||0 : 0;
+
+  // Combine all movements into one ledger:
+  // 1. ingLedger (manual IN + adjustments)
+  // 2. wastageLog (wastage deductions)
+  var movements = [];
+
+  (S.ingLedger||[]).forEach(function(e){
+    movements.push({
+      ts:e.ts, date:e.date, time:e.time,
+      ingId:e.ingId, ingName:e.ingName, unit:e.unit,
+      typeLabel:e.typeLabel||e.type,
+      direction:e.direction,
+      qty:e.qty,
+      stockAfter:e.stockAfter,
+      notes:e.notes||(e.supplier?'Supplier: '+e.supplier:''),
+      ref:e.invoice||e.supplier||'',
+      color:e.direction==='in'?'var(--green)':'var(--red)',
+      sign:e.direction==='in'?'+':'-'
+    });
+  });
+
+  (S.wastageLog||[]).forEach(function(w){
+    movements.push({
+      ts:w.ts, date:w.date||new Date(w.ts).toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'}),
+      time:new Date(w.ts).toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'}),
+      ingId:w.ingId, ingName:w.name, unit:w.unit,
+      typeLabel:'Wastage',
+      direction:'out', qty:w.qty,
+      stockAfter:null, // wastage doesn't track running balance
+      notes:w.reason||(w.batchId?'Batch: '+w.batchId:''),
+      ref:w.batchId||'',
+      color:'var(--am)', sign:'-'
+    });
+  });
+
+  // Filter by ingredient
+  if(filterId){
+    movements = movements.filter(function(m){return m.ingId===filterId;});
+  }
+
+  // Sort newest first
+  movements.sort(function(a,b){return b.ts-a.ts});
+
+  var el = document.getElementById('ledgerList');
+  if(!el) return;
+
+  if(!movements.length){
+    el.innerHTML='<div class="empty"><div class="empty-icon">📒</div><p>No ingredient movements yet.<br>Tap "+ Stock IN" to record procurement.</p></div>';
+    return;
+  }
+
+  el.innerHTML = movements.slice(0,100).map(function(mv,i){
+    var bg = i%2===0?'#fff':'var(--bg)';
+    var dateShort = mv.date ? mv.date.replace(/ 20\d\d/,'') : '—';
+    // Target price comparison (only for Stock IN procurement)
+    var priceDiff=null;
+    if(mv.type==='in'&&mv.price&&mv.price>0){
+      var ing=S.ingredients.find(function(i){return i.id===mv.ingId});
+      var target=ing?getTargetPrice(ing):0;
+      if(target>0) priceDiff=calcPriceDiff(mv.price,target);
+    }
+    return'<div style="padding:10px 12px;border-bottom:1px solid var(--bd);background:'+bg+'">'
+      +'<div style="display:grid;grid-template-columns:60px 1fr 60px 70px;gap:4px;align-items:center">'
+      // Date
+      +'<div style="font-size:10px;color:var(--mt);line-height:1.3">'+dateShort+'<br>'+mv.time+'</div>'
+      // Name + type
+      +'<div style="min-width:0">'
+      +'<div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+mv.ingName+'</div>'
+      +'<div style="font-size:10px;color:var(--mt)">'+mv.typeLabel+(mv.supplier?' · '+mv.supplier:'')+'</div>'
+      +(mv.notes?'<div style="font-size:10px;color:var(--mt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+mv.notes+'</div>':'')
+      +'</div>'
+      // Qty
+      +'<div style="font-family:monospace;font-size:13px;font-weight:700;color:'+mv.color+';text-align:center">'+mv.sign+mv.qty+'<br><span style="font-size:9px;font-weight:400;color:var(--mt)">'+mv.unit+'</span></div>'
+      // Balance
+      +'<div style="font-family:monospace;font-size:12px;font-weight:700;text-align:center;color:'+(mv.stockAfter!==null?(mv.stockAfter<0?'var(--red)':'var(--green)'):'var(--mt)')+'">'+
+      (mv.stockAfter!==null?mv.stockAfter.toFixed(1):'—')+'</div>'
+      +'</div>'
+      // Price vs target row (procurement only)
+      +(priceDiff?'<div style="display:flex;align-items:center;justify-content:space-between;margin-top:5px;padding:4px 8px;border-radius:7px;background:'+(priceDiff.pct<0?'var(--gl)':priceDiff.pct>0?'var(--rl)':'var(--bg)')+'">'
+        +'<span style="font-size:10px;color:var(--mt)">RM '+mv.price.toFixed(4)+'/unit vs target RM '+(function(){var i=S.ingredients.find(function(i){return i.id===mv.ingId});return i?getTargetPrice(i).toFixed(4):'—';})()+'</span>'
+        +'<span style="font-size:11px;font-weight:700;color:'+priceDiff.color+'">'+priceDiff.label+'</span>'
+        +'</div>':'')
+      +'</div>';
+  }).join('');
+
+  if(movements.length>100){
+    el.innerHTML+='<div style="text-align:center;padding:10px;font-size:12px;color:var(--mt)">Showing latest 100 records. Filter by ingredient to see full history.</div>';
+  }
+}
+
+// ── Push/pull ledger to Sheets ────────────────────────────────────────────────
+function pushIngLedgerToSheets(){
+  if(!isConn()) return Promise.resolve();
+  var rows=[['id','ts','date','time','ingId','ingName','unit','type','adjType',
+             'direction','qty','stockBefore','stockAfter','price','totalCost',
+             'supplier','invoice','expiry','notes']];
+  (S.ingLedger||[]).forEach(function(e){
+    rows.push([e.id||'',e.ts||'',e.date||'',e.time||'',e.ingId||'',
+      e.ingName||'',e.unit||'',e.type||'',e.adjType||'',
+      e.direction||'',e.qty||0,e.stockBefore||0,e.stockAfter||0,
+      e.price||0,e.totalCost||0,e.supplier||'',e.invoice||'',
+      e.expiry||'',e.notes||'']);
+  });
+  return clearAndWriteSheet(ING_LEDGER_TAB, rows)
+    .catch(function(e){console.log('Ledger push error:',e);});
+}
+
+function pullIngLedgerFromSheets(){
+  if(!isConn()) return Promise.resolve(false);
+  return readSheet(ING_LEDGER_TAB).then(function(rows){
+    if(!rows||!rows.length) return false;
+    var newLedger=[];
+    rows.forEach(function(row){
+      var ts=parseInt(row.ts);
+      if(!ts||ts<1000000) return;
+      newLedger.push({
+        id:parseInt(row.id)||0, ts:ts,
+        date:row.date||'', time:row.time||'',
+        ingId:parseInt(row.ingId)||0, ingName:row.ingName||'', unit:row.unit||'',
+        type:row.type||'', adjType:row.adjType||'',
+        typeLabel:adjTypeLabel(row.adjType||row.type||''),
+        direction:row.direction||'out', qty:parseFloat(row.qty)||0,
+        stockBefore:parseFloat(row.stockBefore)||0,
+        stockAfter:parseFloat(row.stockAfter)||0,
+        price:parseFloat(row.price)||0, totalCost:parseFloat(row.totalCost)||0,
+        supplier:row.supplier||'', invoice:row.invoice||'',
+        expiry:row.expiry||'', notes:row.notes||''
+      });
+    });
+    if(JSON.stringify(S.ingLedger||[])!==JSON.stringify(newLedger)){
+      S.ingLedger=newLedger; save(); return true;
+    }
+    return false;
+  }).catch(function(){return false;});
+}
+
 // ── PRODUCT STOCK ─────────────────────────────────────────────────────────────
 var PROD_STOCK_TAB = '📊 Product Stock';
 
@@ -4276,7 +5578,7 @@ function calcProductStock(){
 }
 
 function setStockTab(tab){
-  var tabs=['prod','ing'];
+  var tabs=['prod','ing','ledger'];
   tabs.forEach(function(t){
     var btn=document.getElementById('stab-'+t);
     var panel=document.getElementById('stab-'+t+'-p');
@@ -4285,6 +5587,7 @@ function setStockTab(tab){
   });
   if(tab==='prod')renderProductStock();
   if(tab==='ing')renderStock();
+  if(tab==='ledger'){renderLedger();}
 }
 
 function renderProductStock(){
@@ -5859,7 +7162,8 @@ function fullSyncFromSheets(){
     pullSetupFromSheets(),
     pullCustPricesFromSheets(),
     pullUsersFromSheets(),
-    pullIngStockFromSheets()
+    pullIngStockFromSheets(),
+    pullIngLedgerFromSheets()
   ])
   // Step 2: pull all logs (must be AFTER setup so product IDs are ready)
   .then(function(){
