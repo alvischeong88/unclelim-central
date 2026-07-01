@@ -1994,6 +1994,40 @@ function submitRecord(){
     ts:recordDate.getTime()+(now.getHours()*3600+now.getMinutes()*60)*1000,
     synced:false,backdated:!!customDate};
   S.prodLog.push(entry);save();
+
+  // ── Auto-deduct ingredients based on recipe ─────────────────────────────────
+  // For each product produced, deduct the ingredients used according to recipe
+  var ingDeductions = {}; // {ingId: totalQtyDeducted}
+  parsedItems.filter(function(item){return item.sets>0}).forEach(function(item){
+    var recipe = RECIPES[item.id]||[];
+    recipe.forEach(function(line){
+      var ing = S.ingredients.find(function(i){return i.id===line.ingId});
+      if(!ing) return;
+      var qty = (line.qty||line.grams||0);
+      var unit= line.unit||'g';
+      var totalQty = qty * item.sets; // qty per set × sets produced
+      // Convert to ingredient's base unit
+      if(unit==='kg') totalQty *= 1000;
+      else if(unit==='L') totalQty *= 1000;
+      if(!ingDeductions[line.ingId]) ingDeductions[line.ingId]=0;
+      ingDeductions[line.ingId] += totalQty;
+    });
+  });
+  // Apply deductions to ingredient stock
+  var hasDeductions = false;
+  Object.keys(ingDeductions).forEach(function(ingId){
+    var ing = S.ingredients.find(function(i){return i.id===parseInt(ingId)});
+    if(!ing) return;
+    ing.stock = parseFloat(((ing.stock||0) - ingDeductions[ingId]).toFixed(4));
+    hasDeductions = true;
+  });
+  if(hasDeductions){
+    save();
+    // Push updated stock to Sheets
+    if(isConn()) setTimeout(function(){pushIngStockToSheets();},3000);
+  }
+  // ── End ingredient deduction ─────────────────────────────────────────────────
+
   // Auto-sync product stock + push logs to Sheets
   if(isConn()){
     setTimeout(function(){syncProductStock();},2000);
