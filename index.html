@@ -346,11 +346,15 @@ input:focus,select:focus{border-color:var(--green);background:#fff}
       <button onclick="clearTestData()" style="padding:9px;background:var(--rl);color:var(--red);border:1px solid var(--red);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">🗑 Clear Logs</button>
       <button onclick="syncProductStock()" style="padding:9px;background:var(--gl);color:var(--green);border:1px solid var(--green);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">↑ Sync Stock</button>
     </div>
+    <button onclick="previewRetroDeduction()" style="width:100%;padding:10px;background:var(--am);color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px">
+      ⚗️ Apply Past Production to Ingredient Stock
+    </button>
     <div style="font-size:11px;color:var(--mt);margin-top:8px;line-height:1.6">
       <strong>↓ Full Sync</strong> — pulls ALL data from Sheets (Sheets is master)<br>
       <strong>↑ Push All</strong> — pushes all local data to Sheets<br>
       <strong>🗑 Clear Logs</strong> — wipes all logs on app AND Google Sheets<br>
-      <strong>↑ Sync Stock</strong> — updates product stock sheet
+      <strong>↑ Sync Stock</strong> — updates product stock sheet<br>
+      <strong>⚗️ Apply Past Production</strong> — one-time: deducts ingredient usage from past batches using recipes
     </div>
   </div>
 </div>
@@ -1288,6 +1292,7 @@ var S = _parsed || {
   batchCounter: {},
   wastageLog: [],
   ingLedger: [],
+  deductedBatchIds: [],
   backupConfig: {email:'',backupEmail:'',weeklyDay:1,monthlyDate:1,lastWeekly:0,lastMonthly:0,enabled:false},
   nextId: 200
 };
@@ -5209,73 +5214,112 @@ function manualBackup(){
 // using current recipes, then deduct from ingredient stock
 
 function calcTotalIngUsageFromHistory(){
-  // Returns {ingId: totalQty} across all prodLog entries
-  var totals = {};
-  S.prodLog.forEach(function(log){
+  // Only calculate for batches NOT yet deducted
+  // Track deducted batches in S.deductedBatchIds = [batchId, ...]
+  if(!S.deductedBatchIds) S.deductedBatchIds=[];
+  var newBatches=S.prodLog.filter(function(log){
+    return S.deductedBatchIds.indexOf(log.batchId||String(log.id))<0;
+  });
+  var totals={};
+  var batchIds=[];
+  newBatches.forEach(function(log){
     (log.items||[]).filter(function(i){return i.sets>0}).forEach(function(item){
-      var recipe = RECIPES[item.id]||[];
+      var recipe=RECIPES[item.id]||[];
       recipe.forEach(function(line){
-        var qty = (line.qty||line.grams||0);
-        var unit = line.unit||'g';
-        var totalQty = qty * item.sets;
-        if(unit==='kg') totalQty*=1000;
-        else if(unit==='L') totalQty*=1000;
-        if(!totals[line.ingId]) totals[line.ingId]=0;
+        var qty=(line.qty||line.grams||0);
+        var unit=line.unit||'g';
+        var totalQty=qty*item.sets;
+        if(unit==='kg')totalQty*=1000;
+        else if(unit==='L')totalQty*=1000;
+        if(!totals[line.ingId])totals[line.ingId]=0;
         totals[line.ingId]+=totalQty;
       });
     });
+    batchIds.push(log.batchId||String(log.id));
   });
-  return totals;
+  return {totals:totals, batchIds:batchIds, newCount:newBatches.length};
 }
 
 function previewRetroDeduction(){
   if(!S.prodLog||!S.prodLog.length){
-    toast('No production records found — pull from Sheets first','w');
+    toast('No production records — tap ↓ Full Sync on Dashboard first','w');
     return;
   }
-  var totals = calcTotalIngUsageFromHistory();
+  if(!S.deductedBatchIds) S.deductedBatchIds=[];
+  var result=calcTotalIngUsageFromHistory();
+  var totals=result.totals;
+  var newCount=result.newCount;
+  var alreadyDone=S.prodLog.length-newCount;
+
+  // Check if already all done
+  if(newCount===0){
+    alert('✅ Already applied!\n\nAll '+S.prodLog.length+' production batches have already been deducted from ingredient stock.\n\nNo double-deduction will happen.');
+    return;
+  }
   if(!Object.keys(totals).length){
-    toast('No recipe data found — set up recipes in Cost tab first','w');
+    toast('No recipe data — set up recipes in 💰 Cost tab first','w');
     return;
   }
-  // Build preview message
-  var lines=['Ingredient usage from ALL production batches ('+S.prodLog.length+' batches):',''];
-  var hasRecipes=false;
+
+  // Build preview
+  var lines=[];
+  if(alreadyDone>0){
+    lines.push('⚠️ '+alreadyDone+' batch'+(alreadyDone>1?'es':'')+' already deducted — skipping those.');
+    lines.push('');
+  }
+  lines.push('Will deduct ingredients for '+newCount+' NEW batch'+(newCount>1?'es':'')+':');
+  lines.push('');
+  // Show which batches will be processed
+  var newBatches=S.prodLog.filter(function(log){
+    return S.deductedBatchIds.indexOf(log.batchId||String(log.id))<0;
+  });
+  newBatches.forEach(function(b){
+    lines.push('  📦 '+(b.batchId||'Batch #'+b.id)+' — '+b.totalSets+' sets ('+b.date+')');
+  });
+  lines.push('');
+  lines.push('Ingredient deductions:');
   Object.keys(totals).forEach(function(ingId){
     var ing=S.ingredients.find(function(i){return i.id===parseInt(ingId)});
     if(!ing)return;
     var used=totals[ingId];
     var current=ing.stock||0;
-    var afterDeduct=current-used;
-    lines.push((ing.name)+': Used '+used.toFixed(0)+' '+ing.unit
-      +' | Current stock: '+current.toFixed(0)
-      +' | After deduction: '+afterDeduct.toFixed(0)+(afterDeduct<0?' ⚠️ DEFICIT':''));
-    hasRecipes=true;
+    var after=current-used;
+    lines.push('  '+ing.name+': -'+used.toFixed(0)+ing.unit
+      +' → '+after.toFixed(0)+ing.unit+(after<0?' ⚠️':''));
   });
-  if(!hasRecipes){
-    toast('No matching recipes found — set up recipes in Cost tab first','w');
-    return;
-  }
   lines.push('');
-  lines.push('Tap OK to apply these deductions to ingredient stock.');
+  lines.push('Each batch is tracked — pressing again will NOT double-deduct.');
+  lines.push('');
+  lines.push('Tap OK to apply.');
+
   if(confirm(lines.join('\n'))){
-    applyRetroDeduction(totals);
+    applyRetroDeduction(totals, result.batchIds);
   }
 }
 
-function applyRetroDeduction(totals){
+function applyRetroDeduction(totals, batchIds){
+  if(!S.deductedBatchIds) S.deductedBatchIds=[];
+  // Check one more time for safety — remove any already-deducted
+  var safeIds=batchIds.filter(function(id){
+    return S.deductedBatchIds.indexOf(id)<0;
+  });
+  if(!safeIds.length){
+    toast('All batches already deducted — nothing to do','w');
+    return;
+  }
   var changed=false;
+  var ts=Date.now();
   Object.keys(totals).forEach(function(ingId){
     var ing=S.ingredients.find(function(i){return i.id===parseInt(ingId)});
-    if(!ing) return;
+    if(!ing)return;
     var used=totals[ingId];
-    ing.stock=parseFloat(((ing.stock||0)-used).toFixed(4));
+    var stockBefore=ing.stock||0;
+    ing.stock=parseFloat((stockBefore-used).toFixed(4));
     changed=true;
-    // Add to ledger as adjustment record
-    if(!S.ingLedger) S.ingLedger=[];
+    if(!S.ingLedger)S.ingLedger=[];
     S.ingLedger.push({
       id:S.nextId++,
-      ts:Date.now(),
+      ts:ts++, // unique ts per entry
       ingId:parseInt(ingId),
       ingName:ing.name,
       unit:ing.unit,
@@ -5286,17 +5330,23 @@ function applyRetroDeduction(totals){
       typeLabel:'Production Usage (Retroactive)',
       direction:'out',
       qty:used,
-      stockBefore:(ing.stock||0)+used,
+      stockBefore:stockBefore,
       stockAfter:ing.stock,
-      notes:'Retroactive deduction for '+S.prodLog.length+' historical production batches'
+      notes:'Batches: '+safeIds.join(', ')
     });
   });
+
+  // Mark these batches as deducted — prevent future double deduction
+  safeIds.forEach(function(id){
+    if(S.deductedBatchIds.indexOf(id)<0) S.deductedBatchIds.push(id);
+  });
+
   if(changed){
     save();
-    // Push to Sheets
     Promise.all([pushIngStockToSheets(),pushIngLedgerToSheets()]).then(function(){
       renderStock();
-      toast('✓ Ingredient stock updated for all past production batches','g');
+      renderLedger();
+      toast('✓ Done! '+safeIds.length+' batch'+(safeIds.length>1?'es':'')+' deducted. Safe to press again — will show "Already applied"','g');
     });
   }
 }
