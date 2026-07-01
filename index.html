@@ -1376,25 +1376,29 @@ function launchApp(){
     document.getElementById('slbl').textContent='Syncing all data...';
     var needPull=sessionStorage.getItem('ulk5_needpull');
     if(needPull) sessionStorage.removeItem('ulk5_needpull');
-    // Always pull setup; pull logs if needPull or no local logs
     var shouldPullLogs=needPull||!S.prodLog||S.prodLog.length===0;
+    document.getElementById('slbl').textContent='Syncing setup...';
+    // Step 1: pull setup first
     Promise.all([
       pullUsersFromSheets(),
       pullSetupFromSheets(),
       pullCustPricesFromSheets(),
       pullIngStockFromSheets()
-    ]).then(function(){
-      if(shouldPullLogs){
-        document.getElementById('slbl').textContent='Loading stock data...';
-        return pullAllLogsFromSheets();
-      }
-      return Promise.resolve(false);
-    }).then(function(){
+    ])
+    // Step 2: always pull logs so stock is always correct
+    .then(function(){
+      document.getElementById('slbl').textContent='Loading production records...';
+      return pullAllLogsFromSheets(); // always pull logs — needed for stock calc
+    })
+    // Step 3: render with complete data
+    .then(function(){
       setSyncUI('idle');
-      render();renderProdRows();
+      render();             // dashboard uses fresh prodLog
+      renderProdRows();
+      renderProductStock(); // recalculates IN correctly
       if(CU.role==='boss')renderSetup();
       renderStock();
-      if(shouldPullLogs) toast('✓ All data synced from Google Sheets','g');
+      toast('✓ All data loaded from Google Sheets','g');
     }).catch(function(){
       setSyncUI('err');
       render();renderProdRows();
@@ -4242,9 +4246,8 @@ function syncProductStock(){
   });
 
   // Add a blank separator then current summary
-  rows.push(['','','','','','','','','','']);
-  rows.push(['=== CURRENT STOCK SUMMARY ===','','','','','','','','','']);
-  rows.push(['Last Updated','Time','','','Code','Product','Total In','Transferred Out','Sold Out','Balance on Hand']);
+  rows.push(['---','---','---','---','---','---','---','---','---','---']);
+  rows.push(['SUMMARY','','','','Code','Product','Total In','Transferred Out','Sold Out','Balance on Hand']);
   var now=new Date();
   var nowDate=now.toLocaleDateString('en-MY',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kuala_Lumpur'});
   var nowTime=now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kuala_Lumpur'});
@@ -5363,23 +5366,25 @@ function showCurrentStock(){
 
 function pullAndRenderStock(){
   if(!isConn()){toast('Not connected','w');return;}
-  toast('Pulling latest stock...','g');
+  toast('Pulling all logs from Sheets...','g');
   setSyncUI('sy');
-  Promise.all([
-    pullIngStockFromSheets(),
-    pullAllLogsFromSheets()
-  ]).then(function(results){
-    var ingChanged=results[0],logChanged=results[1];
-    setSyncUI('idle');
-    renderProductStock();
-    renderStock();
-    renderTfHistory();
-    render();
-    toast((ingChanged||logChanged)?'✓ Stock levels updated from Sheets':'Already up to date','g');
-  }).catch(function(){
-    setSyncUI('err');
-    toast('Pull failed — check connection','e');
-  });
+  // Must pull in order: logs first → then recalculate stock
+  pullAllLogsFromSheets()
+    .then(function(){
+      return pullIngStockFromSheets();
+    })
+    .then(function(){
+      setSyncUI('idle');
+      // Now recalculate stock from freshly pulled logs
+      renderProductStock();
+      renderStock();
+      renderTfHistory();
+      render();
+      toast('✓ Stock updated — IN/TRANS/BALANCE recalculated from Sheets','g');
+    }).catch(function(){
+      setSyncUI('err');
+      toast('Pull failed — check connection','e');
+    });
 }
 
 function pullAllData(){
@@ -5404,24 +5409,30 @@ function pullAllData(){
 
 function fullSyncFromSheets(){
   if(!isConn()){toast('Not connected to Google Sheets','w');return;}
-  toast('Full sync — pulling everything from Sheets...','g');
+  toast('Full sync from Sheets...','g');
   setSyncUI('sy');
+  // Step 1: pull setup data
   Promise.all([
-    pullSetupFromSheets(),        // products, ingredients, recipes
-    pullCustPricesFromSheets(),   // customer prices
-    pullUsersFromSheets(),        // user accounts
-    pullIngStockFromSheets(),     // ingredient stock levels
-    pullAllLogsFromSheets()       // production, transfers, distribution, wastage
-  ]).then(function(){
+    pullSetupFromSheets(),
+    pullCustPricesFromSheets(),
+    pullUsersFromSheets(),
+    pullIngStockFromSheets()
+  ])
+  // Step 2: pull all logs (must be AFTER setup so product IDs are ready)
+  .then(function(){
+    return pullAllLogsFromSheets();
+  })
+  // Step 3: render everything with fresh data
+  .then(function(){
     setSyncUI('idle');
-    // Re-render everything
-    render();
+    render();              // dashboard recalculates from fresh prodLog
     renderProdRows();
     renderSetup();
     renderStock();
-    renderProductStock();
+    renderProductStock();  // recalculates IN/TRANS/SOLD/BALANCE from fresh logs
+    renderTransfer();
     if(typeof renderRecipeEditor==='function'&&curRecipeProd)renderRecipeEditor();
-    toast('✓ Full sync complete — all data updated from Google Sheets','g');
+    toast('✓ Full sync complete — stock recalculated from Sheets','g');
   }).catch(function(){
     setSyncUI('err');
     toast('Some data failed to sync — try again','w');
